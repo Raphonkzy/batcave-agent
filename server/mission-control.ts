@@ -563,7 +563,9 @@ function profilesFromDisk(root: string): Profile[] | undefined {
           } else if (singleLine && !/^\s*(provider|default|base_url):/i.test(singleLine[1])) {
             model = singleLine[1].trim()
           }
-        } catch {}
+        } catch {
+          // ignore config read or parse errors
+        }
       }
       const gateway: GatewayState = served.includes(name) ? gatewayState : 'Stopped'
       profiles.push({ name, model, gateway })
@@ -577,7 +579,9 @@ function profilesFromDisk(root: string): Profile[] | undefined {
 export async function collectSnapshot(run: Run = systemRun): Promise<RuntimeSnapshot> {
   let diskProfiles: Profile[] | undefined
   if (run === systemRun) {
-    try { diskProfiles = profilesFromDisk(hermesRoot()) } catch {}
+    try { diskProfiles = profilesFromDisk(hermesRoot()) } catch {
+      // ignore disk profile resolution errors
+    }
   }
 
   const [profiles, openCode] = await Promise.all([
@@ -713,7 +717,9 @@ const LOG_MISSING = /Log file not found/i
 
 export async function collectLogs(run: Run = systemRun): Promise<LogsSnapshot> {
   let root = ''
-  try { root = hermesRoot() } catch {}
+  try { root = hermesRoot() } catch {
+    // ignore hermes root resolution errors
+  }
   const files = await Promise.all(LOG_FILES.map(async ({ name, label }): Promise<LogFile> => {
     const logPath = root ? path.join(root, 'logs', `${name}.log`) : ''
     try {
@@ -894,7 +900,9 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, task: (item: T
 export async function collectAgentActivity(profiles: readonly string[], run: Run = systemRun): Promise<AgentActivitySnapshot> {
   let root = ''
   if (run === systemRun) {
-    try { root = hermesRoot() } catch {}
+    try { root = hermesRoot() } catch {
+      // ignore hermes root resolution errors
+    }
   }
   const agents = await mapLimit(profiles.filter((profile) => PROFILE_NAME.test(profile)), ACTIVITY_CONCURRENCY, async (profile): Promise<AgentActivity> => {
     let fastLog: { ok: true; output: string } | undefined
@@ -917,7 +925,9 @@ export async function collectAgentActivity(profiles: readonly string[], run: Run
             const content = await readFile(logFile, 'utf-8')
             logTail = lines(content).slice(-80).join('\n')
           }
-        } catch {}
+        } catch {
+          // ignore config read or parse errors
+        }
       }
 
       let hasRecentDb = false
@@ -925,7 +935,9 @@ export async function collectAgentActivity(profiles: readonly string[], run: Run
         try {
           const dbStat = await stat(dbFile)
           if (dbStat.mtimeMs >= cutoff) hasRecentDb = true
-        } catch {}
+        } catch {
+          // ignore config read or parse errors
+        }
       }
 
       if (existsSync(logFile) && !hasRecentLog && !hasRecentDb) {
