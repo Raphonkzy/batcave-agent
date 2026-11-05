@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -12,7 +12,7 @@ const COMMAND_TIMEOUT_MS = 35_000
 const COMMAND_LOG_LIMIT = 100
 const LOG_TAIL_LINES = 200
 
-const MAX_GLOBAL_CONCURRENCY = 2
+const MAX_GLOBAL_CONCURRENCY = 1
 let activeProcessCount = 0
 const processWaitQueue: (() => void)[] = []
 
@@ -532,9 +532,58 @@ async function read<T>(run: Run, file: string, args: string[], parse: (output: s
 /** Profile names passed to `hermes -p`: plain names only, never anything that looks like an option. */
 export const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 
+function profilesFromDisk(root: string): Profile[] | undefined {
+  try {
+    const stateFile = path.join(root, 'gateway_state.json')
+    if (!existsSync(stateFile)) return undefined
+    const state = JSON.parse(readFileSync(stateFile, 'utf-8'))
+    const served: string[] = Array.isArray(state?.served_profiles) ? state.served_profiles : []
+    const gatewayState: GatewayState = String(state?.gateway_state).toLowerCase() === 'running' ? 'Running' : 'Stopped'
+
+    const profilesDir = path.join(root, 'profiles')
+    const allNames = new Set<string>(['default', ...served])
+    if (existsSync(profilesDir)) {
+      const dirs = readdirSync(profilesDir, { withFileTypes: true })
+      for (const d of dirs) {
+        if (d.isDirectory() && PROFILE_NAME.test(d.name)) allNames.add(d.name)
+      }
+    }
+
+    const profiles: Profile[] = []
+    for (const name of allNames) {
+      const cfgPath = name === 'default' ? path.join(root, 'config.yaml') : path.join(profilesDir, name, 'config.yaml')
+      let model = 'Not configured'
+      if (existsSync(cfgPath)) {
+        try {
+          const text = readFileSync(cfgPath, 'utf-8')
+          const nestedDefault = text.match(/^\s*default:\s*["']?([^"'\r\n#]+)["']?/m)
+          const singleLine = text.match(/^\s*model:\s*["']?([^"'\r\n#]+)["']?/m)
+          if (nestedDefault) {
+            model = nestedDefault[1].trim()
+          } else if (singleLine && !/^\s*(provider|default|base_url):/i.test(singleLine[1])) {
+            model = singleLine[1].trim()
+          }
+        } catch {}
+      }
+      const gateway: GatewayState = served.includes(name) ? gatewayState : 'Stopped'
+      profiles.push({ name, model, gateway })
+    }
+    return profiles.length > 0 ? profiles : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function collectSnapshot(run: Run = systemRun): Promise<RuntimeSnapshot> {
+  let diskProfiles: Profile[] | undefined
+  if (run === systemRun) {
+    try { diskProfiles = profilesFromDisk(hermesRoot()) } catch {}
+  }
+
   const [profiles, openCode] = await Promise.all([
-    read(run, 'hermes', ['profile', 'list'], parseProfiles, []),
+    diskProfiles
+      ? Promise.resolve({ availability: 'available' as const, data: diskProfiles })
+      : read(run, 'hermes', ['profile', 'list'], parseProfiles, []),
     read(run, 'opencode', ['--version'], (value) => value.trim().split('\n').pop()?.trim() || 'Unknown', 'Unknown'),
   ])
   return { profiles, openCode, fetchedAt: new Date().toISOString() }
