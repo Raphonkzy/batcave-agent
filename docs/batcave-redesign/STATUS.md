@@ -3,7 +3,7 @@
 | WP ID | Owner | Title | Wave | Status | Proof / Evidence |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **WP-00** | jason / bruce | Wave 0 Audit, Baseline & Invariant Harness | W0 | **DONE** | 287 tests passing, golden mapping 96 runs, baseline screens & perf saved |
-| **WP-01** | bruce | Wave 1 Autonomous Proposal & Architecture Blueprint | W1 | TODO | Validated against Section 5 parameters |
+| **WP-01** | bruce | Wave 1 Autonomous Proposal & Architecture Blueprint | W1 | **DONE** | `docs/batcave-redesign/PROPOSAL.md` validated against Section 5 parameters |
 | **WP-02** | barbara | Wave 2 UI Design Tokens, Gilroy Typography & Shell | W2 | TODO | Contrast AA passed, Gilroy @font-face |
 | **WP-03** | tim | Wave 2 Layout Centralization & Validator | W2 | TODO | LayoutValidator zero violations |
 | **WP-04** | tim | Wave 2 Missions Data Model, Selectors & Mocks | W2 | TODO | Pure selectors tested, mock missions |
@@ -21,40 +21,38 @@
 
 ## Quality Gate Summary: Gate 0 (G0) - PASS
 
+1. **Yang Dikerjakan**: Technical audit of stack, 3D scene, and Missions data. Automated invariant guard and golden mapping across 96 runs. Baseline screenshots and performance numbers captured.
+2. **File Diubah / Ditambah**: `scripts/guard-invariants`, `scripts/verify/*`, `tests/baseline/*`, `docs/batcave-redesign/AUDIT.md`, `DECISIONS.md`, `OWNERSHIP.md`, `RISKS.md`, `RENAMES.md`, `MANUAL_VERIFY.md`, `BASELINE/*`.
+3. **Hasil Verifikasi**: 287/287 tests pass, 0 typecheck errors, 0 lint errors, build 7.86s.
+4. **Risiko & Keputusan**: Gilroy fallback to Plus Jakarta Sans; Tier 2 partial attribution for Missions.
+5. **Langkah Berikutnya**: Wave 1 Proposal.
+
+---
+
+## Quality Gate Summary: Gate 1 (G1) - PASS
+
 1. **Yang Dikerjakan**:
-   - Comprehensive technical audit of frontend stack, 3D scene architecture, and Hermes missions data layer.
-   - Built and verified automated invariant guard script `scripts/guard-invariants.ts`.
-   - Generated and verified baseline agent-to-zone golden mapping across 96 runs (`docs/batcave-redesign/BASELINE/mapping.golden.json`).
-   - Implemented route smoke tests (`tests/baseline/routes.smoke.test.ts`) and security characterization tests (`tests/baseline/security.char.test.ts`).
-   - Captured full baseline screenshots of all 5 camera presets and 10 pages in `docs/batcave-redesign/BASELINE/screens/`.
-   - Sampled baseline performance metrics (draw calls: 71-136, triangles: 66k-100k) into `docs/batcave-redesign/BASELINE/perf.json`.
-   - Setup font fallback structure in `public/fonts/gilroy/` with official Plus Jakarta Sans fallback.
+   - Authored comprehensive Autonomous Redesign Proposal (`docs/batcave-redesign/PROPOSAL.md`).
+   - Defined design tokens, color palette, and typography system with Gilroy primary and Plus Jakarta Sans / system fallback.
+   - Calculated exact Lot dimensions (64m x 80m = 5,120 m², 3.95x manor footprint) with 90.9% front depth.
+   - Formulated Sims-style navigation specification (6 levels, 3 wall modes, rotation snapping, follow cam, shortcuts).
+   - Designed restructured Grand Hotel Lobby layout respecting >= 2.0m hearth clearance and >= 2.0m walking corridor.
+   - Specified Missions page architecture (Swimlane, List, Flow) under Tier 2 data classification.
 
 2. **File Diubah / Ditambah**:
-   - `scripts/guard-invariants`, `scripts/verify/guard-invariants.ts`
-   - `scripts/verify/generate-golden-mapping.ts`, `scripts/verify/capture-baseline.py`
-   - `tests/baseline/guard-invariants.test.ts`, `tests/baseline/mapping.golden.test.ts`
-   - `tests/baseline/routes.smoke.test.ts`, `tests/baseline/security.char.test.ts`
-   - `docs/batcave-redesign/AUDIT.md`, `DECISIONS.md`, `OWNERSHIP.md`, `RISKS.md`, `RENAMES.md`, `MANUAL_VERIFY.md`
-   - `docs/batcave-redesign/BASELINE/perf.json`, `mapping.golden.json`, `build.log`, `lint.log`, `test.log`, `typecheck.log`
-   - `docs/batcave-redesign/BASELINE/screens/*.png` (15 baseline screenshots)
-   - `src/pages/ManorQuality.tsx` (additive `?debugStats` telemetry hook)
-   - `public/fonts/gilroy/README.md`
+   - `docs/batcave-redesign/PROPOSAL.md`
+   - `docs/batcave-redesign/STATUS.md`
 
 3. **Hasil Verifikasi**:
-   - Build: Clean production build (7.86s).
-   - Typecheck: `tsc --noEmit` 0 errors.
-   - Linter: ESLint 0 errors, 0 warnings.
-   - Test Suite: 287/287 tests passing.
-   - Golden Mapping: Identical match across all 96 agent counts and status permutations.
-   - Invariant Guard: All checks passed.
-   - Screenshots & Perf: 15 screenshots archived, draw calls 71-136, triangles 66,966 - 100,980.
+   - All parameters verified against Section 5 constraints.
+   - Zero invariant violations.
+   - Invariant guard run confirms clean codebase.
+   - Test suite continues 100% green (287/287).
 
 4. **Risiko & Keputusan yang Diambil**:
-   - Font: Gilroy font directory created with graceful degradation to `@fontsource/plus-jakarta-sans` (ADR-001).
-   - Missions Data: Classified as Tier 2 (Partial); unassigned tasks explicitly grouped in separate lane (ADR-002).
-   - Performance: Evaluated against relative SwiftShader baseline draw calls and geometry counts (ADR-003).
+   - Lot dimensions locked at 64 x 80 units with front gate at Z = -46.
+   - Lobby anchor capacity preserved (13 lounge seats vs 8 tub chairs baseline).
+   - Graph view in Missions will be built strictly with clean SVG and CSS without external graph libraries.
 
 5. **Langkah Berikutnya**:
-   - Proceed immediately to **Wave 1 (Autonomous Proposal & Architecture Blueprint)**.
-   - Compile autonomous proposal with UI tokens, lot dimension calculations, lobby layout schematic, and Missions wireframes.
+   - Proceed to **Wave 2: Core Foundations (UI Tokens, LayoutValidator, Missions Selectors, CameraRig Spike)**.
