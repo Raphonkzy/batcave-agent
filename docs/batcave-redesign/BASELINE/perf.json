@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-11-05T17:55:00.000Z",
+  "environment": {
+    "renderer": "SwiftShader (software WebGL)",
+    "screen": "1440x900",
+    "dpr": 1
+  },
+  "mockAgents12": {
+    "deck": {
+      "calls": 112,
+      "triangles": 66966,
+      "geometries": 55,
+      "textures": 22,
+      "lights": 6,
+      "meshes": 108,
+      "casters": 12,
+      "p50_ms": 1523.2,
+      "p95_ms": 16820.7
+    },
+    "hangar": {
+      "calls": 111,
+      "triangles": 66966,
+      "geometries": 50,
+      "textures": 22,
+      "lights": 6,
+      "meshes": 108,
+      "casters": 12,
+      "p50_ms": 1337.6,
+      "p95_ms": 8992.8
+    },
+    "lobby": {
+      "calls": 71,
+      "triangles": 74820,
+      "geometries": 52,
+      "textures": 35,
+      "lights": 6,
+      "meshes": 87,
+      "casters": 1,
+      "p50_ms": 2192.9,
+      "p95_ms": 8992.8
+    },
+    "manor": {
+      "calls": 71,
+      "triangles": 74820,
+      "geometries": 43,
+      "textures": 35,
+      "lights": 6,
+      "meshes": 87,
+      "casters": 1,
+      "p50_ms": 2978.6,
+      "p95_ms": 5241.3
+    },
+    "overview": {
+      "calls": 136,
+      "triangles": 100980,
+      "geometries": 61,
+      "textures": 36,
+      "lights": 6,
+      "meshes": 136,
+      "casters": 1,
+      "p50_ms": 2645.8,
+      "p95_ms": 5241.3
+    }
+  },
+  "bundle": {
+    "js_kb": 320.74,
+    "css_kb": 60.39,
+    "three_chunk_kb": 1086.67
+  }
+}
