@@ -4,6 +4,8 @@ import { useAgents } from '../hooks/useAgents.ts'
 import { parseMockRequest } from '../hooks/mockAgents.ts'
 import { mockTasks, selectMissions, type MissionItem } from '../utils/missions/selectors.ts'
 import { SwimlaneView } from '../components/missions/SwimlaneView.tsx'
+import { ListView } from '../components/missions/ListView.tsx'
+import { FlowView } from '../components/missions/FlowView.tsx'
 import type { TaskBoardSnapshot } from '../types.ts'
 import type { Page } from '../routes.ts'
 import { LoadingState } from '../ui.tsx'
@@ -156,49 +158,22 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
             }}
             onLocate={locateIn3D}
           />
+        ) : viewMode === 'flow' ? (
+          <FlowView
+            data={{
+              ...missionsData,
+              missions: filteredMissions,
+            }}
+            onLocate={locateIn3D}
+          />
         ) : (
-          <div className="missions-list-table">
-            <div className="table-header">
-              <span>ID</span>
-              <span>PRIORITY</span>
-              <span>MISSION TITLE</span>
-              <span>ASSIGNED AGENT</span>
-              <span>STATUS</span>
-              <span>ACTION</span>
-            </div>
-            {filteredMissions.map((mission) => (
-              <div key={mission.id} className="table-row">
-                <span className="mission-id">{mission.id}</span>
-                <span className={`badge priority-badge p${mission.priority}`}>P{mission.priority}</span>
-                <span className="mission-title-col">
-                  <strong>{mission.title}</strong>
-                  {mission.isPrivate && <span className="badge muted">🔒 Private</span>}
-                </span>
-                <span className="mission-assignee-col">
-                  {mission.agent ? (
-                    <span className="agent-tag">
-                      <span className="dot" /> {mission.agent.name}
-                    </span>
-                  ) : (
-                    <span className="text-muted">Unassigned</span>
-                  )}
-                </span>
-                <span>
-                  <span className={`badge status-${mission.status}`}>{mission.status.toUpperCase()}</span>
-                </span>
-                <span>
-                  <button
-                    type="button"
-                    className="locate-btn"
-                    onClick={() => locateIn3D(mission)}
-                    title="Locate agent in 3D Batcave"
-                  >
-                    Locate in 3D ↗
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
+          <ListView
+            data={{
+              ...missionsData,
+              missions: filteredMissions,
+            }}
+            onLocate={locateIn3D}
+          />
         )}
       </div>
     </div>
