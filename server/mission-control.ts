@@ -2,9 +2,9 @@ import { execFile as execFileCallback } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const execFile = promisify(execFileCallback)
-const CACHE_MS = 10_000
+const CACHE_MS = 15_000
 const INSIGHTS_CACHE_MS = 60_000
-const COMMAND_TIMEOUT_MS = 8_000
+const COMMAND_TIMEOUT_MS = 25_000
 const COMMAND_LOG_LIMIT = 100
 const LOG_TAIL_LINES = 200
 
@@ -751,7 +751,7 @@ export async function collectTaskDetail(id: string, run: Run = systemRun, board?
 
 export const ACTIVITY_WINDOW = '3m'
 /** At most this many profiles are probed at once, so many profiles do not flood the machine. */
-const ACTIVITY_CONCURRENCY = 4
+const ACTIVITY_CONCURRENCY = 2
 const LOG_RECORD = /^(\d{4}-\d{2}-\d{2}[ T][\d:,.]+)\s+[A-Z]+(?:\s+\[[^\]]*\])?\s+([\w.]+):\s?(.*)$/
 const CHAT_MESSAGE = /\b(message|reply|replied|respond|inbound|outbound|received|sending|sent|chat)\b/i
 const ACTIVITY_LABELS: Record<ActivityKind, string> = {
