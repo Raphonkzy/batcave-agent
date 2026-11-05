@@ -2,6 +2,7 @@ import type { ManorView } from '../scenes/manor/ZoneLayout.ts'
 export const VIEW_KEY = 'batcave.manorView'
 export const UPPER_KEY = 'batcave.manorUpper'
 export const VIEWS: { view: ManorView; label: string; title: string }[] = [
+  { view: 'exterior', label: 'Exterior Grounds', title: 'The estate grounds, gates and driveway' },
   { view: 'deck', label: 'Command Deck', title: 'The operations room, war table and command center' },
   { view: 'hangar', label: 'Hangar Bay', title: 'The fleet: jet, VTOL, interceptor, APC, bikes and the submersible' },
   { view: 'lobby', label: 'Manor Lobby', title: 'The grand hotel lobby: reception, twin staircases and seating' },

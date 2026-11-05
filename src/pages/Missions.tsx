@@ -3,6 +3,7 @@ import { usePolling } from '../polling.ts'
 import { useAgents } from '../hooks/useAgents.ts'
 import { parseMockRequest } from '../hooks/mockAgents.ts'
 import { mockTasks, selectMissions, type MissionItem } from '../utils/missions/selectors.ts'
+import { SwimlaneView } from '../components/missions/SwimlaneView.tsx'
 import type { TaskBoardSnapshot } from '../types.ts'
 import type { Page } from '../routes.ts'
 import { LoadingState } from '../ui.tsx'
@@ -137,6 +138,24 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
             <h2>No active missions found</h2>
             <p>Adjust your filter or search criteria to view operational tasks.</p>
           </div>
+        ) : viewMode === 'swimlane' ? (
+          <SwimlaneView
+            data={{
+              ...missionsData,
+              missions: filteredMissions,
+              byStatus: {
+                triage: filteredMissions.filter((m) => m.status === 'triage'),
+                todo: filteredMissions.filter((m) => m.status === 'todo'),
+                ready: filteredMissions.filter((m) => m.status === 'ready'),
+                running: filteredMissions.filter((m) => m.status === 'running'),
+                review: filteredMissions.filter((m) => m.status === 'review'),
+                blocked: filteredMissions.filter((m) => m.status === 'blocked'),
+                done: filteredMissions.filter((m) => m.status === 'done'),
+                unassigned: filteredMissions.filter((m) => !m.isAssigned),
+              },
+            }}
+            onLocate={locateIn3D}
+          />
         ) : (
           <div className="missions-list-table">
             <div className="table-header">

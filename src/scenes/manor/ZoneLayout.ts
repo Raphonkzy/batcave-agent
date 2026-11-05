@@ -7,7 +7,7 @@ import { mulberry32 } from './random.ts'
 export { computeLayout }
 export type { ManorLayoutData }
 /** Which part of the manor is in view. The deck view lifts the rock and manor away; the overview shows both. */
-export type ManorView = 'deck' | 'hangar' | 'manor' | 'lobby' | 'overview'
+export type ManorView = 'deck' | 'hangar' | 'manor' | 'lobby' | 'overview' | 'exterior'
 /** The views that look at the deck alone, or at the manor alone (the other level is not drawn). */
 export const isDeckView = (view: ManorView) => view === 'deck' || view === 'hangar'
 export const isManorView = (view: ManorView) => view === 'manor' || view === 'lobby'

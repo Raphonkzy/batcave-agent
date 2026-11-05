@@ -11,6 +11,7 @@ import { SuitVault } from './manor/SuitVault.tsx'
 import type { SuitParts } from './manor/batches.ts'
 import { SurfaceManor } from './manor/SurfaceManor.tsx'
 import { CliffGrounds, TerracePool } from './manor/TerracePool.tsx'
+import { ExteriorGrounds } from './manor/ExteriorGrounds.tsx'
 import { VerticalShaft } from './manor/VerticalShaft.tsx'
 import { WaterfallMesh } from './manor/WaterfallMesh.tsx'
 import { isDeckView, lightRig, QUALITY, showsDeck, showsManor, terraceSun, type ManorLayoutData, type ManorView, type Quality, type QualityProfile } from './manor/ZoneLayout.ts'
@@ -118,6 +119,7 @@ export default function ThemeManor({ layout, view, showUpper, quality, suit, foc
       <HangarBay layout={layout} animate={animate} shadows={profile.shadows === 'all'}/>
     </>}
     {manor && <>
+      <ExteriorGrounds layout={layout} profile={profile} view={view}/>
       <CliffGrounds layout={layout} profile={profile} grass={view !== 'overview'}/>
       <SurfaceManor layout={layout} profile={profile} showUpper={showUpper}/>
       <TerracePool layout={layout} profile={profile} animate={animate}/>
