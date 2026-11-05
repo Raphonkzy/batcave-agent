@@ -43,7 +43,10 @@ export class FolderError extends Error {
 export function hermesRoot(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
   const override = env.BATCAVE_HERMES_ROOT ?? env.RUANG_HERMES_ROOT ?? env.MISSION_CONTROL_HERMES_ROOT
   if (override) return path.resolve(override)
-  const native = path.join(home, `.hermes${env.HERMES_DATA_DIR_SUFFIX ?? ''}`)
+  const isWindows = process.platform === 'win32' && home === homedir()
+  const native = isWindows
+    ? path.join(env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'), `hermes${env.HERMES_DATA_DIR_SUFFIX ?? ''}`)
+    : path.join(home, `.hermes${env.HERMES_DATA_DIR_SUFFIX ?? ''}`)
   const configured = env.HERMES_HOME?.trim()
   if (!configured) return native
   const resolved = path.resolve(configured.replace(/^~(?=$|\/)/, home))

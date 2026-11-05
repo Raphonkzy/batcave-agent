@@ -1,12 +1,39 @@
 import { execFile as execFileCallback } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
+import path from 'node:path'
 import { promisify } from 'node:util'
+import { hermesRoot } from './folders.js'
 
 const execFile = promisify(execFileCallback)
-const CACHE_MS = 15_000
-const INSIGHTS_CACHE_MS = 60_000
-const COMMAND_TIMEOUT_MS = 25_000
+const CACHE_MS = 45_000
+const INSIGHTS_CACHE_MS = 120_000
+const COMMAND_TIMEOUT_MS = 35_000
 const COMMAND_LOG_LIMIT = 100
 const LOG_TAIL_LINES = 200
+
+const MAX_GLOBAL_CONCURRENCY = 2
+let activeProcessCount = 0
+const processWaitQueue: (() => void)[] = []
+
+async function acquireProcessSlot(): Promise<void> {
+  if (activeProcessCount < MAX_GLOBAL_CONCURRENCY) {
+    activeProcessCount++
+    return
+  }
+  return new Promise((resolve) => {
+    processWaitQueue.push(() => {
+      activeProcessCount++
+      resolve()
+    })
+  })
+}
+
+function releaseProcessSlot(): void {
+  activeProcessCount--
+  const next = processWaitQueue.shift()
+  if (next) next()
+}
 
 export type Availability = 'available' | 'unavailable'
 export type GatewayState = 'Running' | 'Stopped' | 'Unknown'
@@ -451,6 +478,7 @@ function describeFailure(error: unknown): CommandError {
 }
 
 async function systemRun(file: string, args: string[], options: RunOptions = {}): Promise<string> {
+  await acquireProcessSlot()
   const started = Date.now()
   const command = [file, ...args].join(' ')
   try {
@@ -466,6 +494,8 @@ async function systemRun(file: string, args: string[], options: RunOptions = {})
     const benign = options.benign?.test(failure.stdout) ?? false
     recordCommand({ command, ok: benign, durationMs: Date.now() - started, at: new Date(started).toISOString(), ...(benign ? {} : { error: failure.message }) })
     throw failure
+  } finally {
+    releaseProcessSlot()
   }
 }
 
@@ -552,10 +582,10 @@ export async function collectTaskBoard(run: Run = systemRun): Promise<TaskBoardS
  */
 export async function collectCalendar(run: Run = systemRun): Promise<CalendarSnapshot> {
   const fetchedAt = new Date().toISOString()
-  const profiles = await read(run, 'hermes', ['profile', 'list'], parseProfiles, [])
+  const profiles = run === systemRun ? (await getSnapshot()).profiles : await read(run, 'hermes', ['profile', 'list'], parseProfiles, [])
   const names = profiles.availability === 'available' ? profiles.data.map((profile) => profile.name).filter((name) => PROFILE_NAME.test(name)) : []
   if (names.length === 0) return { jobs: await read(run, 'hermes', ['cron', 'list', '--all'], parseCronJobs, []), fetchedAt }
-  const results = await Promise.all(names.map((name) => read(run, 'hermes', ['-p', name, 'cron', 'list', '--all'], parseCronJobs, [])))
+  const results = await mapLimit(names, 2, (name) => read(run, 'hermes', ['-p', name, 'cron', 'list', '--all'], parseCronJobs, []))
   if (results.every((result) => result.availability !== 'available')) return { jobs: results[0], fetchedAt }
   const jobs = results.flatMap((result, index) => result.availability === 'available' ? result.data.map((job) => ({ ...job, agent: names[index] })) : [])
   const failedProfiles = names.filter((_, index) => results[index].availability !== 'available')
@@ -573,7 +603,7 @@ export async function collectKnowledge(run: Run = systemRun): Promise<KnowledgeS
 }
 
 export async function collectChannels(run: Run = systemRun): Promise<ChannelSnapshot> {
-  const channelData = await read(run, 'hermes', ['status', '--all'], parseChannelStatus, { channels: [] as Channel[] })
+  const channelData = await read(run, 'hermes', ['status', '--full'], parseChannelStatus, { channels: [] as Channel[] })
   return {
     channels: { availability: channelData.availability, data: channelData.data.channels, ...(channelData.error && { error: channelData.error }) },
     ...(channelData.availability === 'available' && channelData.data.activeSessions !== undefined ? { activeSessions: channelData.data.activeSessions } : {}),
@@ -633,8 +663,17 @@ export const LOG_FILES = [
 const LOG_MISSING = /Log file not found/i
 
 export async function collectLogs(run: Run = systemRun): Promise<LogsSnapshot> {
+  let root = ''
+  try { root = hermesRoot() } catch {}
   const files = await Promise.all(LOG_FILES.map(async ({ name, label }): Promise<LogFile> => {
+    const logPath = root ? path.join(root, 'logs', `${name}.log`) : ''
     try {
+      if (run === systemRun && logPath && existsSync(logPath)) {
+        const content = await readFile(logPath, 'utf-8')
+        const allLines = lines(content)
+        const tail = allLines.slice(-LOG_TAIL_LINES).join('\n')
+        return { name, label, source: { availability: 'available', data: parseLogLines(tail) } }
+      }
       return { name, label, source: { availability: 'available', data: parseLogLines(await run('hermes', ['logs', name, '-n', String(LOG_TAIL_LINES)], { benign: LOG_MISSING })) } }
     } catch (error) {
       // `hermes logs` exits 1 before a log file has been created; that is an empty log, not an outage.
@@ -804,10 +843,60 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, task: (item: T
 
 /** Live activity of every given Hermes profile (see `hermes profile list`). */
 export async function collectAgentActivity(profiles: readonly string[], run: Run = systemRun): Promise<AgentActivitySnapshot> {
+  let root = ''
+  if (run === systemRun) {
+    try { root = hermesRoot() } catch {}
+  }
   const agents = await mapLimit(profiles.filter((profile) => PROFILE_NAME.test(profile)), ACTIVITY_CONCURRENCY, async (profile): Promise<AgentActivity> => {
+    let fastLog: { ok: true; output: string } | undefined
+    let fastSessions: string | undefined
+    let canSkipCli = false
+
+    if (root) {
+      const logFile = profile === 'default' ? path.join(root, 'logs', 'agent.log') : path.join(root, 'profiles', profile, 'logs', 'agent.log')
+      const dbFile = profile === 'default' ? path.join(root, 'state.db-wal') : path.join(root, 'profiles', profile, 'state.db-wal')
+      const now = Date.now()
+      const cutoff = now - 4 * 60 * 1000
+
+      let hasRecentLog = false
+      let logTail = ''
+      if (existsSync(logFile)) {
+        try {
+          const fileStat = await stat(logFile)
+          if (fileStat.mtimeMs >= cutoff) {
+            hasRecentLog = true
+            const content = await readFile(logFile, 'utf-8')
+            logTail = lines(content).slice(-80).join('\n')
+          }
+        } catch {}
+      }
+
+      let hasRecentDb = false
+      if (existsSync(dbFile)) {
+        try {
+          const dbStat = await stat(dbFile)
+          if (dbStat.mtimeMs >= cutoff) hasRecentDb = true
+        } catch {}
+      }
+
+      if (existsSync(logFile) && !hasRecentLog && !hasRecentDb) {
+        canSkipCli = true
+      } else if (hasRecentLog) {
+        fastLog = { ok: true, output: logTail }
+      }
+    }
+
+    if (canSkipCli) {
+      return { profile, availability: 'available', active: false, mentionsOpenCode: false }
+    }
+
     const [logs, sessions] = await Promise.all([
-      run('hermes', ['-p', profile, 'logs', 'agent', '-n', '80', '--since', ACTIVITY_WINDOW], { benign: LOG_MISSING }).then((output) => ({ ok: true as const, output }), (error: unknown) => (error instanceof CommandError && LOG_MISSING.test(error.stdout) ? { ok: true as const, output: '' } : { ok: false as const, output: '' })),
-      run('hermes', ['-p', profile, 'sessions', 'list', '--limit', '3']).then((output) => output, () => undefined),
+      fastLog
+        ? Promise.resolve(fastLog)
+        : run('hermes', ['-p', profile, 'logs', 'agent', '-n', '80', '--since', ACTIVITY_WINDOW], { benign: LOG_MISSING }).then((output) => ({ ok: true as const, output }), (error: unknown) => (error instanceof CommandError && LOG_MISSING.test(error.stdout) ? { ok: true as const, output: '' } : { ok: false as const, output: '' })),
+      fastSessions !== undefined
+        ? Promise.resolve(fastSessions)
+        : run('hermes', ['-p', profile, 'sessions', 'list', '--limit', '3']).then((output) => output, () => undefined),
     ])
     if (!logs.ok && sessions === undefined) return { profile, availability: 'unavailable', active: false, mentionsOpenCode: false }
     return { profile, availability: 'available', ...parseRecentActivity(logs.output, sessions) }
@@ -1005,11 +1094,11 @@ const usageSources = new Map(USAGE_PERIODS.map((days) => [days, cachedSource(asy
 export function getUsage(days: number, now = Date.now()): Promise<UsageSnapshot> {
   return (usageSources.get(days as typeof USAGE_PERIODS[number]) ?? usageSources.get(INSIGHT_DAYS)!)(now)
 }
-const logsSource = cachedSource(() => collectLogs(), 5_000)
+const logsSource = cachedSource(() => collectLogs(), 15_000)
 const agentActivitySource = cachedSource(async () => {
   const runtime = await getSnapshot()
   return collectAgentActivity(runtime.profiles.availability === 'available' ? runtime.profiles.data.map((profile) => profile.name) : [])
-}, 15_000)
+}, 30_000)
 
 export function getSnapshot(now = Date.now()): Promise<RuntimeSnapshot> { return runtimeSource(now) }
 export function clearSnapshotCache(): void { runtimeSource.clear() }
