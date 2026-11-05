@@ -30,6 +30,12 @@ describe('routes smoke test', () => {
     expect(pageFromHash('#/knowledge')).toBe('Memory')
   })
 
+  it('correctly maps the new missions route', () => {
+    expect(navigation).toContain('Missions')
+    expect(pageSlug('Missions')).toBe('missions')
+    expect(pageFromHash('#/missions')).toBe('Missions')
+  })
+
   it('correctly parses mockAgents query parameters', () => {
     expect(parseMockRequest('?mockAgents=12')).toEqual({ kind: 'count', count: 12 })
     expect(parseMockRequest('?mockAgents=cycle')).toEqual({ kind: 'cycle' })

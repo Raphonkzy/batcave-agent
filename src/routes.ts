@@ -1,4 +1,4 @@
-export const navigation = ['Batcave', 'Agents', 'Usage', 'Task Board', 'Calendar', 'Activity', 'Memory', 'Folders', 'Logs', 'Settings'] as const
+export const navigation = ['Batcave', 'Missions', 'Agents', 'Usage', 'Task Board', 'Calendar', 'Activity', 'Memory', 'Folders', 'Logs', 'Settings'] as const
 export type Page = typeof navigation[number]
 
 /** The page shown when the address names no page (or an unknown one). */

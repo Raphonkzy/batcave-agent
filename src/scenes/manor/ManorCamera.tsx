@@ -1,15 +1,35 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { CameraPreset } from '../../utils/layout/types.ts'
 // Orbit, pan and zoom, plus smooth flights between the presets (Command Deck, Hangar Bay, Manor Lobby,
-// Grand Manor, Full Overview). Flights are damped in useFrame; with reduced motion the camera jumps instead.
-export interface ManorCameraHandle { reset: () => void }
-export const ManorCamera = forwardRef<ManorCameraHandle, { preset: CameraPreset; panMode: boolean; keyTarget: HTMLElement | null; smooth: boolean }>(function ManorCamera({ preset, panMode, keyTarget, smooth }, handle) {
+// Grand Manor, Full Overview, Exterior). Flights are damped in useFrame; with reduced motion the camera jumps instead.
+export interface ManorCameraHandle {
+  reset: () => void
+  snapRotate: (direction: 1 | -1) => void
+  follow: (target: THREE.Vector3 | null) => void
+}
+export const ManorCamera = forwardRef<
+  ManorCameraHandle,
+  {
+    preset: CameraPreset
+    panMode: boolean
+    keyTarget: HTMLElement | null
+    smooth: boolean
+    followTarget?: THREE.Vector3 | null
+    onFollowEnd?: () => void
+  }
+>(function ManorCamera({ preset, panMode, keyTarget, smooth, followTarget }, handle) {
   const { camera, gl, size } = useThree()
   const controls = useRef<OrbitControls | null>(null)
   const flight = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null)
+  const activeFollow = useRef<THREE.Vector3 | null>(null)
+
+  useEffect(() => {
+    activeFollow.current = followTarget ?? null
+  }, [followTarget])
+
   /** The preset's view, backed off on narrow screens so the whole floor fits across. */
   const goal = useMemo(() => () => {
     const target = new THREE.Vector3(...preset.target)
@@ -18,6 +38,32 @@ export const ManorCamera = forwardRef<ManorCameraHandle, { preset: CameraPreset;
     offset.setLength(offset.length() * Math.max(1, 1.35 / aspect))
     return { position: target.clone().add(offset), target }
   }, [preset, size.width, size.height])
+
+  const snapRotate = useCallback((direction: 1 | -1) => {
+    const orbit = controls.current
+    if (!orbit) return
+    const offset = camera.position.clone().sub(orbit.target)
+    const angle = (direction * Math.PI) / 2
+    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle)
+    flight.current = {
+      position: orbit.target.clone().add(offset),
+      target: orbit.target.clone(),
+    }
+  }, [camera])
+
+  useImperativeHandle(
+    handle,
+    () => ({
+      reset: () => {
+        flight.current = goal()
+      },
+      snapRotate,
+      follow: (target: THREE.Vector3 | null) => {
+        activeFollow.current = target
+      },
+    }),
+    [goal, snapRotate]
+  )
   useEffect(() => {
     const orbit = new OrbitControls(camera, gl.domElement)
     // Tuned for smooth interaction: damped, slightly slower than the defaults, and never dipping
@@ -60,7 +106,6 @@ export const ManorCamera = forwardRef<ManorCameraHandle, { preset: CameraPreset;
     orbit.listenToKeyEvents(keyTarget)
     return () => orbit.stopListenToKeyEvents()
   }, [keyTarget])
-  useImperativeHandle(handle, () => ({ reset: () => { flight.current = goal() } }), [goal])
   useFrame((_, delta) => {
     const orbit = controls.current
     if (!orbit) return
@@ -70,6 +115,12 @@ export const ManorCamera = forwardRef<ManorCameraHandle, { preset: CameraPreset;
       camera.position.lerp(trip.position, k)
       orbit.target.lerp(trip.target, k)
       if (camera.position.distanceTo(trip.position) < 0.05 && orbit.target.distanceTo(trip.target) < 0.05) flight.current = null
+    } else if (activeFollow.current) {
+      const follow = activeFollow.current
+      const k = smooth ? 1 - Math.exp(-delta * 4.0) : 1
+      const offset = camera.position.clone().sub(orbit.target)
+      orbit.target.lerp(follow, k)
+      camera.position.copy(orbit.target).add(offset)
     }
     orbit.update()
     // Keep the view over the manor: clamp the target to the preset's pan bounds.
