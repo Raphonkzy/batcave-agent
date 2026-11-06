@@ -7,13 +7,23 @@ import { Icon, SegmentedControl } from '../components/ui/Primitives.tsx'
 const LEVELS: ('ALL' | LogLevel)[] = ['ALL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 const MISSION_CONTROL = 'mission-control'
 
+function getInitialQuery(): string {
+  if (typeof window === 'undefined') return ''
+  const hash = window.location.hash
+  const match = hash.match(/[?&]agent=([^&]+)/)
+  if (match) return decodeURIComponent(match[1])
+  const searchMatch = window.location.search.match(/[?&]agent=([^&]+)/)
+  if (searchMatch) return decodeURIComponent(searchMatch[1])
+  return ''
+}
+
 export function Logs() {
   const [follow, setFollow] = useState(true)
   const logs = usePolling<LogsSnapshot>('/api/logs', follow ? 5_000 : 0)
   const commands = usePolling<CommandLogSnapshot>('/api/command-log', follow ? 5_000 : 0)
   const [tab, setTab] = useState('agent')
   const [level, setLevel] = useState<'ALL' | LogLevel>('ALL')
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(getInitialQuery)
   const viewer = useRef<HTMLPreElement>(null)
 
   const data = logs.status === 'ready' ? logs.data : undefined

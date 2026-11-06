@@ -14,7 +14,9 @@ import { CliffGrounds, TerracePool } from './manor/TerracePool.tsx'
 import { ExteriorGrounds } from './manor/ExteriorGrounds.tsx'
 import { VerticalShaft } from './manor/VerticalShaft.tsx'
 import { WaterfallMesh } from './manor/WaterfallMesh.tsx'
-import { isDeckView, lightRig, QUALITY, showsDeck, showsManor, terraceSun, type ManorLayoutData, type ManorView, type Quality, type QualityProfile } from './manor/ZoneLayout.ts'
+import { Roof } from './manor/Roof.tsx'
+import { Plumbob } from './manor/Plumbob.tsx'
+import { lightRig, QUALITY, terraceSun, type ManorLayoutData, type ManorView, type Level, type WallMode, type Quality, type QualityProfile } from './manor/ZoneLayout.ts'
 // Root of the Tactical Manor theme (`themeId: "manor"`): the subterranean command deck and the
 // surface manor above it, joined by the cliff, the waterfall and the glass elevator. All geometry
 // is procedural. There are exactly six real lights; everything else glows by emissive material.
@@ -83,6 +85,8 @@ function Animation({ animate }: { animate: boolean }) {
 export interface ThemeManorProps {
   layout: ManorLayoutData
   view: ManorView
+  level?: Level
+  wallMode?: WallMode
   showUpper: boolean
   quality: Quality
   /** Draws a profile's suit for the vault pods (the same gear the agents wear). */
@@ -92,40 +96,70 @@ export interface ThemeManorProps {
   /** True while agents brief at the war table (its projection turns amber). */
   briefing?: boolean
   anchors?: MutableRefObject<Map<string, THREE.Object3D>>
+  selectedAnchor?: THREE.Object3D | null
+  selectedStatus?: string
   hour?: number
   reducedMotion?: boolean
   children?: ReactNode
 }
-export default function ThemeManor({ layout, view, showUpper, quality, suit, focus, briefing = false, anchors, hour, reducedMotion, children }: ThemeManorProps) {
+export default function ThemeManor({
+  layout,
+  view,
+  level = 'ground',
+  wallMode = 'cutaway',
+  showUpper,
+  quality,
+  suit,
+  focus,
+  briefing = false,
+  anchors,
+  selectedAnchor,
+  selectedStatus,
+  hour,
+  reducedMotion,
+  children,
+}: ThemeManorProps) {
   const localHour = useLocalHour()
   const reduced = useReducedMotion()
   const animate = !(reducedMotion ?? reduced)
   const profile = QUALITY[quality]
   const sun = terraceSun(hour ?? localHour)
-  const deck = showsDeck(view)
-  const manor = showsManor(view)
+
+  // 3-Level hierarchy:
+  // - deck: Command Deck (subterranean cave + hangar + ops room). Surface is hidden.
+  // - ground: Grand Manor (ground floor + terrace + pool + grounds). Deck is hidden.
+  // - upper: Lantai 2 (ground floor + upper floor + roof). Deck is hidden.
+  const isDeck = level === 'deck' || (view === 'deck' || view === 'hangar')
+  const isManor = level === 'ground' || level === 'upper' || (view === 'manor' || view === 'lobby' || view === 'exterior' || view === 'overview')
+  const isUpper = level === 'upper' || showUpper
+
   const reach = layout.camera.overview.maxDistance
-  const underground = isDeckView(view)
+  const underground = isDeck && !isManor
   const sky = underground ? '#07090d' : sun.sky
+
   return <>
     <color attach="background" args={[sky]}/>
     {quality !== 'low' ? <fog attach="fog" args={[underground ? '#07090d' : sun.fog, reach * 0.8, reach * 2.6]}/> : null}
     <ProceduralEnvironment intensity={underground ? 0.28 : sun.daylight ? 0.5 : 0.3}/>
     <Lights layout={layout} profile={profile} hour={hour ?? localHour} focus={focus} animate={animate} view={view}/>
     <Animation animate={animate}/>
-    {deck && <>
+    {isDeck && <>
       <SubterraneanCave layout={layout} profile={profile} briefing={briefing} animate={animate} frontOnly={view === 'overview'}/>
-      {isDeckView(view) && <SuitVault layout={layout} suit={suit}/>}
+      {(view === 'deck' || level === 'deck') && <SuitVault layout={layout} suit={suit}/>}
       <HangarBay layout={layout} animate={animate} shadows={profile.shadows === 'all'}/>
     </>}
-    {manor && <>
+    {isManor && <>
       <ExteriorGrounds layout={layout} profile={profile} view={view}/>
       <CliffGrounds layout={layout} profile={profile} grass={view !== 'overview'}/>
-      <SurfaceManor layout={layout} profile={profile} showUpper={showUpper}/>
+      <SurfaceManor layout={layout} profile={profile} showUpper={isUpper} wallMode={wallMode}/>
+      <Roof layout={layout} level={level} wallMode={wallMode} quality={quality} reducedMotion={!animate}/>
       <TerracePool layout={layout} profile={profile} animate={animate}/>
     </>}
     <WaterfallMesh layout={layout} profile={profile} animate={animate} view={view}/>
     <VerticalShaft layout={layout} view={view} anchors={anchors}/>
+    {selectedAnchor && selectedStatus && (
+      <Plumbob anchor={selectedAnchor} status={selectedStatus} reducedMotion={!animate} />
+    )}
     {children}
   </>
 }

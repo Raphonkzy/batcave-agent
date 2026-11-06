@@ -1044,13 +1044,9 @@ main { max-width: 1680px; }
 .view-toggle button + button { border-left: 1px solid var(--border-strong); }
 .view-toggle button.active { background: var(--active-bg); color: var(--active-text); }
 .view-toggle button:disabled { cursor: not-allowed; opacity: .45; }
-.office-3d { aspect-ratio: 2.1 / 1; background: #15201c; border: 8px solid #121a18; box-shadow: inset 0 0 0 2px #4d6459; min-height: 420px; position: relative; touch-action: none; }
+.office-3d { aspect-ratio: auto; background: var(--bg); border: 0; box-shadow: none; min-height: 0; height: 100%; width: 100%; position: absolute; inset: 0; touch-action: none; isolation: isolate; }
 .office-3d canvas { display: block; }
 .office-3d:focus-visible { outline: 2px solid var(--accent, #6fb6d6); outline-offset: 2px; }
-.office-3d-tools { display: flex; gap: 6px; position: absolute; right: 10px; top: 10px; z-index: 2; }
-.office-3d-tools button { background: rgba(18, 26, 24, 0.78); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 6px; color: #f4efe6; cursor: pointer; font: inherit; font-size: 12px; padding: 5px 10px; }
-.office-3d-tools button:hover { background: rgba(18, 26, 24, 0.92); }
-.office-3d-tools button.active { background: #d9534f; border-color: #f4efe6; }
 .office-3d > div:first-child { position: absolute !important; inset: 0; }
 .office-3d-labels { inset: 0; overflow: clip; pointer-events: none; position: absolute; }
 .office-3d-labels > * { left: 0; position: absolute; top: 0; visibility: hidden; will-change: transform; }
@@ -1062,7 +1058,7 @@ main { max-width: 1680px; }
 .agent-tag-3d.state-offline { opacity: .7; }
 .speech-3d { max-width: 150px; width: max-content; white-space: normal; }
 .desk-label-3d { background: #101815; color: #b7c9bf; font: 8px ui-monospace, monospace; letter-spacing: .04em; padding: 1px 4px; pointer-events: none; white-space: nowrap; }
-@media (max-width: 700px) { .office-3d { aspect-ratio: auto; height: 400px; min-height: 0; } .office-3d-tools { bottom: 10px; top: auto; } }
+@media (max-width: 700px) { .office-3d { height: 100%; } }
 @media (max-width: 700px) { .speech-3d { max-width: 120px; font-size: 8px; } .agent-tag-3d .pixel-station-name { font-size: 9px; } .agent-tag-3d .badge { font-size: 8px; } }
 
 /* App shell: navigation is a drawer over the page (closed by default), like a game menu. */
@@ -1087,7 +1083,6 @@ aside.drawer[hidden] { display: none; }
 .office-canvas { inset: 0; position: absolute; }
 .view-2d .office-canvas { overflow: auto; padding: 66px 16px 16px; }
 .office-stage .office-3d { aspect-ratio: auto; border: 0; box-shadow: none; height: 100%; inset: 0; min-height: 0; position: absolute; }
-.office-stage .office-3d-tools { bottom: 12px; right: 12px; top: auto; }
 .office-3d-hint { background: color-mix(in srgb, var(--surface) 80%, transparent); border-radius: 4px; bottom: 12px; left: 12px; padding: 5px 9px; pointer-events: none; position: absolute; z-index: 3; }
 .office-failed { left: 16px; position: absolute; right: 16px; top: 70px; z-index: 3; }
 .office-note { margin: 0 0 10px; }
@@ -1143,9 +1138,6 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 }
 .speech-3d.speech-idle { background: color-mix(in srgb, var(--surface) 88%, transparent); border-style: dashed; color: var(--text-muted); font-style: italic; }
 /* Keep the 3D labels (which use high z-indexes among themselves) under the drawer and panel. */
-.office-3d { isolation: isolate; }
-.office-stage:has(.office-panel) .office-3d-tools { right: min(424px, calc(100% - 12px)); }
-@media (max-width: 700px) { .office-stage:has(.office-panel) .office-3d-tools { display: none; } }
 
 /* Task Board and Calendar over the office */
 .office-overlay { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; bottom: 12px; box-shadow: 0 20px 60px #0008; display: flex; flex-direction: column; left: 12px; position: absolute; right: 12px; top: 56px; z-index: 7; }
@@ -1300,24 +1292,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .usage-page { margin-top: 20px; }
 .usage-page .usage-card, .office-overlay .usage-card { margin-bottom: 0; }
 
-/* Floor switcher of the 3D office: an elevator panel, the upper floor on top */
-.office-3d-floors { display: flex; flex-direction: column; gap: 6px; left: 10px; position: absolute; top: 10px; z-index: 2; }
-.office-3d-floors button { align-items: center; background: rgba(18, 26, 24, 0.78); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 8px; color: #f4efe6; cursor: pointer; display: grid; font: inherit; font-size: 12px; gap: 8px; grid-template-columns: 26px auto auto; min-width: 150px; padding: 5px 10px 5px 6px; text-align: left; }
-.office-3d-floors button:hover { background: rgba(18, 26, 24, 0.92); }
-.office-3d-floors button b { align-items: center; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 50%; display: inline-flex; font: 600 12px ui-monospace, monospace; height: 24px; justify-content: center; width: 24px; }
-.office-3d-floors button small { background: rgba(255, 255, 255, 0.2); border-radius: 9px; color: #ffffff; font: 600 11px ui-monospace, monospace; justify-self: end; padding: 1px 7px; }
-.office-3d-floors button.active { border-color: #f4d35e; }
-.office-3d-floors button.active b { background: #f4d35e; border-color: #f4d35e; box-shadow: 0 0 10px #f4d35e88; color: #1c1f24; }
-.office-stage .office-3d-floors { top: 58px; left: 12px; }
 .speech-sleep { font-style: italic; }
-@media (max-width: 700px) {
-  .office-3d-floors { flex-direction: row; }
-  .office-3d-floors button { font-size: 11px; gap: 6px; min-width: 0; grid-template-columns: 22px auto; padding: 4px 8px 4px 4px; }
-  .office-3d-floors button b { height: 20px; width: 20px; }
-  .office-3d-floors button small { display: none; }
-  .office-stage .office-3d-floors { top: 96px; }
-}
-.office-3d-tools button.active.sleep { background: #3d4f8c; }
 
 /* Task board: columns are as tall as the screen allows and scroll on their own, so the board's
    sideways scrollbar stays in view; the strip above jumps to a column or scrolls the board. */
@@ -1354,15 +1329,9 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .lock-agent { border: 1px solid var(--c-3a463c); border-radius: 4px; cursor: pointer; font-size: 13px; padding: 6px 10px; }
 .lock-agent.active { border-color: var(--accent); color: var(--text); }
 .lock-agent input { accent-color: var(--accent); }
-.manor-camera-widget { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; max-width: calc(100% - 16px); position: absolute; right: 8px; top: 64px; z-index: 3; }
-.manor-camera-widget button, .manor-quality button { background: rgba(10, 12, 17, 0.82); border: 1px solid var(--border-strong); border-radius: 4px; color: var(--text); cursor: pointer; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 5px 9px; }
-.manor-camera-widget button.active, .manor-quality button.active { border-color: #00ffcc; color: #00ffcc; }
-.manor-quality { align-items: center; background: rgba(10, 12, 17, 0.72); border-radius: 4px; bottom: 40px; display: flex; font-size: 12px; gap: 4px; left: 8px; padding: 4px 6px; position: absolute; z-index: 3; }
-.manor-quality small { color: #ffaa00; }
 /* In the Tactical Manor the shared hint (which names the classic controls) gives way to its own. */
 .office-stage:has(.manor-3d) .office-3d-hint:not(.manor-hint) { display: none; }
 .manor-3d .manor-hint { bottom: 8px; left: 8px; position: absolute; }
-@media (max-width: 760px) { .manor-camera-widget { bottom: 92px; justify-content: flex-start; left: 8px; right: 8px; top: auto; } .manor-quality { bottom: 50px; } }
 
 
 /* ==========================================================================
@@ -1425,6 +1394,11 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   position: absolute;
   inset: 0;
   overflow: hidden;
+}
+
+.mo-page-home .office-stage {
+  height: 100%;
+  min-height: 0;
 }
 
 @keyframes mo-fade-in {
@@ -2133,17 +2107,109 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 
 /* ==========================================================================
-   THE SIMS HUD & RADIAL MENU STYLES
+   MINIMAL OBSIDIAN: STAGE OVERLAY & 3D HUD
    ========================================================================== */
 
-/* Bottom 3-Cluster HUD */
-.mo-sims-hud {
+/* Full Canvas Single Layer Overlay */
+.mo-stage-overlay {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 16px;
+}
+
+.mo-stage-top-left,
+.mo-stage-top-right {
+  pointer-events: auto;
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.mo-stage-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mo-stage-top-left .office-hud {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Quality Picker Anchor */
+.mo-quality-anchor {
+  position: absolute;
+  top: 12px;
+  right: 280px;
+  z-index: 25;
+  pointer-events: auto;
+}
+
+.mo-quality-anchor .manor-quality {
+  position: static;
+  background: rgba(20, 22, 26, 0.76);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 4px 8px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.mo-quality-anchor .manor-quality span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+  margin-right: 4px;
+}
+
+.mo-quality-anchor .manor-quality button {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-2);
+  cursor: pointer;
+  font: 11px ui-monospace, monospace;
+  padding: 3px 6px;
+  transition: all var(--dur) var(--ease);
+}
+
+.mo-quality-anchor .manor-quality button:hover {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.mo-quality-anchor .manor-quality button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .mo-quality-anchor {
+    top: 56px;
+    right: 12px;
+  }
+}
+
+/* Bottom 3-Cluster HUD (ala simulasi rumah) */
+.mo-lot-hud {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   pointer-events: none;
@@ -2152,40 +2218,93 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 .mo-hud-cluster {
   pointer-events: auto;
-  height: 72px;
-  background: rgba(20, 22, 26, 0.72);
+  background: rgba(20, 22, 26, 0.78);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
-  padding: 0 16px;
 }
 
-/* Cluster 1: Agent Info */
+/* Cluster 1: Agent Info & Roster */
 .mo-hud-agent {
-  min-width: 280px;
-  max-width: 380px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  min-width: 320px;
+  max-width: 440px;
+  min-height: 80px;
+  padding: 8px 12px;
+  gap: 6px;
+}
+
+.mo-hud-roster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mo-hud-roster::-webkit-scrollbar {
+  display: none;
+}
+
+.mo-roster-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  transition: all var(--dur) var(--ease);
+  white-space: nowrap;
+}
+
+.mo-roster-pill:hover {
+  background: var(--surface-1);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.mo-roster-pill.active {
+  background: rgba(245, 189, 109, 0.16);
+  border-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mo-roster-avatar {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--accent);
 }
 
 .mo-agent-summary {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
 
 .mo-agent-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
   border: 1px solid var(--line);
   color: var(--accent);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2205,7 +2324,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 .mo-agent-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -2221,14 +2340,28 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   font-size: 11px;
   color: var(--text-3);
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 5px;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mo-agent-task {
+  color: var(--text-2);
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mo-agent-actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 136px;
 }
 
 .mo-hud-btn {
@@ -2238,10 +2371,11 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   font-size: 10px;
   font-family: inherit;
   font-weight: 500;
-  padding: 3px 8px;
+  padding: 3px 6px;
   border-radius: 4px;
   cursor: pointer;
   transition: all var(--dur) var(--ease);
+  white-space: nowrap;
 }
 
 .mo-hud-btn:hover {
@@ -2250,14 +2384,22 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   border-color: var(--accent);
 }
 
+.mo-hud-btn.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 .mo-agent-empty {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  padding: 4px 0;
 }
 
 .mo-agent-empty-hint {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-2);
 }
@@ -2271,21 +2413,77 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .mo-hud-levels {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  padding: 8px 12px;
+  min-height: 80px;
 }
 
-.mo-level-switcher {
+.mo-lift-panel {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
-.mo-level-btn {
+.mo-lift-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mo-lift-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   background: var(--surface-2);
   border: 1px solid var(--line);
   color: var(--text-2);
-  width: 28px;
-  height: 28px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  min-width: 115px;
+  transition: all var(--dur) var(--ease);
+}
+
+.mo-lift-btn:hover {
+  background: var(--surface-1);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.mo-lift-btn.active {
+  background: rgba(245, 189, 109, 0.16);
+  border-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mo-lift-label {
+  font-size: 11px;
+}
+
+.mo-lift-count {
+  font-size: 10px;
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.mo-lift-arrows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mo-lift-arrow-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -2294,131 +2492,160 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   transition: all var(--dur) var(--ease);
 }
 
-.mo-level-btn:hover {
-  color: var(--text);
-  background: var(--surface-1);
+.mo-lift-arrow-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
-.mo-level-label {
+.mo-wall-control {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-width: 90px;
-}
-
-.mo-level-sub {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--text-3);
-}
-
-.mo-level-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.mo-hud-divider {
-  width: 1px;
-  height: 36px;
-  background-color: var(--line);
-}
-
-.mo-wall-segmented {
-  display: flex;
-  gap: 4px;
-  background: var(--surface-1);
-  padding: 3px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line);
+  gap: 3px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding-left: 10px;
 }
 
 .mo-wall-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   color: var(--text-2);
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 6px 10px;
+  font-size: 10px;
+  padding: 3px 8px;
   border-radius: 4px;
   cursor: pointer;
   transition: all var(--dur) var(--ease);
 }
 
 .mo-wall-btn:hover {
+  background: var(--surface-1);
   color: var(--text);
 }
 
 .mo-wall-btn.active {
-  background: var(--surface-2);
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 600;
 }
 
 .mo-wall-icon {
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.mo-wall-text {
+  font-weight: 500;
 }
 
 /* Cluster 3: Camera Controls */
 .mo-hud-camera {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  min-height: 80px;
+  justify-content: center;
 }
 
-.mo-camera-buttons {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.mo-camera-icon-btn {
-  position: relative;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  color: var(--text-2);
-  height: 32px;
-  padding: 0 8px;
-  border-radius: var(--r-sm);
+.mo-camera-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  cursor: pointer;
+}
+
+.mo-cam-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
   font-family: inherit;
   font-size: 11px;
+  padding: 4px 7px;
+  border-radius: 4px;
+  cursor: pointer;
   transition: all var(--dur) var(--ease);
 }
 
-.mo-camera-icon-btn:hover {
+.mo-cam-btn:hover {
+  background: var(--surface-1);
   color: var(--text);
   border-color: var(--accent);
 }
 
-.mo-preset-selector {
-  display: flex;
-  align-items: center;
+.mo-cam-btn-text {
+  font-size: 10px;
+  font-weight: 500;
 }
 
-.mo-preset-select {
-  background: var(--surface-2);
+.mo-focus-popover-wrapper {
+  position: relative;
+}
+
+.mo-focus-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: rgba(20, 22, 26, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 12px;
-  padding: 6px 10px;
   border-radius: var(--r-sm);
-  cursor: pointer;
-  outline: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+  z-index: 50;
+  pointer-events: auto;
 }
 
-.mo-preset-select:focus {
-  border-color: var(--accent);
+.mo-popover-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+
+.mo-popover-item:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+@media (max-width: 900px) {
+  .mo-lot-hud {
+    flex-direction: column;
+    align-items: stretch;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    gap: 8px;
+  }
+  .mo-hud-cluster {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .mo-hud-roster {
+    max-width: 100%;
+  }
+  .mo-hud-agent {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 /* Radial Menu */

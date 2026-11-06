@@ -13,9 +13,19 @@ import { Pill, SegmentedControl, Icon, Stat } from '../components/ui/Primitives.
 
 export type MissionsViewMode = 'swimlane' | 'list' | 'flow'
 
+function getInitialAgent(): string {
+  if (typeof window === 'undefined') return 'all'
+  const hash = window.location.hash
+  const match = hash.match(/[?&]agent=([^&]+)/)
+  if (match) return decodeURIComponent(match[1])
+  const searchMatch = window.location.search.match(/[?&]agent=([^&]+)/)
+  if (searchMatch) return decodeURIComponent(searchMatch[1])
+  return 'all'
+}
+
 export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) {
   const [viewMode, setViewMode] = useState<MissionsViewMode>('swimlane')
-  const [selectedAgent, setSelectedAgent] = useState<string>('all')
+  const [selectedAgent, setSelectedAgent] = useState<string>(getInitialAgent)
   const [searchQuery, setSearchQuery] = useState('')
 
   const board = usePolling<TaskBoardSnapshot>('/api/tasks', 15_000)

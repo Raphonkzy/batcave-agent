@@ -1,22 +1,21 @@
 import { describe, expect, it } from 'vitest'
+import { LEVEL_CYCLE } from '../src/pages/ManorOffice3D.tsx'
 
 describe('Sims 3D HUD & Controls Verification (Section 7)', () => {
-  const LEVEL_CYCLE = ['exterior', 'manor', 'lobby', 'deck', 'hangar', 'overview']
-
-  it('cycles levels properly in both directions without overflow', () => {
-    let currentIdx = 0 // exterior
+  it('cycles 3 levels properly in both directions without overflow', () => {
+    expect(LEVEL_CYCLE).toEqual(['upper', 'ground', 'deck'])
+    let currentIdx = 0 // upper ('Lantai 2')
     const cycle = (dir: 1 | -1) => {
       currentIdx = Math.max(0, Math.min(LEVEL_CYCLE.length - 1, currentIdx + dir))
       return LEVEL_CYCLE[currentIdx]
     }
 
-    expect(cycle(1)).toBe('manor')
-    expect(cycle(1)).toBe('lobby')
+    expect(cycle(1)).toBe('ground')
     expect(cycle(1)).toBe('deck')
-    expect(cycle(1)).toBe('hangar')
-    expect(cycle(1)).toBe('overview')
-    expect(cycle(1)).toBe('overview') // clamped
-    expect(cycle(-1)).toBe('hangar')
+    expect(cycle(1)).toBe('deck') // clamped at lower bound
+    expect(cycle(-1)).toBe('ground')
+    expect(cycle(-1)).toBe('upper')
+    expect(cycle(-1)).toBe('upper') // clamped at upper bound
   })
 
   it('supports 3 distinct wall visibility modes', () => {

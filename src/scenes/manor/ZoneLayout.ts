@@ -1,16 +1,27 @@
 import { computeLayout } from '../../utils/layout/computeLayout.ts'
-import { BASIN_Y, CAVE_CEILING, CATWALK_WIDTH, SURFACE_Y } from '../../utils/layout/dimensions.ts'
+import { BASIN_Y, CAVE_CEILING, CATWALK_WIDTH, SURFACE_Y, UPPER_Y, DECK_Y } from '../../utils/layout/dimensions.ts'
 import type { BoundingBox, ManorLayoutData, Vec3, Zone } from '../../utils/layout/types.ts'
 import { mulberry32 } from './random.ts'
 // Adapts the result of computeLayout to what the scene draws. No layout logic lives here: only
 // shapes derived from the layout (the rock mass, stalactites, the light rig) and drawing styles.
 export { computeLayout }
 export type { ManorLayoutData }
-/** Which part of the manor is in view. The deck view lifts the rock and manor away; the overview shows both. */
+
+// 3 Level system (Lantai 2, Grand Manor, Command Deck)
+export type Level = 'deck' | 'ground' | 'upper'
+export type WallMode = 'wallsUp' | 'cutaway' | 'wallsDown'
+export const LEVELS: { id: Level; label: string; y: number }[] = [
+  { id: 'upper', label: 'Lantai 2', y: UPPER_Y },
+  { id: 'ground', label: 'Grand Manor', y: SURFACE_Y },
+  { id: 'deck', label: 'Command Deck', y: DECK_Y },
+]
+
+/** Which part of the manor is in view. Retained for backwards compatibility with camera presets. */
 export type ManorView = 'deck' | 'hangar' | 'manor' | 'lobby' | 'overview' | 'exterior'
 /** The views that look at the deck alone, or at the manor alone (the other level is not drawn). */
-export const isDeckView = (view: ManorView) => view === 'deck' || view === 'hangar'
-export const isManorView = (view: ManorView) => view === 'manor' || view === 'lobby'
+export const isDeckView = (view: ManorView | Level) => view === 'deck' || view === 'hangar'
+export const isManorView = (view: ManorView | Level) => view === 'manor' || view === 'lobby' || view === 'ground' || view === 'upper'
+export const isUpperLevel = (level: Level) => level === 'upper'
 export type Quality = 'high' | 'medium' | 'low'
 export interface QualityProfile { shadows: 'all' | 'main' | 'none'; mist: boolean; density: number; screens: 'animated' | 'simple' | 'static'; waterfall: 'full' | 'simple' }
 export const QUALITY: Record<Quality, QualityProfile> = {

@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { agentGear } from '../components/agent/agentLooks.ts'
@@ -11,13 +11,13 @@ import ThemeManor from '../scenes/ThemeManor.tsx'
 import { ManorCamera, type ManorCameraHandle } from '../scenes/manor/ManorCamera.tsx'
 import { useReducedMotion } from '../scenes/manor/hooks.ts'
 import { screenSlots, slotKinds } from '../scenes/manor/screens.ts'
-import { computeLayout, isDeckView, QUALITY, type ManorView } from '../scenes/manor/ZoneLayout.ts'
+import { computeLayout, QUALITY, type Level, type WallMode } from '../scenes/manor/ZoneLayout.ts'
 import type { OfficeStation } from '../types.ts'
 import { idlePlan, isBriefing, placementFor, type Placement } from '../utils/layout/placements.ts'
 import { FrameReporter, QualityPicker } from './ManorQuality.tsx'
 import { useQuality } from './manorQuality.ts'
-import { remember, SLEEP_KEY, stored, UPPER_KEY, VIEW_KEY } from './manorViews.ts'
-import { SimsHud } from '../components/hud/SimsHud.tsx'
+import { remember, LEVEL_KEY, WALL_MODE_KEY, storedLevel, storedWallMode } from './manorViews.ts'
+import { LotHud } from '../components/hud/LotHud.tsx'
 import { AgentRadialMenu } from '../components/hud/AgentRadialMenu.tsx'
 
 function useClock(interval: number) {
@@ -31,14 +31,37 @@ function useClock(interval: number) {
 
 const suit = (profile: string) => suitParts(agentGear(profile))
 
-const shownIn = (view: ManorView, upper: boolean, hangarZ: number) => (position: THREE.Vector3) => {
-  if (position.y > 13 && !upper) return false
-  if (isDeckView(view)) return position.y < 6
-  if (view === 'manor' || view === 'lobby') return position.y > 6
-  return position.y > 6 || position.z > hangarZ
+/**
+ * Level visibility filtering:
+ * - deck: subterranean command deck & hangar (y < 6)
+ * - ground: surface ground floor / lounge / foyer (6 <= y <= 13)
+ * - upper: 2nd floor / upper gallery (y > 13)
+ */
+const shownIn = (level: Level) => (position: THREE.Vector3) => {
+  if (level === 'deck') return position.y < 6
+  if (level === 'ground') return position.y >= 6 && position.y <= 13
+  return position.y > 6 // upper level shows surface + upper floor
 }
 
-const LEVEL_CYCLE: ManorView[] = ['exterior', 'manor', 'lobby', 'deck', 'hangar', 'overview']
+export const LEVEL_CYCLE: Level[] = ['upper', 'ground', 'deck']
+
+/** Camera Follow Component that reads anchor position on each frame */
+function DynamicFollowCamera({
+  isFollowing,
+  anchor,
+  cameraRef,
+}: {
+  isFollowing: boolean
+  anchor: THREE.Object3D | null
+  cameraRef: React.RefObject<ManorCameraHandle | null>
+}) {
+  useFrame(() => {
+    if (isFollowing && anchor && anchor.visible) {
+      cameraRef.current?.follow(anchor.position)
+    }
+  })
+  return null
+}
 
 export default function ManorOffice3D({
   stations,
@@ -48,25 +71,39 @@ export default function ManorOffice3D({
   onSelect: (station: OfficeStation, trigger: HTMLElement | null) => void
 }) {
   const layout = useMemo(() => computeLayout(stations.length), [stations.length])
-  const [view, setView] = useState<ManorView>(() => stored(VIEW_KEY, ['exterior', 'deck', 'hangar', 'manor', 'lobby', 'overview'] as const, 'deck'))
-  const [showUpper] = useState(() => stored(UPPER_KEY, ['on', 'off'] as const, 'on') === 'on')
-  const [wallMode, setWallMode] = useState<'wallsUp' | 'cutaway' | 'wallsDown'>('cutaway')
+  const [level, setLevel] = useState<Level>(storedLevel)
+  const [wallMode, setWallMode] = useState<WallMode>(storedWallMode)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [isFollowing, setIsFollowing] = useState(false)
   const [radialMenu, setRadialMenu] = useState<{ station: OfficeStation; x: number; y: number } | null>(null)
-  const [sleep] = useState(() => stored(SLEEP_KEY, ['on', 'off'] as const, 'off') === 'on')
-  const [panMode] = useState(false)
+  const [zoneFocus, setZoneFocus] = useState<'hangar' | 'lobby' | 'exterior' | null>(null)
   const [keyTarget, setKeyTarget] = useState<HTMLElement | null>(null)
   const { quality, choice, setChoice, report } = useQuality()
   const camera = useRef<ManorCameraHandle>(null)
   const anchors = useRef(new Map<string, THREE.Object3D>())
   const labels = useRef(new Map<string, HTMLElement>())
+  const hudContainerRef = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
   const now = useClock(2000)
 
+  // Measure HUD height for safe-area framing
+  useEffect(() => {
+    if (!hudContainerRef.current) return
+    const ro = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const h = entry.contentRect.height
+      document.documentElement.style.setProperty('--hud-bottom', `${h + 16}px`)
+      document.documentElement.style.setProperty('--hud-top', '48px')
+    })
+    ro.observe(hudContainerRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  // Camera preset resolution based on level and wallMode
   const exteriorPreset = useMemo(
     () => ({
-      position: [0, 34, -56] as [number, number, number],
-      target: [0, 12, -10] as [number, number, number],
+      position: [0, 34, -54] as [number, number, number],
+      target: [0, 12, -8] as [number, number, number],
       minDistance: 8,
       maxDistance: 140,
       pan: { minX: -36, maxX: 36, minZ: -52, maxZ: 36 },
@@ -74,38 +111,92 @@ export default function ManorOffice3D({
     []
   )
 
-  const preset =
-    view === 'exterior'
-      ? exteriorPreset
-      : {
-          deck: layout.camera.commandDeck,
-          hangar: layout.camera.hangarBay,
-          manor: layout.camera.grandManor,
-          lobby: layout.camera.manorLobby,
-          overview: layout.camera.overview,
-        }[view]
+  const preset = useMemo(() => {
+    if (zoneFocus === 'hangar') return layout.camera.hangarBay
+    if (zoneFocus === 'lobby') return layout.camera.manorLobby
+    if (zoneFocus === 'exterior') return exteriorPreset
 
-  const followTarget = useMemo(() => {
-    if (!selectedAgentId) return null
-    const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-    return anchor ? anchor.position.clone() : null
-  }, [selectedAgentId])
+    if (level === 'deck') return layout.camera.commandDeck
+    if (level === 'ground') return layout.camera.grandManor
+    // upper level
+    if (wallMode === 'wallsUp') return exteriorPreset
+    return {
+      position: [0, 28, 22] as [number, number, number],
+      target: [0, 14.5, 4] as [number, number, number],
+      minDistance: 6,
+      maxDistance: 100,
+      pan: layout.camera.grandManor.pan,
+    }
+  }, [level, wallMode, zoneFocus, layout, exteriorPreset])
 
-  const idleSeats = stations.filter((station) => station.state === 'Idle' && station.room === 'Lounge').map((station) => station.seat)
-  const rest = idlePlan(layout, idleSeats, now, sleep ? idleSeats : [])
+  const idleSeats = stations
+    .filter((station) => station.state === 'Idle' && station.room === 'Lounge')
+    .map((station) => station.seat)
+  const rest = idlePlan(layout, idleSeats, now, [])
   let briefingIndex = 0
 
-  const choose = (next: ManorView) => {
-    setView(next)
-    remember(VIEW_KEY, next)
+  const handleSelectLevel = (nextLevel: Level) => {
+    setZoneFocus(null)
+    setLevel(nextLevel)
+    remember(LEVEL_KEY, nextLevel)
   }
 
-  const cycleLevel = (dir: 1 | -1) => {
-    const idx = LEVEL_CYCLE.indexOf(view)
+  const handleCycleLevel = (dir: 1 | -1) => {
+    setZoneFocus(null)
+    const idx = LEVEL_CYCLE.indexOf(level)
     const nextIdx = Math.max(0, Math.min(LEVEL_CYCLE.length - 1, idx + dir))
-    choose(LEVEL_CYCLE[nextIdx])
+    const next = LEVEL_CYCLE[nextIdx]
+    setLevel(next)
+    remember(LEVEL_KEY, next)
   }
 
+  const handleSetWallMode = (nextMode: WallMode) => {
+    setWallMode(nextMode)
+    remember(WALL_MODE_KEY, nextMode)
+  }
+
+  const handleFocusZone = (zone: 'hangar' | 'lobby' | 'exterior') => {
+    setZoneFocus(zone)
+    if (zone === 'hangar') {
+      setLevel('deck')
+      remember(LEVEL_KEY, 'deck')
+    } else if (zone === 'lobby') {
+      setLevel('ground')
+      remember(LEVEL_KEY, 'ground')
+    } else if (zone === 'exterior') {
+      setLevel('upper')
+      remember(LEVEL_KEY, 'upper')
+      setWallMode('wallsUp')
+      remember(WALL_MODE_KEY, 'wallsUp')
+    }
+  }
+
+  // Unified agent selection
+  const selectAgent = (
+    station: OfficeStation,
+    x?: number,
+    y?: number,
+    _source: 'mesh' | 'label' | 'roster' = 'label'
+  ) => {
+    setSelectedAgentId(station.id)
+    // Auto switch level if agent is on a different level
+    const agentLevel: Level = station.room === 'Lounge' ? 'ground' : 'deck'
+    if (agentLevel !== level) {
+      setLevel(agentLevel)
+      remember(LEVEL_KEY, agentLevel)
+      setZoneFocus(null)
+    }
+
+    const posX = x ?? window.innerWidth / 2
+    const posY = y ?? window.innerHeight / 2
+    setRadialMenu({ station, x: posX, y: posY })
+
+    // Center camera on agent
+    const anchor = anchors.current.get(`agent-${station.id}`)
+    if (anchor) camera.current?.follow(anchor.position)
+  }
+
+  // Keyboard shortcut handler
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
@@ -120,22 +211,23 @@ export default function ManorOffice3D({
         camera.current?.snapRotate(1)
       } else if (e.key.toLowerCase() === 'r') {
         e.preventDefault()
+        setZoneFocus(null)
         camera.current?.reset()
       } else if (e.key === '1') {
         e.preventDefault()
-        setWallMode('wallsUp')
+        handleSetWallMode('wallsUp')
       } else if (e.key === '2') {
         e.preventDefault()
-        setWallMode('cutaway')
+        handleSetWallMode('cutaway')
       } else if (e.key === '3') {
         e.preventDefault()
-        setWallMode('wallsDown')
+        handleSetWallMode('wallsDown')
       } else if (e.key === '[' || e.key === 'PageUp') {
         e.preventDefault()
-        cycleLevel(-1)
+        handleCycleLevel(-1) // UP
       } else if (e.key === ']' || e.key === 'PageDown') {
         e.preventDefault()
-        cycleLevel(1)
+        handleCycleLevel(1) // DOWN
       } else if (e.key.toLowerCase() === 'f') {
         if (selectedAgentId) {
           const anchor = anchors.current.get(`agent-${selectedAgentId}`)
@@ -144,12 +236,13 @@ export default function ManorOffice3D({
       } else if (e.key === 'Escape') {
         setSelectedAgentId(null)
         setRadialMenu(null)
+        setIsFollowing(false)
         camera.current?.follow(null)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [view, selectedAgentId])
+  }, [level, selectedAgentId, wallMode])
 
   const placements: Placement[] = stations.map((station) =>
     rest.get(station.seat)?.placement && station.state === 'Idle' && station.room === 'Lounge'
@@ -159,24 +252,16 @@ export default function ManorOffice3D({
 
   const briefing = stations.some(isBriefing)
   const slots = useMemo(() => screenSlots(layout), [layout])
-  const kindsKey = stations.map((station, index) => `${station.id}:${station.state}:${station.privacy ?? ''}:${placements[index].kind}`).join('|')
+  const kindsKey = stations
+    .map((station, index) => `${station.id}:${station.state}:${station.privacy ?? ''}:${placements[index].kind}`)
+    .join('|')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const kinds = useMemo(() => slotKinds(slots, stations, placements, briefing), [slots, kindsKey, briefing])
-  const visible = useMemo(() => shownIn(view, showUpper, layout.zones.hangarBay.minZ), [view, showUpper, layout])
+  const visible = useMemo(() => shownIn(level), [level])
   const profile = QUALITY[quality]
 
   const selectedStation = stations.find((s) => s.id === selectedAgentId) || null
-  const activeCount = stations.filter((s) => s.state !== 'Idle').length
-
-  const handleAgentClick = (station: OfficeStation, event: React.MouseEvent<HTMLElement>) => {
-    setSelectedAgentId(station.id)
-    const rect = event.currentTarget.getBoundingClientRect()
-    setRadialMenu({
-      station,
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    })
-  }
+  const selectedAnchor = selectedAgentId ? anchors.current.get(`agent-${selectedAgentId}`) ?? null : null
 
   return (
     <div
@@ -184,22 +269,32 @@ export default function ManorOffice3D({
       ref={setKeyTarget}
       tabIndex={0}
       role="region"
-      aria-label="Tactical Manor 3D view. Drag to rotate, right-drag or two fingers to pan, scroll to zoom, arrow keys pan when focused."
+      aria-label="3D Manor Dollhouse View"
     >
       <Canvas
         shadows
         dpr={[1, 2]}
         camera={{ position: preset.position, fov: 40, near: 0.3, far: 400 }}
         gl={{ antialias: quality !== 'low' }}
+        onPointerMissed={() => {
+          setSelectedAgentId(null)
+          setRadialMenu(null)
+          setIsFollowing(false)
+          camera.current?.follow(null)
+        }}
       >
         <ThemeManor
           layout={layout}
-          view={view}
-          showUpper={showUpper}
+          view={level === 'deck' ? 'deck' : 'manor'}
+          level={level}
+          wallMode={wallMode}
+          showUpper={level === 'upper'}
           quality={quality}
           suit={suit}
           focus={preset.target}
           anchors={anchors}
+          selectedAnchor={selectedAnchor}
+          selectedStatus={selectedStation?.state}
           briefing={briefing}
         >
           <Crew
@@ -212,22 +307,27 @@ export default function ManorOffice3D({
             anchors={anchors}
             onSelect={(index) => {
               const station = stations[index]
-              setSelectedAgentId(station.id)
-              onSelect(station, null)
+              if (station) {
+                selectAgent(station, window.innerWidth / 2, window.innerHeight / 2, 'mesh')
+              }
             }}
           />
-          {isDeckView(view) && <ScreenGlow slots={slots} kinds={kinds} rate={FEED_RATE[profile.screens]} animate={!reduced} />}
+          {level === 'deck' && (
+            <ScreenGlow slots={slots} kinds={kinds} rate={FEED_RATE[profile.screens]} animate={!reduced} />
+          )}
         </ThemeManor>
         <LabelProjector anchors={anchors} labels={labels} />
-        <ManorCamera ref={camera} preset={preset} panMode={panMode} keyTarget={keyTarget} smooth={!reduced} followTarget={followTarget} />
+        <ManorCamera ref={camera} preset={preset} panMode={false} keyTarget={keyTarget} smooth={!reduced} />
+        <DynamicFollowCamera isFollowing={isFollowing} anchor={selectedAnchor} cameraRef={camera} />
         <FrameReporter onSample={report} />
       </Canvas>
 
-      {/* Floating 3D Agent Labels & Diamond Status Marker */}
+      {/* Floating 2D Agent Labels (Visible only on active level) */}
       <div className="office-3d-labels">
         {stations.map((station, index) => {
           const badge = officeStateBadge(station.state)
-          const resting = station.state === 'Idle' && station.room === 'Lounge' ? placements[index].label : undefined
+          const resting =
+            station.state === 'Idle' && station.room === 'Lounge' ? placements[index].label : undefined
           const register = (element: HTMLElement | null) => {
             if (element) labels.current.set(`agent-${station.id}`, element)
             else labels.current.delete(`agent-${station.id}`)
@@ -240,11 +340,26 @@ export default function ManorOffice3D({
               ref={register}
               type="button"
               className={`agent-tag-3d state-${station.state.toLowerCase()} ${isSelected ? 'selected' : ''}`}
-              onClick={(event) => handleAgentClick(station, event)}
+              onClick={(event) => {
+                event.stopPropagation()
+                const rect = event.currentTarget.getBoundingClientRect()
+                selectAgent(station, rect.left + rect.width / 2, rect.top + rect.height / 2, 'label')
+              }}
+              onDoubleClick={(event) => {
+                event.stopPropagation()
+                selectAgent(station)
+                setIsFollowing((prev) => !prev)
+              }}
               aria-label={`${station.name}. ${station.state}.${station.privacy === 'locked' ? ' Locked.' : ''}${resting ? ` ${resting}.` : ''} Buka aksi agent.`}
             >
               {isSelected && <span className="mo-diamond-marker" />}
-              {resting && <span className={`speech speech-3d speech-idle${placements[index].pose === 'lie' ? ' speech-sleep' : ''}`}>{resting}</span>}
+              {resting && (
+                <span
+                  className={`speech speech-3d speech-idle${placements[index].pose === 'lie' ? ' speech-sleep' : ''}`}
+                >
+                  {resting}
+                </span>
+              )}
               <span className="agent-tag-row">
                 <span className="pixel-station-name">{station.name}</span>
                 <span className={`badge ${badge.tone}`}>{station.state}</span>
@@ -255,7 +370,7 @@ export default function ManorOffice3D({
         })}
       </div>
 
-      {/* Radial Menu on Agent Click */}
+      {/* Radial Menu on Agent Click (5 Read-Only Actions) */}
       {radialMenu && (
         <AgentRadialMenu
           agent={{
@@ -272,6 +387,7 @@ export default function ManorOffice3D({
             onSelect(radialMenu.station, null)
           }}
           onFollow={() => {
+            setIsFollowing((prev) => !prev)
             const anchor = anchors.current.get(`agent-${radialMenu.station.id}`)
             if (anchor) camera.current?.follow(anchor.position)
           }}
@@ -280,48 +396,70 @@ export default function ManorOffice3D({
             if (anchor) camera.current?.follow(anchor.position)
           }}
           onMissions={() => {
-            window.location.hash = '#/missions'
+            window.location.hash = `#/missions?agent=${encodeURIComponent(radialMenu.station.id)}`
           }}
           onLogs={() => {
-            window.location.hash = '#/logs'
+            window.location.hash = `#/logs?agent=${encodeURIComponent(radialMenu.station.id)}`
           }}
         />
       )}
 
-      {/* The Sims Style 3-Cluster Bottom HUD */}
-      <SimsHud
-        selectedStation={selectedStation}
-        currentView={view}
-        wallMode={wallMode}
-        onSelectView={choose}
-        onCycleLevel={cycleLevel}
-        onSetWallMode={setWallMode}
-        onSnapRotate={(d) => camera.current?.snapRotate(d)}
-        onZoom={() => {}}
-        onResetCamera={() => camera.current?.reset()}
-        onFocusAgent={() => {
-          if (selectedAgentId) {
-            const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-            if (anchor) camera.current?.follow(anchor.position)
-          }
-        }}
-        onInspectAgent={() => {
-          if (selectedStation) onSelect(selectedStation, null)
-        }}
-        onFollowAgent={() => {
-          if (selectedAgentId) {
-            const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-            if (anchor) camera.current?.follow(anchor.position)
-          }
-        }}
-        onNavigateMissions={() => {
-          window.location.hash = '#/missions'
-        }}
-        totalStations={stations.length}
-        activeCount={activeCount}
-      />
+      {/* Floating 3-Cluster Bottom HUD */}
+      <div ref={hudContainerRef}>
+        <LotHud
+          stations={stations}
+          selectedStation={selectedStation}
+          currentLevel={level}
+          wallMode={wallMode}
+          onSelectLevel={handleSelectLevel}
+          onCycleLevel={handleCycleLevel}
+          onSetWallMode={handleSetWallMode}
+          onSnapRotate={(d) => camera.current?.snapRotate(d)}
+          onZoom={(d) => camera.current?.zoom(d)}
+          onResetCamera={() => {
+            setZoneFocus(null)
+            camera.current?.reset()
+          }}
+          onFocusAgent={() => {
+            if (selectedAgentId) {
+              const anchor = anchors.current.get(`agent-${selectedAgentId}`)
+              if (anchor) camera.current?.follow(anchor.position)
+            }
+          }}
+          onInspectAgent={() => {
+            if (selectedStation) onSelect(selectedStation, null)
+          }}
+          onFollowAgent={() => {
+            setIsFollowing((prev) => !prev)
+            if (selectedAgentId) {
+              const anchor = anchors.current.get(`agent-${selectedAgentId}`)
+              if (anchor) camera.current?.follow(anchor.position)
+            }
+          }}
+          isFollowing={isFollowing}
+          onSelectStation={(station) => selectAgent(station)}
+          onFocusZone={handleFocusZone}
+          onNavigateMissions={() => {
+            if (selectedStation) {
+              window.location.hash = `#/missions?agent=${encodeURIComponent(selectedStation.id)}`
+            } else {
+              window.location.hash = '#/missions'
+            }
+          }}
+          onNavigateLogs={() => {
+            if (selectedStation) {
+              window.location.hash = `#/logs?agent=${encodeURIComponent(selectedStation.id)}`
+            } else {
+              window.location.hash = '#/logs'
+            }
+          }}
+        />
+      </div>
 
-      <QualityPicker quality={quality} choice={choice} onChoose={setChoice} />
+      {/* Top-Right Quality Picker */}
+      <div className="mo-quality-anchor">
+        <QualityPicker quality={quality} choice={choice} onChoose={setChoice} />
+      </div>
     </div>
   )
 }
