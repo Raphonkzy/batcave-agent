@@ -19,16 +19,42 @@ import { RefreshContext, usePolling } from './polling.ts'
 import { HOME, pageFromHash, pageSlug, type Page } from './routes.ts'
 import type { DashboardSnapshot } from './types.ts'
 import { AppHeader } from './components/shell/AppHeader.tsx'
-import { BottomDock } from './components/shell/BottomDock.tsx'
+import { SideNav } from './components/shell/SideNav.tsx'
 import { CommandPalette } from './components/shell/CommandPalette.tsx'
 
 function currentPage(): Page {
   return typeof window === 'undefined' ? HOME : pageFromHash(window.location.hash)
 }
 
+function getInitialSideNavMode(): 'open' | 'rail' {
+  if (typeof window === 'undefined') return 'open'
+  const saved = localStorage.getItem('batcave.sideNav')
+  if (saved === 'open' || saved === 'rail') return saved
+  return window.innerWidth >= 1100 ? 'open' : 'rail'
+}
+
 function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; access: AccessStatus | undefined; onAccessChange: (status: AccessStatus) => void }) {
   const [page, setPage] = useState<Page>(currentPage)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [navMode, setNavMode] = useState<'open' | 'rail'>(getInitialSideNavMode)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 760)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 760)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const toggleNavMode = () => {
+    setNavMode((prev) => {
+      const next = prev === 'open' ? 'rail' : 'open'
+      localStorage.setItem('batcave.sideNav', next)
+      return next
+    })
+  }
   const dashboard = usePolling<DashboardSnapshot>('/api/dashboard', 15_000)
   const data = dashboard.status === 'ready' ? dashboard.data : null
   const health = usePolling<{ apiVersion?: number }>('/api/health', 60_000)
@@ -81,7 +107,10 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
   const content = page === 'Agents' ? <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'}/> : page === 'Batcave' ? <Office dashboard={data} dashboardPending={dashboard.status === 'pending'} onNavigate={navigate}/> : page === 'Missions' ? <Missions onNavigate={navigate}/> : page === 'Usage' ? <Usage/>: page === 'Task Board' ? <TaskBoard/> : page === 'Calendar' ? <Calendar/> : page === 'Activity' ? <Activity/> : page === 'Memory' ? <Memory onOpenFolders={() => navigate('Folders')}/> : page === 'Folders' ? <Folders/> : page === 'Settings' ? <Settings access={access} onAccessChange={onAccessChange}/> : <Logs/>
 
   return (
-    <div className={`mo-app-container ${page === 'Batcave' ? 'mo-page-home' : 'mo-page-sub'}`}>
+    <div
+      className={`mo-app-container ${page === 'Batcave' ? 'mo-page-home' : 'mo-page-sub'}`}
+      style={{ '--side-w': isMobile ? '0px' : navMode === 'rail' ? '64px' : '224px' } as React.CSSProperties}
+    >
       <AppHeader
         currentPage={page}
         activeCount={activeAgents}
@@ -89,18 +118,27 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
         onOpenPalette={() => setPaletteOpen(true)}
         onNavigateHome={() => navigate(HOME)}
         onRefresh={onRefresh}
+        onToggleNav={() => setDrawerOpen((prev) => !prev)}
       />
 
-      <main className="mo-main-content">
-        {versionNotice && <section className="notice version-notice" role="alert"><strong>Restart needed.</strong> {versionNotice}</section>}
-        <div className="mo-page-wrapper">
-          {content}
-        </div>
-      </main>
+      <div className="mo-app-body">
+        <SideNav
+          currentPage={page}
+          onNavigate={navigate}
+          mode={navMode}
+          onToggleMode={toggleNavMode}
+          drawerOpen={drawerOpen}
+          onCloseDrawer={() => setDrawerOpen(false)}
+          isMobile={isMobile}
+        />
 
-      {page !== 'Batcave' && (
-        <BottomDock currentPage={page} onNavigate={navigate} />
-      )}
+        <main className="mo-main-content">
+          {versionNotice && <section className="notice version-notice" role="alert"><strong>Restart needed.</strong> {versionNotice}</section>}
+          <div className="mo-page-wrapper">
+            {content}
+          </div>
+        </main>
+      </div>
 
       <CommandPalette
         open={paletteOpen}

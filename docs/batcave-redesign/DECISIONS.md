@@ -21,3 +21,8 @@ This log records architectural decisions made following the Decision Ladder (D1-
 - **Context**: Invariants must be machine-enforced at every Quality Gate.
 - **Decision**: Created `scripts/verify/guard-invariants.ts` and executable wrapper `scripts/guard-invariants` verified by `tests/baseline/guard-invariants.test.ts`.
 - **Consequence**: Immediate detection of illegal route drops, query parameter regressions, security bypasses, or external CDN additions.
+
+## ADR-005: Persistent Side Navigation Layout (Intentional Design Conflict Override)
+- **Context**: The original `DESIGN_BRIEF.md` specified a topbar-only shell with no sidebar and a floating bottom dock, requiring users to open search (⌘K) or bottom shortcuts to navigate routes. The system owner explicitly requested a persistent side navigation menu that is always visible on all pages (including Batcave 3D Home) without requiring search clicks.
+- **Decision**: Introduce `.mo-side-nav` with responsive modes: full 224px width on desktop (>=1100px), 64px rail mode on tablets (760-1099px), and collapsible drawer with `.mo-nav-toggle` below 760px. Remove `.mo-bottom-dock` and obsolete dock elements. All 11 routes are permanently accessible grouped into *Operasi* and *Sistem*. Maintain 100% compliance with Invariant 6 (no legacy sidebar selectors `#app-sidebar` or `.drawer`).
+- **Consequence**: Instant one-click navigation across all 11 routes on all screen sizes, cleaner layout architecture, and zero obstruction of 3D stage controls.

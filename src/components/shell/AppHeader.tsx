@@ -8,6 +8,7 @@ export interface AppHeaderProps {
   onOpenPalette: () => void
   onNavigateHome: () => void
   onRefresh?: () => void
+  onToggleNav?: () => void
 }
 
 export function AppHeader({
@@ -17,10 +18,22 @@ export function AppHeader({
   onOpenPalette,
   onNavigateHome,
   onRefresh,
+  onToggleNav,
 }: AppHeaderProps) {
   return (
     <header className="mo-topbar" data-page={currentPage}>
       <div className="mo-topbar-left">
+        {onToggleNav && (
+          <button
+            type="button"
+            className="mo-nav-toggle"
+            onClick={onToggleNav}
+            aria-label="Buka menu navigasi"
+            title="Buka menu"
+          >
+            <Icon name="menu" size={20} />
+          </button>
+        )}
         <button type="button" className="mo-brand-btn" onClick={onNavigateHome} title="Ke Home 3D (Batcave)">
           <span className="mo-brand-mark">◆</span>
           <span className="mo-brand-text">batcave</span>

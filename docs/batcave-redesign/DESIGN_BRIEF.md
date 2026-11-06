@@ -56,45 +56,62 @@ Minimalis, tenang, spasi lega, hierarki dibangun lewat tipografi dan hairline 1p
 
 ---
 
-## 2. Shell & Navigasi
+## 2. Shell & Navigasi (ADR-005: Persistent Side Navigation)
 
 ### 2.1 Topbar (48px, transparan, backdrop-blur)
 ```
 +------------------------------------------------------------------+
-| [◆ batcave]            [ ⌘K  Cari halaman atau agent… ]   ● 12   |
+| [☰] [◆ batcave]        [ ⌘K  Cari halaman atau agent… ]   ● 12   |
 +------------------------------------------------------------------+
 ```
-- **Kiri**: Wordmark `◆ batcave`
-- **Tengah**: Command Palette button (`⌘K` / `Ctrl+K`)
-- **Kanan**: Badge hitungan agent aktif (`● 12`)
+- **Kiri**: Toggle drawer mobile (`.mo-nav-toggle`) + Wordmark `◆ batcave`
+- **Tengah**: Command Palette trigger (`⌘K` / `Ctrl+K`)
+- **Kanan**: Badge hitungan agent aktif (`● 12`) + tombol refresh
 
-### 2.2 Floating Bottom Dock (Halaman Non-Home)
+### 2.2 Menu Samping Selalu Terlihat (`.mo-side-nav`)
 ```
-+------------------------------------------------------------------+
-|        ( Batcave  Agents  Missions  Tugas  Jadwal  ⋯ )           |
-+------------------------------------------------------------------+
++----------+-------------------------------------------------------+
+| Operasi  |                                                       |
+| ⌂ Batcav |                  KONTEN HALAMAN                       |
+| 👥 Agent |                                                       |
+| 🎯 Missi |                                                       |
+| ⊞ Tugas  |                                                       |
+| 📅 Jadwal|                                                       |
+|          |                                                       |
+| Sistem   |                                                       |
+| 📊 Usage |                                                       |
+| ⚡ Activ |                                                       |
+| 💾 Memory|                                                       |
+| 📁 Folder|                                                       |
+| 💻 Logs  |                                                       |
+| ⚙️ Settin|                                                       |
+|          |                                                       |
+| [◀ Ciut] |                                                       |
++----------+-------------------------------------------------------+
 ```
-Floating dock mengambang di bawah halaman, menampilkan 5 rute primer + menu `⋯` untuk rute lainnya.
+- **Desktop (>= 1100px)**: Lebar 224px, teks penuh + ikon + kelompok (Operasi & Sistem).
+- **Tablet (760px - 1099px)**: Lebar 64px, mode rail (ikon saja + tooltip).
+- **Mobile (< 760px)**: Drawer overlay yang dibuka via `.mo-nav-toggle` di topbar (bukan `.menu-button`).
 
 ---
 
 ## 3. Wireframe ASCII 11 Rute + LockScreen
 
-### 3.1 `#/batcave` (Home 3D HUD ala The Sims)
+### 3.1 `#/batcave` (Home 3D HUD ala Simulasi Rumah)
 ```
 +------------------------------------------------------------------+
-| [◆ batcave ▾]                              ● 12 aktif · 3 idle   |
-|                                                                  |
-|                       ( KANVAS 3D PENUH )                        |
-|                                                                  |
-| +--------------------+                     +-------------------+ |
-| | [avatar] Jason     |  [▲] LANTAI 2       |  ⟲   ⟳   －  ＋   | |
-| | Working · 14m      |  [ Lobby ]          |  [⌂ reset] [◎ F]  | |
-| | task: "Audit…"     |  [▼]                |  Preset: ▾        | |
-| | model · gateway    |  Dinding: ◐ ▣ ▭     |                   | |
-| +--------------------+                     +-------------------+ |
-|    (Panel Agent)       (Dock Level/Dinding)     (Dock Kamera)    |
-+------------------------------------------------------------------+
+| [◆ batcave]            [ ⌘K  Cari… ]         ● 12 aktif · 3 idle |
++----------+-------------------------------------------------------+
+| [SIDE]   |                 ( KANVAS 3D PENUH )                   |
+| Batcave  |                                                       |
+| Agents   | +--------------------+          +-------------------+ |
+| Missions | | [avatar] Jason     | [▲] L2   |  ⟲   ⟳   －  ＋   | |
+| Tugas    | | Working · 14m      | [Lobby]  |  [⌂ reset] [◎ F]  | |
+| Jadwal   | | task: "Audit…"     | [▼]      |  Preset: ▾        | |
+| ⋯        | | model · gateway    | Dinding: |                   | |
+|          | +--------------------+ ◐ ▣ ▭    +-------------------+ |
+| [◀ Ciut] |  (Panel Agent)    (Level/Dinding)     (Kamera)        |
++----------+-------------------------------------------------------+
 ```
 
 ### 3.2 `#/agents` (Hairline Rows)
