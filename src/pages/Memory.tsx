@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { formatDateTime, formatNumber } from '../format.ts'
 import { usePolling } from '../polling.ts'
-import type { AgentMemory, MemorySnapshot } from '../types.ts'
+import type { AgentMemory, MemoryDocument, MemorySnapshot, MemoryStore } from '../types.ts'
 
 export function AgentMemoryView({ profile }: { profile: string; onOpenFolders?: () => void }) {
   const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
@@ -30,18 +30,19 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
 
   const currentAgent: AgentMemory | undefined = agents[selectedAgentIndex]
 
-  const docs = [
+  const docs: { id: 'soul' | 'memory' | 'user'; name: string; desc: string; doc: MemoryDocument | MemoryStore | undefined }[] = [
     { id: 'soul', name: 'SOUL.md', desc: 'Identitas & System Prompt', doc: currentAgent?.soul },
-    { id: 'memory', name: 'MEMORY.md', desc: 'Catatan Persisten Agent', doc: currentAgent?.memory as any },
-    { id: 'user', name: 'USER.md', desc: 'Profil Pengguna', doc: currentAgent?.user as any },
-  ] as const
+    { id: 'memory', name: 'MEMORY.md', desc: 'Catatan Persisten Agent', doc: currentAgent?.memory },
+    { id: 'user', name: 'USER.md', desc: 'Profil Pengguna', doc: currentAgent?.user },
+  ]
 
   const activeDocObj = docs.find((d) => d.id === selectedDoc)
   const activeDoc = activeDocObj?.doc
+  const storeDoc = activeDoc && 'limit' in activeDoc ? (activeDoc as MemoryStore) : undefined
 
   // Gauge calculation (thin 4px bar)
-  const charLimit = (activeDoc as any)?.limit || 12000
-  const charUsed = (activeDoc as any)?.used || (activeDoc as any)?.chars || 0
+  const charLimit = storeDoc?.limit || 12000
+  const charUsed = storeDoc?.used || activeDoc?.chars || 0
   const pct = Math.min(100, Math.round((charUsed / charLimit) * 100))
 
   return (
@@ -89,7 +90,7 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
           <div className="mo-doc-list">
             {docs.map((item) => {
               const isSelected = selectedDoc === item.id
-              const chars = (item.doc as any)?.chars ?? (item.doc as any)?.used ?? 0
+              const chars = item.doc && 'used' in item.doc ? item.doc.used : item.doc?.chars ?? 0
 
               return (
                 <div
@@ -136,7 +137,7 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
 
           <div className="mo-preview-body">
             <pre className="mo-preview-content font-mono">
-              {(activeDoc as any)?.content || (
+              {activeDoc?.content || (
                 <span className="text-muted">(Tidak ada konten teks atau berkas belum diisi)</span>
               )}
             </pre>

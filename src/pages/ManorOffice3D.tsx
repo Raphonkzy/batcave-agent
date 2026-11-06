@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { agentGear } from '../components/agent/agentLooks.ts'
 import { Crew } from '../components/agent/Crew.tsx'
@@ -141,19 +141,19 @@ export default function ManorOffice3D({
     remember(LEVEL_KEY, nextLevel)
   }
 
-  const handleCycleLevel = (dir: 1 | -1) => {
+  const handleCycleLevel = useCallback((dir: 1 | -1) => {
     setZoneFocus(null)
     const idx = LEVEL_CYCLE.indexOf(level)
     const nextIdx = Math.max(0, Math.min(LEVEL_CYCLE.length - 1, idx + dir))
     const next = LEVEL_CYCLE[nextIdx]
     setLevel(next)
     remember(LEVEL_KEY, next)
-  }
+  }, [level])
 
-  const handleSetWallMode = (nextMode: WallMode) => {
+  const handleSetWallMode = useCallback((nextMode: WallMode) => {
     setWallMode(nextMode)
     remember(WALL_MODE_KEY, nextMode)
-  }
+  }, [])
 
   const handleFocusZone = (zone: 'hangar' | 'lobby' | 'exterior') => {
     setZoneFocus(zone)
@@ -175,8 +175,7 @@ export default function ManorOffice3D({
   const selectAgent = (
     station: OfficeStation,
     x?: number,
-    y?: number,
-    _source: 'mesh' | 'label' | 'roster' = 'label'
+    y?: number
   ) => {
     setSelectedAgentId(station.id)
     // Auto switch level if agent is on a different level
@@ -242,7 +241,7 @@ export default function ManorOffice3D({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [level, selectedAgentId, wallMode])
+  }, [handleCycleLevel, handleSetWallMode, selectedAgentId])
 
   const placements: Placement[] = stations.map((station) =>
     rest.get(station.seat)?.placement && station.state === 'Idle' && station.room === 'Lounge'
@@ -308,7 +307,7 @@ export default function ManorOffice3D({
             onSelect={(index) => {
               const station = stations[index]
               if (station) {
-                selectAgent(station, window.innerWidth / 2, window.innerHeight / 2, 'mesh')
+                selectAgent(station, window.innerWidth / 2, window.innerHeight / 2)
               }
             }}
           />
@@ -343,7 +342,7 @@ export default function ManorOffice3D({
               onClick={(event) => {
                 event.stopPropagation()
                 const rect = event.currentTarget.getBoundingClientRect()
-                selectAgent(station, rect.left + rect.width / 2, rect.top + rect.height / 2, 'label')
+                selectAgent(station, rect.left + rect.width / 2, rect.top + rect.height / 2)
               }}
               onDoubleClick={(event) => {
                 event.stopPropagation()

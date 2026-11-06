@@ -39,7 +39,7 @@ export function checkHarusBerbeda(root = process.cwd()): HarusBerbedaResult {
 
   const routesDiff: Record<string, { domHashDifferent: boolean; oldSelectorsAbsent: boolean; estDiffPercent: number }> = {}
 
-  for (const [route, info] of Object.entries<any>(landmarks.routes)) {
+  for (const [route] of Object.entries(landmarks.routes)) {
     // If old shell is eliminated, the DOM signature for each route changes fundamentally
     const isOldShellGone = oldSelectorsFound.length === 0
     // Verify each route has modern Minimal Obsidian structure
