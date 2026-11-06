@@ -1,98 +1,58 @@
-# Batcave v2 - Autonomous Work Package Board (STATUS.md)
+# Batcave v3: Total Redesign - Autonomous Work Package Board (STATUS.md)
 
 | WP ID | Owner | Title | Wave | Status | Proof / Evidence |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **WP-00** | jason / bruce | Wave 0 Audit, Baseline & Invariant Harness | W0 | **DONE** | 287 tests passing, golden mapping 96 runs, baseline screens & perf saved |
-| **WP-01** | bruce | Wave 1 Autonomous Proposal & Architecture Blueprint | W1 | **DONE** | `docs/batcave-redesign/PROPOSAL.md` validated against Section 5 parameters |
-| **WP-02** | barbara | Wave 2 UI Design Tokens, Gilroy Typography & Shell | W2 | **DONE** | Contrast AA passed, Gilroy @font-face, 11 routes active |
-| **WP-03** | tim | Wave 2 Layout Centralization & Validator | W2 | **DONE** | `LayoutValidator` active, 5/5 tests passing |
-| **WP-04** | tim | Wave 2 Missions Data Model, Selectors & Mocks | W2 | **DONE** | Pure selectors verified, zero hallucinations |
-| **WP-05** | dick | Wave 2 CameraRig Spike in Manor Scene | W2 | **DONE** | Snap rotation math & follow cam verified |
-| **WP-06** | dick | Wave 3 3D Exterior Grounds, Lot & Estate Gates | W3 | **DONE** | Procedural grounds, 3.95x lot, 64x80m, zero extra lights |
-| **WP-07** | dick | Wave 3 Sims Navigation (Levels, Wall Modes, Follow) | W3 | **DONE** | 6 presets, snap Q/E, wall cutaway modes, follow cam |
-| **WP-08** | dick | Wave 3 Missions UI (Swimlane View) | W3 | **DONE** | Responsive swimlane with Tier 2 unassigned partition |
-| **WP-09** | tim | Wave 3 Grand Hotel Lobby Redesign (Hearth & Sofas) | W3 | **DONE** | Corridor >= 2.0m, hearth clearance >= 2.0m, zero violations |
-| **WP-10** | tim | Wave 4 Room Overhauls (Command Deck, Hangar, Manor) | W4 | **DONE** | Verified zero collisions, flood-fill reachability confirmed |
-| **WP-11** | barbara | Wave 4 Full 10-Page Redesign & 2D Fallback | W4 | **DONE** | All 11 routes verified live without console errors |
-| **WP-12** | dick | Wave 4 Missions Flow, List, Timeline & Locate in 3D | W4 | **DONE** | `ListView.tsx` & `FlowView.tsx` with SVG bezier graph |
-| **WP-13** | jason / alfred | Wave 5 Full Verification, A11y, Performance & Delivery | W5 | **DONE** | 300 tests passing, clean build, REPORT written, delivered |
+| **WP-00** | jason / bruce | Wave 0 Audit, Baseline & Invariant Harness | W0 | **DONE** | Locked `old-ui-landmarks.json`, invariant guard active, harness configured |
+| **WP-01** | bruce | Wave 1 Master Design Brief & Architecture | W1 | **DONE** | `DESIGN_BRIEF.md` complete: Minimal Obsidian tokens, 11-route ASCII wireframes, lot coords, Sims HUD specs |
+| **WP-02** | barbara | Wave 2 Design Tokens, Primitives & Shell | W2 | **DONE** | Minimal Obsidian tokens, WCAG AA contrast (4/4), Primitives suite, 48px topbar, ⌘K command palette, bottom dock |
+| **WP-03** | tim | Wave 2 Lot Config & Orientation Utilities | W2 | **DONE** | `worldConfig.ts` with threshold D, facing F, path orientation test passing (4/4) |
+| **WP-04** | dick | Wave 3 Grounds, Lawn & Front Orientation | W3 | **DONE** | Front terrace, 2m path, roundabout, 4m driveway to gate (Z=-46), procedural grass >= 98% coverage |
+| **WP-05** | dick | Wave 3 Sims-Like 3D HUD & Controls | W3 | **DONE** | 3-cluster bottom HUD, 5-slot radial menu, diamond marker, Q/E 90° snap, 3 wall modes, 3/3 HUD tests passing |
+| **WP-06** | barbara | Wave 4 Full 11-Route Overhaul & 2D Fallback | W4 | **DONE** | All 11 routes redesigned with hair-line rows & big numbers; Gate HARUS BERBEDA passed (11/11 routes diff >= 35%) |
+| **WP-07** | jason | Wave 5 Full Verification, Quality Gates & Delivery | W5 | **DONE** | 36 test files (309 tests) 100% green, production build 2.04s, merged to `development`, tagged `gate-5-pass` |
 
 ---
 
 ## Quality Gate Summary: Gate 0 (G0) - PASS
-
-1. **Yang Dikerjakan**: Technical audit of stack, 3D scene, and Missions data. Automated invariant guard and golden mapping across 96 runs. Baseline screenshots and performance numbers captured.
-2. **File Diubah / Ditambah**: `scripts/guard-invariants`, `scripts/verify/*`, `tests/baseline/*`, `docs/batcave-redesign/AUDIT.md`, `DECISIONS.md`, `OWNERSHIP.md`, `RISKS.md`, `RENAMES.md`, `MANUAL_VERIFY.md`, `BASELINE/*`.
-3. **Hasil Verifikasi**: 287/287 tests pass, 0 typecheck errors, 0 lint errors, build 7.86s.
-4. **Risiko & Keputusan**: Gilroy fallback to Plus Jakarta Sans; Tier 2 partial attribution for Missions.
-5. **Langkah Berikutnya**: Wave 1 Proposal.
+1. **Yang Dikerjakan**: Audited baseline UI shell and 11 routes. Locked old UI landmarks (`old-ui-landmarks.json`) capturing legacy selectors (`#app-sidebar`, `.drawer`, `.header-title`, `.menu-button`, etc.) and top-level DOM structures. Established automated verification harness `verify-harus-berbeda.ts`.
+2. **File Diubah / Ditambah**: `docs/batcave-redesign/BASELINE/old-ui-landmarks.json`, `scripts/verify/verify-harus-berbeda.ts`, `tests/harus-berbeda.test.ts`.
+3. **Hasil Verifikasi**: Baseline locked, tests passing, commit `d21a019`, tag `gate-0-pass`.
 
 ---
 
 ## Quality Gate Summary: Gate 1 (G1) - PASS
-
-1. **Yang Dikerjakan**: Authored Autonomous Redesign Proposal (`docs/batcave-redesign/PROPOSAL.md`). Defined design tokens, Lot dimensions (64m x 80m, 3.95x manor footprint), Sims navigation specifications, redesigned Grand Hotel Lobby layout, and Missions page architecture.
-2. **File Diubah / Ditambah**: `docs/batcave-redesign/PROPOSAL.md`, `docs/batcave-redesign/STATUS.md`.
-3. **Hasil Verifikasi**: All parameters verified against Section 5 constraints; zero invariant violations; 287/287 tests green.
-4. **Risiko & Keputusan**: Lot locked at 64 x 80 units; lobby anchor capacity preserved; Missions graph strictly SVG/CSS.
-5. **Langkah Berikutnya**: Wave 2 Core Foundations.
+1. **Yang Dikerjakan**: Authored comprehensive Master Design Brief (`docs/batcave-redesign/DESIGN_BRIEF.md`). Specified Minimal Obsidian tokens (`--bg: #0d0e11`, `--surface-1: #14161a`, `--line: #262a31`, `--accent: #e8b65b`), Gilroy typography hierarchy with Plus Jakarta Sans & JetBrains Mono fallbacks, complete ASCII wireframes for all 11 routes, lot coordinate geometry ($D=[0, 11, -8.0]$, $F=[0, 0, -1]$), and The Sims 3D HUD specifications.
+2. **File Diubah / Ditambah**: `docs/batcave-redesign/DESIGN_BRIEF.md`.
+3. **Hasil Verifikasi**: Design Brief validated against all constraints; commit `85a197e`, tag `gate-1-pass`.
 
 ---
 
 ## Quality Gate Summary: Gate 2 (G2) - PASS
-
-1. **Yang Dikerjakan**: Gilroy font declarations with Plus Jakarta Sans fallback; Tactical Manor tokens with WCAG AA verification; 11th route `#/missions`; `LayoutValidator` suite; pure `selectMissions` selectors; camera snap rotation and follow cam spike.
-2. **File Diubah / Ditambah**: `src/styles.css`, `index.html`, `src/routes.ts`, `src/App.tsx`, `src/utils/layout/validator.ts`, `src/utils/missions/selectors.ts`, `src/scenes/manor/ManorCamera.tsx`, `src/pages/Missions.tsx`, `tests/*`.
-3. **Hasil Verifikasi**: 300/300 tests passing, clean build (8.27s), 0 lint errors, golden mapping 100% identical.
-4. **Risiko & Keputusan**: Missions mock tasks follow originality rules; Invariants 1, 2, 3 strictly validated.
-5. **Langkah Berikutnya**: Wave 3 3D Grounds, Sims Navigation & Grand Lobby Overhaul.
+1. **Yang Dikerjakan**: Implemented Minimal Obsidian design system and complete UI Primitives (`Button`, `Pill`, `StatusDot`, `Tabs`, `ListRow`, `Stat`, `Panel`, `Dialog`, `Tooltip`, `Kbd`, `SegmentedControl`, `IconButton`, `EmptyState`, `Skeleton`, inline 1.5px SVG icons). Built modern 48px topbar, ⌘K command palette, and floating bottom dock. Created `worldConfig.ts` with entrance threshold $D$ and facing vector $F$.
+2. **File Diubah / Ditambah**: `src/components/ui/Primitives.tsx`, `src/components/shell/AppHeader.tsx`, `src/components/shell/BottomDock.tsx`, `src/components/shell/CommandPalette.tsx`, `src/scenes/manor/worldConfig.ts`, `tests/tokens-contrast.test.ts`, `tests/path-orientation.test.ts`.
+3. **Hasil Verifikasi**: WCAG AA contrast 4/4 passing, path orientation 4/4 passing, commit `5b88d23`, tag `gate-2-pass`.
 
 ---
 
 ## Quality Gate Summary: Gate 3 (G3) - PASS
-
-1. **Yang Dikerjakan**: 3D Exterior Grounds (lot 64x80m, driveway, gate, pines, hedges); Sims camera rig with 6 presets, snap Q/E, wall cutaway modes, and follow cam; Swimlane view for Missions; Lobby clearance verified.
-2. **File Diubah / Ditambah**: `src/scenes/manor/ExteriorGrounds.tsx`, `src/scenes/ThemeManor.tsx`, `src/scenes/manor/ZoneLayout.ts`, `src/pages/manorViews.ts`, `src/pages/ManorOffice3D.tsx`, `src/styles.css`, `src/components/missions/SwimlaneView.tsx`, `src/pages/Missions.tsx`.
-3. **Hasil Verifikasi**: 300/300 tests green, 0 lint errors, draw calls 124 (budget: 112-136), triangles 91.5k, zero extra real lights.
-4. **Risiko & Keputusan**: Grounds geometry instanced; tree density auto-halved on low quality.
-5. **Langkah Berikutnya**: Wave 4 Room Overhauls, Full 10-Page Redesign, Missions Flow & 2D Fallback.
+1. **Yang Dikerjakan**: Overhauled exterior grounds with front terrace (2 steps), 2m stone path starting at door threshold $D$ going strictly $+F$ into formal garden roundabout and 4m driveway down to gate ($Z=-46.0$). Built full multi-tone procedural lawn covering $192 \times 240$ terrain eliminating gray rock voids (coverage $\ge 98\%$). Created Sims-like 3-cluster bottom HUD (`SimsHud.tsx`), 5-slot radial agent menu (`AgentRadialMenu.tsx`) with diamond marker, snap yaw $90^\circ$ (`Q`/`E`), and 3 wall modes (Up, Cutaway, Down).
+2. **File Diubah / Ditambah**: `src/scenes/manor/ExteriorGrounds.tsx`, `src/components/hud/SimsHud.tsx`, `src/components/hud/AgentRadialMenu.tsx`, `tests/grass-coverage.test.ts`, `tests/sims-hud.test.ts`.
+3. **Hasil Verifikasi**: Grass coverage test passed ($\ge 98\%$), Sims HUD 3/3 tests passed, commit `6258204`, tag `gate-3-pass`.
 
 ---
 
 ## Quality Gate Summary: Gate 4 (G4) - PASS
-
-1. **Yang Dikerjakan**: Built Missions `ListView.tsx` and `FlowView.tsx` (SVG bezier graph); verified all 11 routes in headless browser with zero errors; verified 2D pixel fallback compatibility and `mockAgents=cycle` runtime stress tests; enforced zero layout validator violations.
-2. **File Diubah / Ditambah**: `src/components/missions/ListView.tsx`, `src/components/missions/FlowView.tsx`, `src/pages/Missions.tsx`, `src/styles.css`, `docs/batcave-redesign/STATUS.md`.
-3. **Hasil Verifikasi**: Production build succeeded (8.33s), zero TypeScript diagnostics, zero ESLint errors, 300/300 tests passing, golden mapping 96/96 runs identical.
-4. **Risiko & Keputusan**: Flow view bezier paths update dynamically on resize; unassigned tasks clustered separately (Invariant 12).
-5. **Langkah Berikutnya**: Wave 5 Full Delivery & Push to Remote.
+1. **Yang Dikerjakan**: Fully redesigned all 11 application routes (`Batcave`, `Agents`, `Usage`, `Task Board`, `Calendar`, `Activity`, `Memory`, `Folders`, `Logs`, `Settings`, `Missions`) using Minimal Obsidian aesthetics (hairline rows, big stat numbers, Gilroy typography, no bulky cards or sidebars). Redesigned LockScreen and 2D pixel-art fallback. Verified Gate "HARUS BERBEDA" with visual/DOM diff $\ge 35\%$ across all 11 routes and complete absence of legacy shell selectors.
+2. **File Diubah / Ditambah**: `src/App.tsx`, `src/pages/*.tsx`, `src/LockScreen.tsx`, `src/styles.css`, `tests/harus-berbeda.test.ts`.
+3. **Hasil Verifikasi**: Gate "HARUS BERBEDA" 11/11 passed, 36/36 test files passed (309/309 tests green), commit `c9101ac`, tag `gate-4-pass`.
 
 ---
 
 ## Quality Gate Summary: Gate 5 (G5) - PASS
-
-1. **Yang Dikerjakan**:
-   - Conducted full independent regression and performance verification.
-   - Performed repository hygiene and token stewardship audit via Alfred.
-   - Compiled master execution and architecture report at `docs/batcave-redesign/REPORT.md`.
-   - Verified that all 13 invariants remain unbroken.
-   - Prepared final commit and tagged `gate-5-pass`.
-   - Created `development` branch and executed git push to remote GitHub repository `https://github.com/Raphonkzy/batcave-agent`.
-
-2. **File Diubah / Ditambah**:
-   - `docs/batcave-redesign/REPORT.md`
-   - `docs/batcave-redesign/STATUS.md`
-
+1. **Yang Dikerjakan**: Executed complete independent invariant and performance audit. Invariant guard verified all 13 core invariants preserved (`scripts/verify/guard-invariants.ts`). Production build clean (`npm run build` completed in 2.04s). Fast-forward merged `redesign/batcave-v3` into `development`, tagged `gate-5-pass`, and pushed to remote GitHub repository `https://github.com/Raphonkzy/batcave-agent`.
+2. **File Diubah / Ditambah**: `docs/batcave-redesign/STATUS.md`, `docs/batcave-redesign/REPORT.md`.
 3. **Hasil Verifikasi**:
-   - Test Suite: 300/300 passing cleanly.
-   - Typecheck: 0 errors (`tsc --noEmit`).
-   - Linter: 0 warnings, 0 errors (`eslint .`).
-   - Build: Production client and server build clean (8.16s).
+   - Total Test Suite: 36 test files / 309 tests 100% passing.
    - Invariant Guard: 100% green.
-   - Working Tree: Completely clean.
-
-4. **Risiko & Keputusan yang Diambil**:
-   - All objectives secured with complete architectural integrity.
-
-5. **Langkah Berikutnya**:
-   - Deliver final briefing to Raffa.
+   - Production Build: 2.04s client & server build clean.
+   - Delivery: Fast-forward merged to `development` and pushed to `origin development` with `gate-5-pass`.
