@@ -1,0 +1,74 @@
+{
+  "capturedAt": "2026-11-06T08:30:00.000Z",
+  "version": "v2-baseline",
+  "oldShellSelectors": [
+    "#app-sidebar",
+    ".drawer",
+    ".drawer-backdrop",
+    ".drawer-head",
+    ".menu-button",
+    ".header-title",
+    ".header-actions",
+    ".sync-label",
+    ".refresh-button",
+    ".sidebar-note",
+    ".drawer-hint"
+  ],
+  "routes": {
+    "#/batcave": {
+      "oldLayout": "app-office with aside.drawer and legacy header",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.office-3d",
+      "oldKeyElements": [".manor-camera-widget", ".office-3d-tools", ".office-3d-hint"]
+    },
+    "#/agents": {
+      "oldLayout": "app with aside.drawer and grid cards",
+      "domSignature": "div.app > aside#app-sidebar + main > header + section.agents-section",
+      "oldKeyElements": [".agent-card", ".agent-grid"]
+    },
+    "#/usage": {
+      "oldLayout": "app with aside.drawer and cards",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.usage-page",
+      "oldKeyElements": [".usage-card", ".usage-grid"]
+    },
+    "#/task-board": {
+      "oldLayout": "app with aside.drawer and kanban board",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.task-board",
+      "oldKeyElements": [".task-column", ".task-card-heavy"]
+    },
+    "#/calendar": {
+      "oldLayout": "app with aside.drawer and calendar grid",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.calendar-page",
+      "oldKeyElements": [".calendar-month", ".cron-table"]
+    },
+    "#/activity": {
+      "oldLayout": "app with aside.drawer and event list",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.activity-page",
+      "oldKeyElements": [".activity-item", ".activity-feed"]
+    },
+    "#/memory": {
+      "oldLayout": "app with aside.drawer and memory viewer",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.memory-page",
+      "oldKeyElements": [".memory-files", ".memory-content"]
+    },
+    "#/folders": {
+      "oldLayout": "app with aside.drawer and folder explorer",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.folders-page",
+      "oldKeyElements": [".folder-tree", ".file-list-old"]
+    },
+    "#/logs": {
+      "oldLayout": "app with aside.drawer and logs tail",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.logs-page",
+      "oldKeyElements": [".logs-container", ".log-row-legacy"]
+    },
+    "#/settings": {
+      "oldLayout": "app with aside.drawer and multi-card settings",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.settings-page",
+      "oldKeyElements": [".settings-section", ".settings-card"]
+    },
+    "#/missions": {
+      "oldLayout": "app with aside.drawer and tabbed missions",
+      "domSignature": "div.app > aside#app-sidebar + main > header + div.missions-page",
+      "oldKeyElements": [".missions-header-tabs", ".missions-filter-bar"]
+    }
+  }
+}
