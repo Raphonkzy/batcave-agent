@@ -62,7 +62,7 @@ export function SimsHud({
                 <span className="mo-agent-state">{selectedStation.state}</span>
               </div>
               <div className="mo-agent-sub">
-                <span>{selectedStation.model || 'hermes-3'}</span>
+                <span>{selectedStation.role || 'Agent'}</span>
                 <span>·</span>
                 <span>{selectedStation.room || 'Station'}</span>
               </div>
@@ -76,6 +76,9 @@ export function SimsHud({
               </button>
               <button type="button" className="mo-hud-btn" onClick={onFocusAgent} title="Fokus kamera (F)">
                 Locate
+              </button>
+              <button type="button" className="mo-hud-btn" onClick={onNavigateMissions} title="Buka Missions terfilter">
+                Missions
               </button>
             </div>
           </div>
@@ -225,4 +228,3 @@ export function SimsHud({
     </div>
   )
 }
-

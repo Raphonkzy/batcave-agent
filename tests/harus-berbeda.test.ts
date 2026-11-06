@@ -18,3 +18,4 @@ describe('Gate HARUS BERBEDA verification test', () => {
     }
   })
 })
+

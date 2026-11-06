@@ -267,3 +267,4 @@ UNASSIGNED TASKS (Belum terhubung agent tertentu):
 | **Sims HUD & Kamera** | `src/pages/ManorOffice3D.tsx`, `src/components/hud/SimsHud.tsx`, `src/components/hud/AgentRadialMenu.tsx`, `tests/camera-rig.test.ts` |
 | **Halaman-Halaman UI** | `src/pages/Agents.tsx`, `src/pages/Usage.tsx`, `src/pages/TaskBoard.tsx`, `src/pages/Calendar.tsx`, `src/pages/Activity.tsx`, `src/pages/Memory.tsx`, `src/pages/Folders.tsx`, `src/pages/Logs.tsx`, `src/pages/Settings.tsx`, `src/LockScreen.tsx`, `src/pages/Missions.tsx`, `src/pages/Office.tsx` |
 | **Verifikasi Gate** | `scripts/verify/verify-harus-berbeda.ts`, `tests/harus-berbeda.test.ts`, `docs/batcave-redesign/REPORT.md` |
+

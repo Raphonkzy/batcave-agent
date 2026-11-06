@@ -19,7 +19,7 @@ export function AppHeader({
   onRefresh,
 }: AppHeaderProps) {
   return (
-    <header className="mo-topbar">
+    <header className="mo-topbar" data-page={currentPage}>
       <div className="mo-topbar-left">
         <button type="button" className="mo-brand-btn" onClick={onNavigateHome} title="Ke Home 3D (Batcave)">
           <span className="mo-brand-mark">◆</span>
@@ -52,4 +52,3 @@ export function AppHeader({
     </header>
   )
 }
-

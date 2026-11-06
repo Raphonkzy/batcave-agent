@@ -9,6 +9,7 @@ import { FlowView } from '../components/missions/FlowView.tsx'
 import type { TaskBoardSnapshot } from '../types.ts'
 import type { Page } from '../routes.ts'
 import { LoadingState } from '../ui.tsx'
+import { Pill, SegmentedControl, Icon, Stat } from '../components/ui/Primitives.tsx'
 
 export type MissionsViewMode = 'swimlane' | 'list' | 'flow'
 
@@ -23,16 +24,17 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
   const isMock = import.meta.env.DEV && typeof window !== 'undefined' && Boolean(parseMockRequest(window.location.search))
 
   if (board.status === 'pending' && office.status === 'pending') {
-    return <LoadingState message="Loading Tactical Missions telemetry..." />
+    return <LoadingState message="Memuat telemetri Missions..." />
   }
 
-  const tasksData = (board.status === 'ready' && board.data?.tasks?.data?.length)
-    ? board.data
-    : isMock
+  const tasksData =
+    board.status === 'ready' && board.data?.tasks?.data?.length
+      ? board.data
+      : isMock
       ? { tasks: { availability: 'available' as const, data: mockTasks() }, fetchedAt: new Date().toISOString() }
       : board.status === 'ready'
-        ? board.data
-        : undefined
+      ? board.data
+      : undefined
 
   const missionsData = selectMissions(
     tasksData,
@@ -52,93 +54,100 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
     }
   }
 
+  const attributionTier = missionsData.summary.unassigned > 0 ? 'TIER 2' : 'TIER 1'
+
   return (
-    <div className="missions-page">
-      <div className="missions-header">
-        <div>
-          <p className="eyebrow">TACTICAL COMMAND &amp; DISPATCH</p>
-          <h1 className="missions-title">Active Missions</h1>
-          <p className="missions-subtitle">Real-time task attribution and agent execution telemetry</p>
-        </div>
-        <div className="missions-controls">
-          <div className="missions-view-picker" role="group" aria-label="View Mode">
-            <button
-              type="button"
-              className={viewMode === 'swimlane' ? 'active' : ''}
-              onClick={() => setViewMode('swimlane')}
-            >
-              Swimlane
-            </button>
-            <button
-              type="button"
-              className={viewMode === 'list' ? 'active' : ''}
-              onClick={() => setViewMode('list')}
-            >
-              List
-            </button>
-            <button
-              type="button"
-              className={viewMode === 'flow' ? 'active' : ''}
-              onClick={() => setViewMode('flow')}
-            >
-              Flow
-            </button>
+    <div className="mo-page-missions">
+      <header className="mo-page-header">
+        <div className="mo-header-with-actions">
+          <div>
+            <div className="mo-title-with-pill">
+              <h1 className="mo-page-title">Missions</h1>
+              {isMock && <Pill variant="accent">SIMULASI</Pill>}
+              <Pill variant="muted">{attributionTier} ATTRIBUTION</Pill>
+            </div>
+            <p className="mo-page-description">
+              Pemetaan relasi real-time antara tugas aktif dengan agent yang mengeksekusinya.
+            </p>
           </div>
-        </div>
-      </div>
 
-      <div className="missions-metrics">
-        <div className="metric-card">
-          <span className="metric-label">TOTAL MISSIONS</span>
-          <strong className="metric-value">{missionsData.summary.total}</strong>
+          <SegmentedControl
+            options={[
+              { label: 'Swimlane', value: 'swimlane' },
+              { label: 'List', value: 'list' },
+              { label: 'Flow Graph', value: 'flow' },
+            ]}
+            value={viewMode}
+            onChange={(val) => setViewMode(val as MissionsViewMode)}
+          />
         </div>
-        <div className="metric-card">
-          <span className="metric-label">ASSIGNED</span>
-          <strong className="metric-value text-good">{missionsData.summary.assigned}</strong>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">UNASSIGNED (TIER 2)</span>
-          <strong className="metric-value text-warning">{missionsData.summary.unassigned}</strong>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">ACTIVE CREW</span>
-          <strong className="metric-value">{missionsData.activeAgents.length}</strong>
-        </div>
-      </div>
+      </header>
 
-      <div className="missions-filters">
-        <div className="filter-group">
-          <label htmlFor="agent-filter">Agent:</label>
-          <select
-            id="agent-filter"
-            value={selectedAgent}
-            onChange={(e) => setSelectedAgent(e.target.value)}
-          >
-            <option value="all">All Agents</option>
-            {missionsData.activeAgents.map((agent) => (
-              <option key={agent.id} value={agent.id}>
-                {agent.name} ({agent.role})
-              </option>
-            ))}
-          </select>
+      {/* Metrics Row */}
+      <div className="mo-metrics-top-row" style={{ marginBottom: 24 }}>
+        <div className="mo-stat-card">
+          <Stat label="TOTAL MISSIONS" value={missionsData.summary.total} sub="Seluruh tugas aktif" />
         </div>
-
-        <div className="filter-group search-group">
-          <input
-            type="search"
-            placeholder="Search missions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search missions by title"
+        <div className="mo-stat-card">
+          <Stat label="TERHUBUNG KE AGENT" value={missionsData.summary.assigned} sub="Attributed tasks" />
+        </div>
+        <div className="mo-stat-card">
+          <Stat
+            label="UNASSIGNED (TIER 2)"
+            value={missionsData.summary.unassigned}
+            sub="Tanpa relasi definitif"
+          />
+        </div>
+        <div className="mo-stat-card">
+          <Stat
+            label="ACTIVE CREW"
+            value={missionsData.activeAgents.length}
+            sub="Agent terdeteksi"
           />
         </div>
       </div>
 
-      <div className="missions-content">
+      {/* Filter Bar */}
+      <div className="mo-filter-bar">
+        <div className="mo-filter-tally">
+          <strong>{filteredMissions.length}</strong> misi ditampilkan
+        </div>
+
+        <div className="mo-filter-controls">
+          <div className="mo-search-box">
+            <Icon name="search" size={16} />
+            <input
+              type="text"
+              placeholder="Cari judul misi…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="mo-search-input"
+            />
+          </div>
+
+          <label className="mo-select-wrapper">
+            <span className="mo-select-label">Agent:</span>
+            <select
+              value={selectedAgent}
+              onChange={(e) => setSelectedAgent(e.target.value)}
+              className="mo-select-input"
+            >
+              <option value="all">Semua Agent</option>
+              {missionsData.activeAgents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      {/* View Content */}
+      <div className="mo-missions-content">
         {filteredMissions.length === 0 ? (
-          <div className="empty-state">
-            <h2>No active missions found</h2>
-            <p>Adjust your filter or search criteria to view operational tasks.</p>
+          <div className="mo-empty-state mo-panel">
+            <p>Tidak ada misi aktif yang sesuai dengan kriteria filter saat ini.</p>
           </div>
         ) : viewMode === 'swimlane' ? (
           <SwimlaneView

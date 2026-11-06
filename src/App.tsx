@@ -74,8 +74,9 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
     window.scrollTo?.({ top: 0 })
   }
 
-  const activeAgents = data?.runtime?.agents ? Object.values(data.runtime.agents).filter((a: any) => a.state !== 'Idle') : []
-  const totalAgents = data?.runtime?.agents ? Object.keys(data.runtime.agents).length : 0
+  const profilesList = data?.runtime?.profiles?.data ?? []
+  const activeAgents = data?.office ? data.office.active : 0
+  const totalAgents = profilesList.length || (data?.office ? data.office.declared : 0)
 
   const content = page === 'Agents' ? <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'}/> : page === 'Batcave' ? <Office dashboard={data} dashboardPending={dashboard.status === 'pending'} onNavigate={navigate}/> : page === 'Missions' ? <Missions onNavigate={navigate}/> : page === 'Usage' ? <Usage/>: page === 'Task Board' ? <TaskBoard/> : page === 'Calendar' ? <Calendar/> : page === 'Activity' ? <Activity/> : page === 'Memory' ? <Memory onOpenFolders={() => navigate('Folders')}/> : page === 'Folders' ? <Folders/> : page === 'Settings' ? <Settings access={access} onAccessChange={onAccessChange}/> : <Logs/>
 
@@ -83,7 +84,7 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
     <div className={`mo-app-container ${page === 'Batcave' ? 'mo-page-home' : 'mo-page-sub'}`}>
       <AppHeader
         currentPage={page}
-        activeCount={activeAgents.length}
+        activeCount={activeAgents}
         totalCount={totalAgents}
         onOpenPalette={() => setPaletteOpen(true)}
         onNavigateHome={() => navigate(HOME)}
@@ -105,7 +106,7 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         onNavigate={navigate}
-        agents={data?.runtime?.agents ? Object.entries(data.runtime.agents).map(([id, a]: [string, any]) => ({ id, name: a.name || id, state: a.state || 'Idle' })) : []}
+        agents={profilesList.map((p) => ({ id: p.name, name: p.name, state: p.gateway || 'Active' }))}
       />
     </div>
   )

@@ -106,6 +106,7 @@
     --dur: 0ms;
   }
 }
+:root {
   --c-0b0e0c: #0b0e0c;
   --c-101311: #101311;
   --c-111512: #111512;
@@ -2366,4 +2367,1027 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 @keyframes mo-diamond-bob {
   from { transform: translateX(-50%) translateY(0) rotate(45deg); }
   to { transform: translateX(-50%) translateY(-4px) rotate(45deg); }
+}
+
+
+/* ==========================================================================
+   MINIMAL OBSIDIAN: PAGE LAYOUTS & COMPONENTS
+   ========================================================================== */
+
+/* Common Filter & Toolbar Hairline */
+.mo-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+
+.mo-filter-tally {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.mo-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mo-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 0 10px;
+  height: 32px;
+}
+
+.mo-search-input {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  width: 180px;
+}
+
+.mo-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.mo-select-input {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  outline: none;
+}
+
+.mo-header-with-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.mo-section-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 16px 0;
+}
+
+/* 1. AGENTS PAGE */
+.mo-agent-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-agent-row-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  gap: 16px;
+  transition: background var(--dur) var(--ease);
+}
+
+.mo-agent-col-main {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mo-agent-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-agent-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mo-agent-kind {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.mo-agent-col-status {
+  flex: 1;
+}
+
+.mo-agent-col-model {
+  flex: 1.5;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.mo-agent-col-gateway {
+  flex: 1;
+}
+
+.mo-gateway-badge {
+  font-size: 11px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+}
+
+.mo-agent-col-action {
+  font-size: 18px;
+  color: var(--text-3);
+}
+
+/* 2. USAGE PAGE */
+.mo-metrics-top-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.mo-stat-card {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 20px;
+}
+
+.mo-chart-container {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 20px;
+  margin-bottom: 32px;
+}
+
+.mo-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.mo-chart-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.mo-chart-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(232, 182, 91, 0.15);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mo-line-chart-svg {
+  width: 100%;
+  height: 180px;
+  overflow: visible;
+}
+
+.mo-usage-table-section {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 20px;
+}
+
+.mo-model-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-model-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  gap: 16px;
+}
+
+.mo-model-name {
+  flex: 2;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mo-model-tokens {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-2);
+  text-align: right;
+}
+
+.mo-model-bar-track {
+  flex: 3;
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mo-model-bar-fill {
+  height: 100%;
+  background-color: var(--accent);
+  border-radius: 3px;
+}
+
+.mo-model-pct {
+  width: 48px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 3. TASK BOARD */
+.mo-kanban-board {
+  display: flex;
+  overflow-x: auto;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  min-height: 480px;
+}
+
+.mo-kanban-col {
+  flex: 1;
+  min-width: 240px;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-kanban-col:last-child {
+  border-right: none;
+}
+
+.mo-kanban-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.mo-col-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.mo-col-count {
+  font-size: 11px;
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: var(--r-pill);
+  color: var(--text-2);
+}
+
+.mo-kanban-col-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.mo-kanban-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+
+.mo-kanban-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.mo-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.mo-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.mo-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mo-priority-badge {
+  font-weight: 700;
+}
+
+.mo-card-assignee {
+  color: var(--text-2);
+}
+
+.mo-card-id {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.mo-col-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+/* 4. CALENDAR PAGE */
+.mo-next-run-banner {
+  margin-bottom: 28px;
+}
+
+.mo-agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.mo-agenda-day-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-agenda-day-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.mo-agenda-day-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--accent);
+}
+
+.mo-agenda-day-tally {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.mo-agenda-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-agenda-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  gap: 16px;
+}
+
+.mo-agenda-time {
+  width: 64px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mo-agenda-info {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mo-agenda-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mo-agenda-job-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.mo-agent-tag {
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--surface-1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.mo-agenda-cron-spec {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.mo-agenda-relative {
+  flex: 1.5;
+}
+
+.mo-relative-badge {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.mo-agenda-status {
+  width: 90px;
+  text-align: right;
+}
+
+/* 5. ACTIVITY STREAM */
+.mo-timeline-stream {
+  position: relative;
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-left: 10px;
+}
+
+.mo-timeline-node {
+  position: relative;
+}
+
+.mo-timeline-bullet {
+  position: absolute;
+  left: -25px;
+  top: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  border: 2px solid var(--bg);
+}
+
+.mo-timeline-content {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+}
+
+.mo-timeline-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.mo-timeline-time {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.mo-timeline-workspace {
+  font-size: 11px;
+}
+
+.mo-timeline-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.mo-timeline-preview {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.mo-timeline-id {
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+/* 6. MEMORY PAGE */
+.mo-memory-two-col {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  min-height: 520px;
+}
+
+.mo-memory-sidebar {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-memory-col-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+
+.mo-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mo-doc-item {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+
+.mo-doc-item:hover {
+  border-color: var(--line);
+}
+
+.mo-doc-item.active {
+  border-color: var(--accent);
+  background: rgba(232, 182, 91, 0.08);
+}
+
+.mo-doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.mo-doc-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mo-doc-size {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.mo-doc-desc {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.mo-memory-preview-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.mo-preview-filename {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px 0;
+}
+
+.mo-preview-meta {
+  font-size: 12px;
+}
+
+.mo-gauge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.mo-gauge-label {
+  font-size: 11px;
+  color: var(--text-3);
+  display: flex;
+  gap: 8px;
+}
+
+.mo-gauge-track {
+  width: 100%;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mo-gauge-bar {
+  height: 100%;
+  background-color: var(--st-working);
+  border-radius: 2px;
+}
+
+.mo-gauge-bar.warning {
+  background-color: var(--st-triage);
+}
+
+.mo-preview-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.mo-preview-content {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 7. FOLDERS SANDBOX */
+.mo-large-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+
+.mo-crumb-btn {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-size: inherit;
+  font-weight: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  transition: color var(--dur) var(--ease);
+}
+
+.mo-crumb-btn:hover {
+  color: var(--accent);
+}
+
+.mo-crumb-btn.current {
+  color: var(--text);
+}
+
+.mo-crumb-separator {
+  color: var(--text-3);
+}
+
+.mo-browser-panes {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+}
+
+.mo-file-list-pane {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px;
+}
+
+.mo-file-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-file-row-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+
+.mo-file-row-item:hover {
+  background: var(--surface-2);
+}
+
+.mo-file-row-item.active {
+  background: rgba(232, 182, 91, 0.12);
+  color: var(--accent);
+}
+
+.mo-file-icon {
+  font-size: 14px;
+}
+
+.mo-file-name {
+  flex: 1;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mo-file-size {
+  font-size: 11px;
+}
+
+.mo-file-viewer {
+  min-height: 440px;
+}
+
+.mo-file-head {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.mo-file-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.mo-file-meta {
+  font-size: 11px;
+}
+
+.mo-file-content {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 8. LOGS PAGE */
+.mo-logs-container {
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-log-viewer {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 600px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mo-log-line {
+  padding: 2px 0;
+}
+
+.mo-log-lvl-badge {
+  color: var(--text-3);
+  margin-right: 8px;
+}
+
+.mo-log-line.lvl-error {
+  color: var(--st-triage);
+}
+
+.mo-log-line.lvl-warning {
+  color: var(--st-deploying);
+}
+
+.mo-log-line.lvl-info {
+  color: var(--text-2);
+}
+
+.mo-log-line.lvl-debug {
+  color: var(--text-3);
+}
+
+.mo-error-dot {
+  color: var(--st-triage);
+  font-size: 8px;
+  margin-left: 4px;
+}
+
+/* 9. SETTINGS (NARROW MAX 640px) */
+.mo-settings-narrow-col {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.mo-settings-section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mo-section-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mo-section-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.mo-section-desc {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.mo-text-input {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  outline: none;
+  flex: 1;
+}
+
+.mo-code-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mo-button-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mo-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.mo-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.mo-form-error {
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.mo-notice-box {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 8px 0;
+}
+
+.mo-notice-box.good {
+  border-color: var(--st-working);
+  color: var(--st-working);
+}
+
+/* 10. LOCK SCREEN */
+.mo-lock-screen {
+  min-height: 100vh;
+  background-color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.mo-lock-container {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.mo-lock-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.mo-lock-heading {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px 0;
+}
+
+.mo-lock-subtitle {
+  font-size: 13px;
+  margin: 0 0 24px 0;
+}
+
+.mo-lock-field-row {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mo-lock-input {
+  flex: 1;
+  height: 40px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 0 14px;
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  letter-spacing: 0.1em;
+}
+
+.mo-lock-input:focus {
+  border-color: var(--accent);
+}
+
+.mo-lock-options {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.mo-btn-block {
+  width: 100%;
+}
+
+.mo-lock-footer {
+  font-size: 11px;
+  margin-top: 24px;
+}
+
+/* 11. MISSIONS PAGE */
+.mo-title-with-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
 }

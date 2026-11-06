@@ -11,12 +11,12 @@ import ThemeManor from '../scenes/ThemeManor.tsx'
 import { ManorCamera, type ManorCameraHandle } from '../scenes/manor/ManorCamera.tsx'
 import { useReducedMotion } from '../scenes/manor/hooks.ts'
 import { screenSlots, slotKinds } from '../scenes/manor/screens.ts'
-import { computeLayout, isDeckView, isManorView, QUALITY, type ManorView } from '../scenes/manor/ZoneLayout.ts'
+import { computeLayout, isDeckView, QUALITY, type ManorView } from '../scenes/manor/ZoneLayout.ts'
 import type { OfficeStation } from '../types.ts'
 import { idlePlan, isBriefing, placementFor, type Placement } from '../utils/layout/placements.ts'
 import { FrameReporter, QualityPicker } from './ManorQuality.tsx'
 import { useQuality } from './manorQuality.ts'
-import { remember, SLEEP_KEY, stored, UPPER_KEY, VIEW_KEY, VIEWS } from './manorViews.ts'
+import { remember, SLEEP_KEY, stored, UPPER_KEY, VIEW_KEY } from './manorViews.ts'
 import { SimsHud } from '../components/hud/SimsHud.tsx'
 import { AgentRadialMenu } from '../components/hud/AgentRadialMenu.tsx'
 
@@ -49,12 +49,12 @@ export default function ManorOffice3D({
 }) {
   const layout = useMemo(() => computeLayout(stations.length), [stations.length])
   const [view, setView] = useState<ManorView>(() => stored(VIEW_KEY, ['exterior', 'deck', 'hangar', 'manor', 'lobby', 'overview'] as const, 'deck'))
-  const [showUpper, setShowUpper] = useState(() => stored(UPPER_KEY, ['on', 'off'] as const, 'on') === 'on')
+  const [showUpper] = useState(() => stored(UPPER_KEY, ['on', 'off'] as const, 'on') === 'on')
   const [wallMode, setWallMode] = useState<'wallsUp' | 'cutaway' | 'wallsDown'>('cutaway')
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [radialMenu, setRadialMenu] = useState<{ station: OfficeStation; x: number; y: number } | null>(null)
-  const [sleep, setSleep] = useState(() => stored(SLEEP_KEY, ['on', 'off'] as const, 'off') === 'on')
-  const [panMode, setPanMode] = useState(false)
+  const [sleep] = useState(() => stored(SLEEP_KEY, ['on', 'off'] as const, 'off') === 'on')
+  const [panMode] = useState(false)
   const [keyTarget, setKeyTarget] = useState<HTMLElement | null>(null)
   const { quality, choice, setChoice, report } = useQuality()
   const camera = useRef<ManorCameraHandle>(null)
@@ -262,8 +262,8 @@ export default function ManorOffice3D({
             id: radialMenu.station.id,
             name: radialMenu.station.name,
             state: radialMenu.station.state,
-            task: radialMenu.station.task,
-            model: radialMenu.station.model,
+            task: radialMenu.station.currentTask,
+            model: radialMenu.station.role,
           }}
           x={radialMenu.x}
           y={radialMenu.y}
@@ -296,10 +296,8 @@ export default function ManorOffice3D({
         onSelectView={choose}
         onCycleLevel={cycleLevel}
         onSetWallMode={setWallMode}
-        onSnapRotate={(dir) => camera.current?.snapRotate(dir)}
-        onZoom={(dir) => {
-          // Trigger slight manual scroll / zoom adjustment
-        }}
+        onSnapRotate={(d) => camera.current?.snapRotate(d)}
+        onZoom={() => {}}
         onResetCamera={() => camera.current?.reset()}
         onFocusAgent={() => {
           if (selectedAgentId) {

@@ -1,106 +1,148 @@
 import { useState } from 'react'
 import { formatDateTime, formatNumber } from '../format.ts'
 import { usePolling } from '../polling.ts'
-import type { AgentMemory, MemoryDocument, MemorySnapshot, MemoryStore } from '../types.ts'
-import { EmptyState, LoadingState, PageTitle, SearchInput, SourceStatus, Unavailable } from '../ui.tsx'
-import { PixelCharacter } from './Office.tsx'
-import { PrivateGate, ProfileUnlock } from '../ProfileLock.tsx'
+import type { AgentMemory, MemorySnapshot } from '../types.ts'
 
-function DocumentBody({ document, empty }: { document?: MemoryDocument; empty: string }) {
-  if (!document || !document.exists) return <p className="muted">{empty}</p>
-  if (document.error) return <p className="file-notice locked">{document.error}</p>
-  return <>
-    <p className="doc-meta">{formatNumber(document.chars ?? 0)} chars · updated {formatDateTime(document.modified)}{document.redactions ? ` · ${document.redactions} line(s) redacted` : ''}{document.truncated ? ' · showing first 256 KB' : ''}</p>
-    <pre className="task-text doc-text">{document.content || <span className="muted">(empty file)</span>}</pre>
-  </>
-}
-
-function StoreCard({ title, subtitle, store, enabled, needle }: { title: string; subtitle: string; store?: MemoryStore; enabled: boolean; needle: string }) {
-  const percent = store?.percent ?? 0
-  const tone = percent >= 100 ? 'bad' : percent >= 80 ? 'unknown' : 'good'
-  const entries = (store?.entries ?? []).map((entry, index) => ({ entry, index })).filter(({ entry }) => !needle || entry.toLowerCase().includes(needle))
-  return <article className="card memory-card">
-    <header className="memory-card-head"><div><p className="eyebrow">{title}</p><h2>{subtitle}</h2></div>{!enabled && <span className="badge muted">disabled in config</span>}</header>
-    {!store || !store.exists ? <p className="muted">No entries yet. <code>{store?.path ?? 'memories/'}</code> is created when the agent first saves with the <code>memory</code> tool.</p>
-      : store.error ? <p className="file-notice locked">{store.error}</p>
-        : <>
-          <div className="usage" role="img" aria-label={`${title} usage ${percent}%`}><i className={`tone-${tone}`} style={{ width: `${Math.min(100, percent)}%` }}/></div>
-          <p className="doc-meta"><b>{percent}%</b> — {formatNumber(store.used)} / {formatNumber(store.limit)} chars · {store.entries.length} entr{store.entries.length === 1 ? 'y' : 'ies'} · updated {formatDateTime(store.modified)}</p>
-          {percent >= 80 && <p className="file-notice">Above 80% of the limit. Hermes rejects writes that would exceed it, so the agent will need to consolidate entries soon.</p>}
-          {entries.length === 0 ? <p className="muted">{needle ? 'No matching entries.' : 'The file is empty.'}</p> : <ol className="memory-entries">{entries.map(({ entry, index }) => <li key={index}><span className="entry-index">§{index + 1}</span><p>{entry}</p><small>{formatNumber(entry.length)} chars</small></li>)}</ol>}
-        </>}
-  </article>
-}
-
-function AgentPanel({ agent, onOpenFolders }: { agent: AgentMemory; onOpenFolders?: () => void }) {
-  const [query, setQuery] = useState('')
-  const [openContext, setOpenContext] = useState<string | undefined>()
-  const needle = query.trim().toLowerCase()
-  if (!agent.available) return <EmptyState title="Not available">{agent.reason ?? 'This agent folder is not available.'}</EmptyState>
-  const settings = agent.settings
-  return <div className="memory-panel">
-    <div className="toolbar">
-      {agent.kind === 'hermes' && <SearchInput value={query} onChange={setQuery} label="Search memory entries"/>}
-      <code className="folder-path">{agent.path}</code>
-      {onOpenFolders && <button type="button" className="refresh-button" onClick={onOpenFolders}>OPEN IN FOLDERS →</button>}
-    </div>
-    {settings && <div className="chip-row" aria-label="Memory settings">
-      <span className={`chip ${settings.memoryEnabled ? '' : 'chip-muted'}`}>memory {settings.memoryEnabled ? 'on' : 'off'}</span>
-      <span className={`chip ${settings.userProfileEnabled ? '' : 'chip-muted'}`}>user profile {settings.userProfileEnabled ? 'on' : 'off'}</span>
-      <span className={`chip ${settings.writeApproval ? 'chip-priority' : 'chip-muted'}`}>write approval {settings.writeApproval ? 'required' : 'off'}</span>
-      {settings.provider && <span className="chip chip-priority">external provider: {settings.provider}</span>}
-      <span className="chip chip-muted">limits from {settings.source}</span>
-    </div>}
-    {agent.kind === 'hermes' ? <>
-      <section className="memory-grid">
-        <StoreCard title="MEMORY.MD" subtitle="Agent notes" store={agent.memory} enabled={settings?.memoryEnabled ?? true} needle={needle}/>
-        <StoreCard title="USER.MD" subtitle="User profile" store={agent.user} enabled={settings?.userProfileEnabled ?? true} needle={needle}/>
-      </section>
-      <article className="card memory-soul">
-        <header className="memory-card-head"><div><p className="eyebrow">SOUL.MD · IDENTITY (SYSTEM PROMPT SLOT #1)</p><h2>Who this agent is</h2></div></header>
-        <DocumentBody document={agent.soul} empty="No SOUL.md in this profile. Hermes seeds a default one; the agent uses the built-in identity until then."/>
-      </article>
-    </> : <p className="card-note">OpenCode is not a Hermes profile, so it has no MEMORY.md / USER.md. Its global rules files are shown below.</p>}
-    <article className="card memory-soul">
-      <header className="memory-card-head"><div><p className="eyebrow">CONTEXT FILES</p><h2>{agent.kind === 'hermes' ? 'AGENTS.md, HERMES.md, CLAUDE.md…' : 'Global rules'}</h2></div></header>
-      {agent.contextFiles.length === 0 ? <p className="muted">No context files in this folder. Project context files (AGENTS.md, .hermes.md) usually live in the project being worked on, not in the profile.</p>
-        : <ul className="context-list">{agent.contextFiles.map((document) => <li key={document.path}>
-          <button type="button" className="file-row" aria-expanded={openContext === document.path} onClick={() => setOpenContext(openContext === document.path ? undefined : document.path)}><span className="file-icon" aria-hidden="true">📄</span><span className="file-name">{document.name}</span><span className="file-size">{formatNumber(document.chars ?? 0)} chars</span></button>
-          {openContext === document.path && <DocumentBody document={document} empty=""/>}
-        </li>)}</ul>}
-    </article>
-  </div>
-}
-
-/** One agent's memory (SOUL.md, MEMORY.md, USER.md, context files), for the Office agent dialog. */
-export function AgentMemoryView({ profile }: { profile: string }) {
+export function AgentMemoryView({ profile }: { profile: string; onOpenFolders?: () => void }) {
   const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
   const agent = snapshot.status === 'ready' ? snapshot.data.agents.find((item) => item.profile === profile) : undefined
-  if (snapshot.status === 'pending') return <LoadingState message="Reading agent memory..."/>
-  if (snapshot.status === 'failed') return <EmptyState title="Not Available">{snapshot.message ?? 'Memory could not be read.'}</EmptyState>
-  if (!agent) return <EmptyState title="Not available">No memory was found for this agent.</EmptyState>
-  return <PrivateGate agent={agent.profile} compact>{agent.locked ? <ProfileUnlock agent={agent.profile} compact/> : <AgentPanel key={agent.profile} agent={agent}/>}</PrivateGate>
+  if (snapshot.status === 'pending') return <div className="mo-panel text-muted">Memuat memory agent...</div>
+  if (!agent) return <div className="mo-panel text-muted">Agent memory tidak tersedia.</div>
+  return (
+    <div className="mo-panel">
+      <h3 className="mo-section-heading">{agent.label} ({agent.profile})</h3>
+      <div className="text-muted font-mono" style={{ marginBottom: 12 }}>{agent.path}</div>
+      <div className="mo-preview-body">
+        <pre className="mo-preview-content font-mono">
+          {agent.soul?.content || agent.memory?.path || '(Tidak ada memory yang tercatat)'}
+        </pre>
+      </div>
+    </div>
+  )
 }
 
 export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
   const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
   const data = snapshot.status === 'ready' ? snapshot.data : undefined
-  const [selected, setSelected] = useState<string | undefined>()
   const agents = data?.agents ?? []
-  const agent = agents.find((item) => item.profile === selected) ?? agents.find((item) => item.available) ?? agents[0]
-  const source = data ? { availability: 'available' as const, data: null } : undefined
-  return <><PageTitle eyebrow="MEMORY & KNOWLEDGE" title="Memory">What each agent carries into every session: its identity (SOUL.md), its bounded memory (MEMORY.md and USER.md, injected as a frozen snapshot at session start) and its context files. Read-only; secrets are redacted.</PageTitle>
-    <SourceStatus source={source} fetchedAt={data?.fetchedAt} request={snapshot}/>
-    <Unavailable source={source} request={snapshot}/>
-    {snapshot.status === 'pending' ? <LoadingState message="Reading agent memory..."/> : agent && <>
-      <div className="memory-tabs" role="tablist" aria-label="Agents">{agents.map((item) => {
-        const peak = Math.max(item.memory?.percent ?? 0, item.user?.percent ?? 0)
-        return <button key={item.profile} role="tab" aria-selected={item.profile === agent.profile} className={`memory-tab${item.profile === agent.profile ? ' active' : ''}`} onClick={() => setSelected(item.profile)} disabled={!item.available && !item.locked}>
-          <span className="folder-glyph small" aria-hidden="true"><PixelCharacter agent={item.profile}/></span>
-          <span><strong>{item.locked ? '🔒 ' : ''}{item.label}</strong><small>{!item.available ? item.reason ?? 'not available' : item.kind === 'opencode' ? `${item.contextFiles.length} rules file(s)` : `${(item.memory?.entries.length ?? 0) + (item.user?.entries.length ?? 0)} entries · ${peak}% peak`}</small></span>
-        </button>
-      })}</div>
-      <PrivateGate agent={agent.profile}>{agent.locked ? <ProfileUnlock agent={agent.profile}/> : <AgentPanel key={agent.profile} agent={agent} onOpenFolders={onOpenFolders}/>}</PrivateGate>
-    </>}
-  </>
+  const [selectedAgentIndex, setSelectedAgentIndex] = useState(0)
+  const [selectedDoc, setSelectedDoc] = useState<'soul' | 'memory' | 'user'>('soul')
+
+  const currentAgent: AgentMemory | undefined = agents[selectedAgentIndex]
+
+  const docs = [
+    { id: 'soul', name: 'SOUL.md', desc: 'Identitas & System Prompt', doc: currentAgent?.soul },
+    { id: 'memory', name: 'MEMORY.md', desc: 'Catatan Persisten Agent', doc: currentAgent?.memory as any },
+    { id: 'user', name: 'USER.md', desc: 'Profil Pengguna', doc: currentAgent?.user as any },
+  ] as const
+
+  const activeDocObj = docs.find((d) => d.id === selectedDoc)
+  const activeDoc = activeDocObj?.doc
+
+  // Gauge calculation (thin 4px bar)
+  const charLimit = (activeDoc as any)?.limit || 12000
+  const charUsed = (activeDoc as any)?.used || (activeDoc as any)?.chars || 0
+  const pct = Math.min(100, Math.round((charUsed / charLimit) * 100))
+
+  return (
+    <div className="mo-page-memory">
+      <header className="mo-page-header">
+        <div className="mo-header-with-actions">
+          <div>
+            <h1 className="mo-page-title">Memory & Persona</h1>
+            <p className="mo-page-description">
+              Inspeksi berkas identitas <code>SOUL.md</code> dan memori jangka panjang per agent.
+            </p>
+          </div>
+
+          {onOpenFolders && (
+            <button type="button" className="mo-btn mo-btn-ghost mo-btn-sm" onClick={onOpenFolders}>
+              Buka di Folders ›
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Agent Selector Bar */}
+      {agents.length > 1 && (
+        <div className="mo-filter-bar">
+          <div className="mo-agent-pills">
+            {agents.map((agent, idx) => (
+              <button
+                key={agent.profile}
+                type="button"
+                className={`mo-agent-pill-btn ${idx === selectedAgentIndex ? 'active' : ''}`}
+                onClick={() => setSelectedAgentIndex(idx)}
+              >
+                {agent.label || agent.profile}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2-Column Layout: Left = Files, Right = Preview */}
+      <div className="mo-memory-two-col">
+        {/* Left Column: Files */}
+        <div className="mo-memory-sidebar">
+          <div className="mo-memory-col-title">BERKAS MEMORI ({docs.length})</div>
+          <div className="mo-doc-list">
+            {docs.map((item) => {
+              const isSelected = selectedDoc === item.id
+              const chars = (item.doc as any)?.chars ?? (item.doc as any)?.used ?? 0
+
+              return (
+                <div
+                  key={item.id}
+                  className={`mo-doc-item ${isSelected ? 'active' : ''}`}
+                  onClick={() => setSelectedDoc(item.id)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="mo-doc-head">
+                    <span className="mo-doc-name font-mono">{item.name}</span>
+                    <span className="mo-doc-size font-mono">{formatNumber(chars)} chars</span>
+                  </div>
+                  <div className="mo-doc-desc">{item.desc}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Right Column: Preview & 4px Gauge */}
+        <div className="mo-memory-preview-panel mo-panel">
+          <div className="mo-preview-header">
+            <div>
+              <h2 className="mo-preview-filename font-mono">{activeDocObj?.name}</h2>
+              <div className="mo-preview-meta text-muted">
+                {activeDoc?.modified ? `Diperbarui: ${formatDateTime(activeDoc.modified)}` : 'Berkas aktif'}
+              </div>
+            </div>
+
+            <div className="mo-gauge-container">
+              <div className="mo-gauge-label">
+                <span>KAPASITAS KARAKTER</span>
+                <span className="font-mono">{formatNumber(charUsed)} / {formatNumber(charLimit)} ({pct}%)</span>
+              </div>
+              <div className="mo-gauge-track">
+                <div
+                  className={`mo-gauge-bar ${pct > 80 ? 'warning' : ''}`}
+                  style={{ width: `${Math.max(2, pct)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mo-preview-body">
+            <pre className="mo-preview-content font-mono">
+              {(activeDoc as any)?.content || (
+                <span className="text-muted">(Tidak ada konten teks atau berkas belum diisi)</span>
+              )}
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
