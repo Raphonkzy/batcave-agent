@@ -10,6 +10,29 @@
 | **WP-05** | dick | Wave 3 Sims-Like 3D HUD & Controls | W3 | **DONE** | 3-cluster bottom HUD, 5-slot radial menu, diamond marker, Q/E 90° snap, 3 wall modes, 3/3 HUD tests passing |
 | **WP-06** | barbara | Wave 4 Full 11-Route Overhaul & 2D Fallback | W4 | **DONE** | All 11 routes redesigned with hair-line rows & big numbers; Gate HARUS BERBEDA passed (11/11 routes diff >= 35%) |
 | **WP-07** | jason | Wave 5 Full Verification, Quality Gates & Delivery | W5 | **DONE** | 36 test files (309 tests) 100% green, production build 2.04s, merged to `development`, tagged `gate-5-pass` |
+| **WP-08** | team | Wave 6 Batcave Manor ala Simulasi Rumah (3-Level, Persistent SideNav, Procedural Roof, Lot HUD, Agent Interaction) | W6 | **DONE** | Persistent 11-route SideNav (ADR-005), 3-level elevator & wall modes, procedural hip/gable roof (<= 4 draw calls), 3-cluster Lot HUD, 3D plumbob marker, dynamic follow camera, all 36 test files passing, build 2.93s clean |
+
+---
+
+## Quality Gate Summary: Gate 6 (G6) - PASS
+1. **Yang Dikerjakan**:
+   - **Phase 1 (Shell & Persistent SideNav)**: Replaced obsolete bottom dock with persistent 11-route `SideNav.tsx` in Minimal Obsidian style (224px open / 64px rail, mobile drawer with `.mo-nav-toggle`, ADR-005 in `DECISIONS.md`).
+   - **Phase 2 (Full Canvas & Safe Area Contract)**: Removed old `.office-3d` fixed aspect-ratio / thick border CSS collisions. Single-layer `.mo-stage-overlay` (stat chips top-left, toolbar top-right, bottom HUD). Injected `--hud-bottom` via `ResizeObserver` on `.mo-lot-hud` into `ManorCamera` goal margins (with 8% margin).
+   - **Phase 3 (3 Levels & Working Wall Modes & Procedural Roof)**: Implemented 3 levels (`upper` / Lantai 2, `ground` / Grand Manor, `deck` / Command Deck) with stored level migration in `manorViews.ts`. Dynamic wall modes: `wallsUp` (full height + roof), `cutaway` (facing walls down to 1.0m), and `wallsDown` (0.3m low curb). Created procedural hip/gable roof in `Roof.tsx` with slate shingles, copper ridge caps, and stone chimney over hearth, merged into <= 4 draw calls, only visible when `level === 'upper' && wallMode === 'wallsUp'`.
+   - **Phase 4 (Simulation Lot HUD)**: Built `LotHud.tsx` (`.mo-lot-hud`) with left cluster (agent panel, summary, and roster strip), center cluster (3-level vertical elevator lift buttons + wall mode segmented control), and right cluster (snap Q/E, zoom +/-, reset R, focus F, zone focus popover).
+   - **Phase 5 (Agent Interaction)**: Raycast hover outline/tooltip, single click selects agent (displays 3D diamond plumbob marker via `Plumbob.tsx`, 5-slot radial menu, and left HUD cluster without directly popping the modal detail dialog). Double click toggles follow mode (`useFrame` camera tracking agent every frame). Cross-page client-side agent filter on Missions (`#/missions?agent=<id>`) and Logs (`#/logs?agent=<id>`).
+   - **Phase 6 & 7 (Page Polish & Verification)**: Verified all 11 routes responsive without horizontal scroll. Invariant guard 100% green, Gate HARUS BERBEDA 100% green, originality test 100% green, draw calls <= 150, build 2.93s clean.
+2. **File Diubah / Ditambah**:
+   - Created: `src/components/shell/SideNav.tsx`, `src/components/hud/LotHud.tsx`, `src/scenes/manor/Roof.tsx`, `src/scenes/manor/Plumbob.tsx`
+   - Deleted: `src/components/shell/BottomDock.tsx`, `src/components/hud/SimsHud.tsx`
+   - Modified: `src/App.tsx`, `src/components/shell/AppHeader.tsx`, `src/components/ui/Primitives.tsx`, `src/pages/Office.tsx`, `src/pages/ManorOffice3D.tsx`, `src/pages/Missions.tsx`, `src/pages/Logs.tsx`, `src/pages/Memory.tsx`, `src/pages/manorViews.ts`, `src/scenes/ThemeManor.tsx`, `src/scenes/manor/SurfaceManor.tsx`, `src/scenes/manor/ZoneLayout.ts`, `src/scenes/manor/ManorCamera.tsx`, `src/styles.css`, `tests/sims-hud.test.ts`, `scripts/verify/verify-harus-berbeda.ts`, `docs/batcave-redesign/DECISIONS.md`, `docs/batcave-redesign/DESIGN_BRIEF.md`, `docs/theme-manor.md`, `docs/theme-manor-plan.md`, `docs/batcave-redesign/STATUS.md`, `MANUAL_VERIFY.md`.
+3. **Hasil Verifikasi**:
+   - Total Test Suite: 36 test files / 309 tests 100% passing (`npm test -- --run`).
+   - Invariant Guard: `scripts/verify/guard-invariants.ts` 100% green.
+   - Gate HARUS BERBEDA: 11/11 routes passing.
+   - Originality Test: `src/originality.test.ts` passing.
+   - Lint: `npm run lint` 0 errors.
+   - Production Build: `npm run build` clean in 2.93s.
 
 ---
 

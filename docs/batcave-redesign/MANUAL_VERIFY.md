@@ -1,6 +1,6 @@
-# Batcave v2 - Manual Verification Runbook (MANUAL_VERIFY.md)
+# Batcave Tactical Manor - Manual Verification Runbook (MANUAL_VERIFY.md)
 
-This runbook outlines manual verification procedures for visual, interactive, and functional inspection.
+This runbook outlines manual verification procedures for visual, interactive, and functional inspection of the 3-level Simulation Manor, Lot HUD, Persistent SideNav, and Agent Interactions.
 
 ## 1. Local Server Launch
 ```bash
@@ -9,29 +9,46 @@ npm run dev
 ```
 Access URL: `http://localhost:5173`
 
-## 2. 3D Camera Presets Verification
-Navigate to `http://localhost:5173/?mockAgents=12#/batcave`
-Test all 6 camera presets in the camera toolbar:
-1. **Exterior** (New): High angle view of Wayne Manor exterior grounds, front lawn, gated perimeter, and driveway.
-2. **Grand Manor**: Upper mezzanine level cutaway showing executive suites, library, and terrace pool.
-3. **Manor Lobby**: Ground level showing the grand reception, central fireplace, chesterfield seating, and twin bifurcated staircases.
-4. **Command Deck**: Subterranean level showing operations war room, monitors, and Batcomputer console.
-5. **Hangar Bay**: Vehicle staging area showcasing the tactical fleet.
-6. **Full Overview**: Complete vertical cutaway showing both surface estate and subterranean cavern with waterfall.
+## 2. Persistent Side Navigation (ADR-005)
+1. Verify `SideNav` is present and persistent across all 11 routes (`/office`, `/agents`, `/missions`, `/tasks`, `/calendar`, `/usage`, `/activity`, `/memory`, `/folders`, `/logs`, `/settings`).
+2. Collapse/expand button toggles between 224px (expanded labels) and 64px (compact icon rail).
+3. On viewport widths < 900px, verify SideNav transforms into an accessible off-canvas drawer controlled by `.mo-nav-toggle` in the header.
 
-## 3. The Sims Navigation Verification
-- **Level Switching**: Use `[` and `]` or PageUp/PageDown to cycle levels.
-- **Wall Cutaway Modes**: Toggle between Walls Up, Cutaway, and Walls Down.
-- **Rotation Snapping**: Press `Q` and `E` to snap rotate 90 degrees smoothly.
-- **Follow Cam**: Click on an agent tag or press `F` to focus and follow the agent. Press `Esc` to release.
+## 3. 3-Level Elevator & Wall Modes
+Navigate to `http://localhost:5173/?mockAgents=12#/office`
+1. **Level Switching**:
+   - Test elevator buttons in center HUD cluster: **Lantai 2** (`upper`), **Grand Manor** (`ground`), **Command Deck** (`deck`).
+   - Test elevator shortcut keys: `[` / `PageUp` (Naik) and `]` / `PageDown` (Turun).
+   - Badge counts on buttons reflect actual agents stationed on each floor.
+2. **Procedural Roof & Exterior Visibility**:
+   - On **Lantai 2** with Wall Mode **Up** (`1`): Verify procedural slate shingle roof renders with stone chimney over hearth and copper ridge caps.
+   - Switch to **Cutaway** (`2`): Verify roof is hidden and south/east facing walls drop to 1.0m to expose the upper suites.
+   - Switch to **Down** (`3`): Verify all walls drop to 0.3m low curb exposing floorplan.
+3. **Grand Manor & Command Deck**:
+   - Grand Manor displays foyer reception, hearth lounge, billiards, spa, dining, and pool terrace.
+   - Command Deck displays operations war room, monitors, suit vault, armory, and vehicle fleet in hangar bay.
 
-## 4. Missions Page Verification
-Navigate to `http://localhost:5173/#/missions`
-- Verify 3 tabs: **Swimlane**, **List**, **Flow**.
-- Confirm task cards display task title, priority badge, and assigned agent.
-- Confirm unassigned tasks are cleanly partitioned in the `Unassigned` lane with zero fabricated attribution.
-- Confirm "Locate in 3D" button navigates to the Batcave 3D scene and centers camera on the assigned agent.
+## 4. Agent Interaction & Follow Camera
+1. **Hover**: Moving pointer over an agent in 3D highlights the agent with a cursor pointer and displays name + status tooltip.
+2. **Single Click**:
+   - Click agent mesh or 2D label: 3D rotating diamond marker (plumbob) appears overhead matching agent state color (`--st-*`).
+   - 5-slot radial menu opens at click location (Inspect, Follow, Locate, Missions, Logs).
+   - Left HUD cluster updates with agent summary and quick action buttons (without popping modal detail directly).
+3. **Double Click / Follow**:
+   - Double click agent mesh or click "Follow": camera smoothly tracks agent movement across frames (`useFrame`).
+   - Press `Esc` or click ground (`onPointerMissed`) to release follow mode and clear selection.
+4. **Roster Strip**:
+   - Click any agent avatar in the top roster strip: immediately selects agent, auto-switches floor level if on another level, and centers camera.
+5. **Cross-Page Filter**:
+   - Clicking "Missions" or "Logs" from radial menu or HUD navigates to `#/missions?agent=<id>` or `#/logs?agent=<id>`, filtering data client-side.
 
-## 5. 2D Pixel Fallback Verification
-Open `http://localhost:5173/#/batcave` in a browser or environment with WebGL disabled (or via dev parameter).
-- Verify 2D room layouts render with updated Gilroy typography and consistent Batcave dark tactical palette.
+## 5. Camera & Safe-Area Verification
+1. **Snap Yaw**: Press `Q` and `E` to rotate view in 90-degree steps.
+2. **Zoom**: Press `+` and `-` to step zoom.
+3. **Reset**: Press `R` to return to default view.
+4. **Safe Area**: Verify bottom HUD never overlaps building geometry or agent selection due to dynamic `--hud-bottom` margin calculations.
+
+## 6. Responsive Layouts & Performance
+1. Test responsive viewports: 390px, 768px, 1280px, 1920px without horizontal scroll.
+2. Verify draw calls stay strictly $\le 150$ on Medium (accessible via `window.__batcaveRenderStats.calls`).
+3. Verify exactly 6 lights in scene (`window.__batcaveRenderStats.lights === 6`).

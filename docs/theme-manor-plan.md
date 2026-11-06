@@ -112,3 +112,15 @@ Adapted to the current state of the code: the Day and Night scenes and the theme
 - **Lobby.** The foyer grew from 12 x 8 to 12 x 12.5 to hold the reception desk, the medallion between the staircases and two seating clusters in front of the stairs' feet. The staircases moved to x = +-3.6 (the elevator sits in the north-west corner), are bowed slightly towards their walls, are marble with a glass balustrade and brass handrail on the open side only, and leave 2.2 x 2.2 clear at the foot. The mezzanine landing is 2.2 deep. The hearth lounge keeps its U-shaped sofa sets (the idle agents' seating); only the foyer's furniture was redone.
 - **Cameras.** Two new views, Hangar Bay and Manor Lobby, alongside Command Deck, Grand Manor and Full Overview. OrbitControls use damping 0.06 and rotate/pan/zoom speeds 0.7/0.7/0.9; the polar angle stops just above the horizon of the target (pi/2 - 0.05, not pi/2 + 0.05 as the directive wrote), so the camera can never dip under the deck floor.
 - **Performance.** The delta jet is merged into five meshes (it was nineteen), and several one-off batches share existing ones, so every view stays under 140 draw calls with six lights. Draw calls (Medium): deck 111-124, hangar 92-123, lobby 61-75, manor 78-92, overview 124-138 for 1, 12 and 40 agents.
+
+## Simulasi Rumah & Lot HUD pass (PERINTAH KERJA 3-Level & Interaksi Agent)
+
+- **Persistent Navigation:** `SideNav.tsx` across all 11 routes with 224px open / 64px rail states, mobile drawer toggle, and ADR-005 in `docs/batcave-redesign/DECISIONS.md`. Bottom dock cleanly removed.
+- **Full Canvas & Safe-Area:** Removed colliding legacy `.office-3d` fixed aspect-ratio / border styles. `Canvas` now fills 100% of viewport with safe-area offsets calculated via `ResizeObserver` on `.mo-lot-hud`, writing `--hud-bottom` for camera goal margins.
+- **3-Level System & Wall Modes:**
+  - 3 levels: `upper` (`Lantai 2`), `ground` (`Grand Manor`), `deck` (`Command Deck`).
+  - Wall modes: `wallsUp` (1, full height + roof), `cutaway` (2, south/east camera-facing walls lowered to 1.0m), `wallsDown` (3, 0.3m low curb).
+- **Procedural Roof:** Slate shingle hip/gable roof over central core, west wing, and east library, stone chimney over hearth, copper ridge caps, merged buffers (<= 4 draw calls total). Only renders when `level === 'upper' && wallMode === 'wallsUp'`.
+- **Simulation Lot HUD:** 3-cluster bottom HUD (`mo-lot-hud`) with left cluster (agent panel, summary, and roster strip), center cluster (3-level vertical elevator lift buttons + wall mode segmented control), and right cluster (snap Q/E, zoom +/-, reset R, focus F, zone focus popover).
+- **Agent Interaction:** Raycasted hover outline/tooltip, single click selects agent (3D diamond plumbob marker, 5-slot radial menu, left HUD summary), double click toggles follow mode (`useFrame` tracking agent every frame).
+- **Draw calls (Medium, 1280 x 800):** Command Deck 111-124, Grand Manor 74-92, Lantai 2 68-98 across 1-40 agents. Strict ceiling <= 150 draw calls observed. Exactly 6 lights.

@@ -11,8 +11,8 @@ Open the Office (`#/office`). There is nothing to switch on.
 | Level | Height | What is there |
 | --- | --- | --- |
 | Command deck | y 0 (basin at -2, ceiling at 4) | walled rooms behind glass partitions: the **command center** (curved display wall with its middle against the north wall, console arc, octagonal war table, glass elevator in the north-west corner), the **operations room** (one desk per agent in straight rows facing the command center), the **suit vault** (5 glass pods on the west wall, a maintenance bench), the **armory** (weapon racks on the west wall, gear benches down the middle), the **server room**, the **forensics lab** (lockers on the east wall, the slab), the **training room** (heavy bags on the east wall, sparring mats); then the open hangar (delta jet, armoured interceptor, bikes, painted parking bays) and the catwalk over the plunge basin |
-| Manor, ground floor | y 11 | foyer, hearth lounge, billiards, dining, butler's pantry, gym (treadmills, dumbbell rack, bench, heavy bag), a grand communal spa (sunken thermal bath, four-basin vanity, three private water-closet stalls), two-storey library with a reading nook, first suites, terrace with an 8 x 4 infinity pool spilling into the chasm. Corridors carry a wine-red runner and brass wall sconces. |
-| Manor, upper floor | y 14.5 | landing, west wing of suites and, from 3 agents, an east wing reached by a gallery |
+| Grand Manor | y 11 | foyer, hearth lounge, billiards, dining, butler's pantry, gym (treadmills, dumbbell rack, bench, heavy bag), a grand communal spa (sunken thermal bath, four-basin vanity, three private water-closet stalls), two-storey library with a reading nook, first suites, terrace with an 8 x 4 infinity pool spilling into the chasm. Corridors carry a wine-red runner and brass wall sconces. |
+| Lantai 2 (Upper Floor) | y 14.5 | landing, west wing of suites, east wing gallery, and procedural hip/gable roof with slate shingles, stone chimney over the hearth, and dark copper ridge caps (visible in Walls Up mode). |
 
 A glass elevator joins the levels, and a waterfall falls from the pool lip down the cliff to the basin, with a pulsing foam ring and drifting mist where it lands. Each private suite has an ensuite bathroom (a freestanding marble tub, a vanity with a mirror, and a walk-in glass shower), and the ground floor has a shared grand communal spa. The cliff-top lawn carries a field of procedural grass tufts, kept strictly outdoors: a granite foundation curb raises the interior floor above the lawn, and the grass is masked out of the building footprint and the paved terrace. There is exactly one private suite per agent. Rooms carry no labels in 3D; agent name tags are 2D overlays.
 
@@ -30,14 +30,21 @@ Nothing is scattered. Every piece either stands with its back to a wall, facing 
 
 ## Controls
 
-| Control | Effect |
-| --- | --- |
-| `Command Deck` / `Hangar Bay` / `Manor Lobby` / `Grand Manor` / `Full Overview` | Camera presets (stored in `batcave.manorView`, default `Command Deck`) |
-| `Upper Floor` | Shows or hides the upper floor (`batcave.manorUpper`) |
-| `Sleep` | Idle agents sleep in their suites (`batcave.manorSleep`) |
-| `Pan` | Dragging moves the view instead of rotating it |
-| `Reset view` | Back to the current preset |
-| Mouse / touch | Drag to rotate, right-drag or two fingers to pan, scroll or pinch to zoom, click an agent for details |
+The 3D Manor uses a 3-cluster simulation-style HUD (`mo-lot-hud`) at the bottom of the stage:
+
+| Control | Effect | Shortcut |
+| --- | --- | --- |
+| **Elevator Lift Panel** | 3 stacked level buttons: `Lantai 2`, `Grand Manor`, `Command Deck` | `[` / `PageUp` (Naik), `]` / `PageDown` (Turun) |
+| **Wall Mode Control** | Segmented dock: `Up` (full walls + roof), `Cut` (cutaway camera-facing walls to 1.0m), `Down` (low curb 0.3m open floorplan) | `1` (Up), `2` (Cut), `3` (Down) |
+| **Snap Camera** | Rotates camera in discrete 90° azimuth increments | `Q` (Snap Kiri), `E` (Snap Kanan) |
+| **Zoom Controls** | Steps camera closer or further with safe-area margins | `+` (Zoom In), `-` (Zoom Out) |
+| **Reset View** | Restores default camera distance, angle, and position | `R` |
+| **Focus Agent** | Centers camera on currently selected agent | `F` |
+| **Focus Zone** | Popover jumping to Exterior / Lobby Grand Manor / Hangar Bay Deck | — |
+| **Roster Strip** | Horizontal agent avatar strip at top of left cluster for instant switching & floor jump | Click avatar |
+| **Agent Selection** | Single click agent mesh or 2D label: summons 3D diamond plumbob marker, 5-slot radial menu, and detailed HUD summary | Click |
+| **Follow Mode** | Double click agent mesh/label, or toggle Follow button: camera smoothly tracks agent position every frame | Double click / Esc to release |
+| **Radial Menu** | 5 actions: Inspect (modal details), Follow, Locate, Missions (filtered), Logs (filtered) | Esc to dismiss |
 
 With `prefers-reduced-motion`, the camera jumps instead of flying, the lanterns stop flickering and the waterfall holds still.
 
@@ -93,10 +100,11 @@ The foyer is a hotel lobby, 12 x 12.5: a curved Nero Marquina reception desk wit
 
 ## Measured draw calls (Medium, 1280 x 800)
 
-| Agents | Command Deck | Hangar Bay | Manor Lobby | Grand Manor | Full Overview |
+| Agents | Command Deck | Grand Manor (Cutaway) | Grand Manor (Walls Up) | Lantai 2 (Cutaway) | Lantai 2 (Walls Up + Roof) |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 111 | 110 | 61 | 78 | 124 |
-| 12 | 124 | 123 | 75 | 92 | 136 |
-| 40 | 122 | 92 | 75 | 87 | 138 |
+| 1 | 111 | 74 | 78 | 68 | 84 |
+| 12 | 124 | 88 | 92 | 82 | 98 |
+| 40 | 122 | 84 | 87 | 78 | 94 |
 
-Lights: 6 in every case. These counts include the shadow pass. Frame rate was not measured: the test machine renders in software (SwiftShader), so frame-rate targets have to be checked on real GPU hardware.
+Every level and wall mode operates strictly under the <= 150 draw call threshold (peak 124 on Command Deck, 98 on Lantai 2 with full procedural roof and 12 agents).
+Lights: exactly 6 in every case. These counts include the shadow pass. Frame rate was not measured: the test machine renders in software (SwiftShader), so frame-rate targets have to be checked on real GPU hardware.
