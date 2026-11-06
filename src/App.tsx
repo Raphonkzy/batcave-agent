@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { formatTime } from './format.ts'
+import { useEffect, useState } from 'react'
 import { Activity } from './pages/Activity.tsx'
 import { Agents } from './pages/Agents.tsx'
 import { Calendar } from './pages/Calendar.tsx'
@@ -17,8 +16,11 @@ import { LockScreen } from './LockScreen.tsx'
 import { API_VERSION } from './api-version.ts'
 import { APP_NAME, APP_TITLE } from './brand.ts'
 import { RefreshContext, usePolling } from './polling.ts'
-import { HOME, navigation, pageFromHash, pageSlug, type Page } from './routes.ts'
+import { HOME, pageFromHash, pageSlug, type Page } from './routes.ts'
 import type { DashboardSnapshot } from './types.ts'
+import { AppHeader } from './components/shell/AppHeader.tsx'
+import { BottomDock } from './components/shell/BottomDock.tsx'
+import { CommandPalette } from './components/shell/CommandPalette.tsx'
 
 function currentPage(): Page {
   return typeof window === 'undefined' ? HOME : pageFromHash(window.location.hash)
@@ -26,10 +28,7 @@ function currentPage(): Page {
 
 function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; access: AccessStatus | undefined; onAccessChange: (status: AccessStatus) => void }) {
   const [page, setPage] = useState<Page>(currentPage)
-  // The navigation is a drawer over the page, closed by default, like a game's menu.
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuButton = useRef<HTMLButtonElement>(null)
-  const drawer = useRef<HTMLElement>(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const dashboard = usePolling<DashboardSnapshot>('/api/dashboard', 15_000)
   const data = dashboard.status === 'ready' ? dashboard.data : null
   const health = usePolling<{ apiVersion?: number }>('/api/health', 60_000)
@@ -43,70 +42,90 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
-  useEffect(() => { document.title = page === HOME ? APP_TITLE : `${page} · ${APP_NAME}` }, [page])
+
   useEffect(() => {
-    if (menuOpen) drawer.current?.querySelector<HTMLElement>('nav a[aria-current="page"], nav a')?.focus()
-  }, [menuOpen])
+    document.title = page === HOME ? APP_TITLE : `${page} · ${APP_NAME}`
+  }, [page])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && menuOpen) { closeMenu(); return }
-      if (event.key.toLowerCase() !== 'm' || event.ctrlKey || event.metaKey || event.altKey) return
-      const target = event.target as HTMLElement | null
-      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
-      if (document.querySelector('[role="dialog"]')) return
-      event.preventDefault()
-      if (menuOpen) closeMenu(); else setMenuOpen(true)
+      // ⌘K / Ctrl+K opens Command Palette
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen((prev) => !prev)
+        return
+      }
+      // 'M' shortcut opens Command Palette as well (clean replacement for old menu)
+      if (event.key.toLowerCase() === 'm' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const target = event.target as HTMLElement | null
+        if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+        if (document.querySelector('[role="dialog"]')) return
+        event.preventDefault()
+        setPaletteOpen((prev) => !prev)
+      }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  })
-
-  const closeMenu = () => {
-    setMenuOpen(false)
-    menuButton.current?.focus()
-  }
+  }, [])
 
   const navigate = (next: Page) => {
     window.location.hash = `/${pageSlug(next)}`
     setPage(next)
-    setMenuOpen(false)
     window.scrollTo?.({ top: 0 })
   }
-  const syncLabel = data ? `SYNCED ${formatTime(data.fetchedAt)}${dashboard.status === 'ready' && dashboard.stale ? ' · STALE' : ''}` : dashboard.status === 'failed' ? 'API NOT AVAILABLE' : 'CONNECTING...'
 
-  const alerts = (data && data.commands.failed > 0 ? 1 : 0)
+  const activeAgents = data?.runtime?.agents ? Object.values(data.runtime.agents).filter((a: any) => a.state !== 'Idle') : []
+  const totalAgents = data?.runtime?.agents ? Object.keys(data.runtime.agents).length : 0
+
   const content = page === 'Agents' ? <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'}/> : page === 'Batcave' ? <Office dashboard={data} dashboardPending={dashboard.status === 'pending'} onNavigate={navigate}/> : page === 'Missions' ? <Missions onNavigate={navigate}/> : page === 'Usage' ? <Usage/>: page === 'Task Board' ? <TaskBoard/> : page === 'Calendar' ? <Calendar/> : page === 'Activity' ? <Activity/> : page === 'Memory' ? <Memory onOpenFolders={() => navigate('Folders')}/> : page === 'Folders' ? <Folders/> : page === 'Settings' ? <Settings access={access} onAccessChange={onAccessChange}/> : <Logs/>
 
-  return <div className={`app${page === 'Batcave' ? ' app-office' : ''}`}>
-    {menuOpen && <div className="drawer-backdrop" onClick={closeMenu} aria-hidden="true"/>}
-    <aside id="app-sidebar" className="drawer" ref={drawer} hidden={!menuOpen} aria-label="Menu">
-      <div className="drawer-head"><a className="brand" href="#/batcave" onClick={(event) => { event.preventDefault(); navigate(HOME) }}>BATCAVE<span>HERMES 3D</span></a><button type="button" className="icon-button" onClick={closeMenu} aria-label="Close menu" title="Close menu (Esc)">✕</button></div>
-      <nav aria-label="Main">{navigation.map((item) => <a href={`#/${pageSlug(item)}`} className={page === item ? 'active' : ''} aria-current={page === item ? 'page' : undefined} key={item} onClick={(event) => { event.preventDefault(); navigate(item) }}>{item}{item === 'Logs' && data && data.commands.failed > 0 && <span className="nav-badge" title="Failed CLI reads">{data.commands.failed}</span>}</a>)}</nav>
-      <div className="sidebar-note"><span className="dot"/> READ-ONLY MODE</div>
-      <small className="drawer-hint">Press M to open or close this menu</small>
-    </aside>
-    <main><header><span className="header-title"><button type="button" ref={menuButton} className="icon-button menu-button" onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))} aria-controls="app-sidebar" aria-expanded={menuOpen} aria-label={menuOpen ? 'Close menu' : 'Open menu'} title="Menu (M)">☰{alerts > 0 && <span className="menu-alert" aria-label={`${alerts} alert${alerts === 1 ? '' : 's'} in the menu`}/>}</button><span>{APP_NAME.toUpperCase()} / {page.toUpperCase()}</span></span><span className="header-actions"><span className={`sync-label${dashboard.status === 'failed' ? ' text-bad' : ''}`}>{syncLabel}</span><button type="button" className="refresh-button" onClick={onRefresh} aria-label="Refresh all sources">↻ REFRESH</button></span></header>
-      {versionNotice && <section className="notice version-notice" role="alert"><strong>Restart needed.</strong> {versionNotice}</section>}
-      {content}
-    </main></div>
+  return (
+    <div className={`mo-app-container ${page === 'Batcave' ? 'mo-page-home' : 'mo-page-sub'}`}>
+      <AppHeader
+        currentPage={page}
+        activeCount={activeAgents.length}
+        totalCount={totalAgents}
+        onOpenPalette={() => setPaletteOpen(true)}
+        onNavigateHome={() => navigate(HOME)}
+        onRefresh={onRefresh}
+      />
+
+      <main className="mo-main-content">
+        {versionNotice && <section className="notice version-notice" role="alert"><strong>Restart needed.</strong> {versionNotice}</section>}
+        <div className="mo-page-wrapper">
+          {content}
+        </div>
+      </main>
+
+      {page !== 'Batcave' && (
+        <BottomDock currentPage={page} onNavigate={navigate} />
+      )}
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigate={navigate}
+        agents={data?.runtime?.agents ? Object.entries(data.runtime.agents).map(([id, a]: [string, any]) => ({ id, name: a.name || id, state: a.state || 'Idle' })) : []}
+      />
+    </div>
+  )
 }
 
 export function App() {
   const [tick, setTick] = useState(0)
-  // undefined while checking. An unreachable or older server answers no status: carry on
-  // without the lock, since the server is the one that enforces it.
   const [access, setAccess] = useState<AccessStatus | undefined>()
   const [checked, setChecked] = useState(false)
+
   useEffect(() => {
     let active = true
     const check = () => void loadAccess().then((status) => { if (active) { setAccess(status); setChecked(true) } })
     check()
     window.addEventListener(LOCKED_EVENT, check)
-    // Unlocking or locking an agent changes what every source may show: refresh them all.
     const refresh = () => setTick((value) => value + 1)
     window.addEventListener(PROFILES_CHANGED, refresh)
     return () => { active = false; window.removeEventListener(LOCKED_EVENT, check); window.removeEventListener(PROFILES_CHANGED, refresh) }
   }, [])
+
   if (!checked) return <main className="lock-screen" aria-busy="true"/>
   if (access?.enabled && !access.unlocked) return <LockScreen status={access} onUnlocked={(status) => { setAccess(status); setTick((value) => value + 1) }}/>
   return <RefreshContext.Provider value={tick}><Shell access={access} onAccessChange={setAccess} onRefresh={() => setTick((value) => value + 1)}/></RefreshContext.Provider>

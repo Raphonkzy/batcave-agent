@@ -24,20 +24,19 @@ function contrast(hex1: string, hex2: string): number {
 
 describe('Design tokens WCAG AA contrast verification', () => {
   const backgrounds = {
-    canvas: '#0a0d0b',
-    surface1: '#121714',
-    surface2: '#18201b',
-    surface3: '#222d26',
+    canvas: '#0d0e11', // Minimal Obsidian --bg
+    surface1: '#14161a', // --surface-1
+    surface2: '#1b1e23', // --surface-2
   }
 
   const texts = {
-    primary: '#f5f2ea',
-    secondary: '#9ea79e',
-    goldAccent: '#f2c58a',
-    emerald: '#4fb986',
+    primary: '#f1efea', // --text
+    secondary: '#a3a6ad', // --text-2
+    goldAccent: '#e8b65b', // --accent
+    emerald: '#7bd3a0', // --st-working
   }
 
-  it('ensures primary text passes WCAG AAA on all backgrounds (>= 7:1)', () => {
+  it('ensures primary text passes WCAG AAA on all surfaces (>= 7:1)', () => {
     for (const [bgName, bg] of Object.entries(backgrounds)) {
       const ratio = contrast(texts.primary, bg)
       expect(ratio, `Primary text on ${bgName} must exceed 7:1`).toBeGreaterThanOrEqual(7.0)
@@ -50,12 +49,12 @@ describe('Design tokens WCAG AA contrast verification', () => {
     expect(contrast(texts.secondary, backgrounds.surface2)).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('ensures brand gold accent passes WCAG AA on canvas and surfaces (>= 4.5:1)', () => {
+  it('ensures warm brass gold accent passes WCAG AA on dark canvas and surface-1 (>= 4.5:1)', () => {
     expect(contrast(texts.goldAccent, backgrounds.canvas)).toBeGreaterThanOrEqual(4.5)
     expect(contrast(texts.goldAccent, backgrounds.surface1)).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('ensures operational emerald badge accent passes WCAG AA on dark canvas (>= 4.5:1)', () => {
+  it('ensures working emerald status dot contrast is distinct and readable (>= 4.5:1)', () => {
     expect(contrast(texts.emerald, backgrounds.canvas)).toBeGreaterThanOrEqual(4.5)
   })
 })
