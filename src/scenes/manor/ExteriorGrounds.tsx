@@ -5,6 +5,7 @@ import { geometryFor, manorMaterials } from './materials.ts'
 import { lawnMap, tiled, concreteMap } from './textures.ts'
 import { Glows } from './Glows.tsx'
 import type { ManorLayoutData, QualityProfile, ManorView } from './ZoneLayout.ts'
+import { WORLD_CONFIG } from './worldConfig.ts'
 
 export interface ExteriorGroundsProps {
   layout: ManorLayoutData
@@ -12,16 +13,13 @@ export interface ExteriorGroundsProps {
   view: ManorView
 }
 
-// Estate lot dimensions: 64m wide (X: -32 to 32), 80m deep (Z: -48 to 32)
-// Total lot area = 5,120 m² (~3.95x manor footprint)
-// Front yard depth: Z = -48 to -8 (40m deep, 90.9% of exterior yard depth)
 const LOT_BOUNDS = {
-  minX: -32,
-  maxX: 32,
-  minZ: -48,
-  maxZ: 32,
-  gateZ: -46,
-  frontDoorZ: -8,
+  minX: WORLD_CONFIG.lot.minX,
+  maxX: WORLD_CONFIG.lot.maxX,
+  minZ: WORLD_CONFIG.lot.minZ,
+  maxZ: WORLD_CONFIG.lot.maxZ,
+  gateZ: WORLD_CONFIG.gate.position[2],
+  frontDoorZ: WORLD_CONFIG.entrance.threshold[2],
 }
 
 export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps) {
@@ -29,14 +27,14 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
   const treeRef = useRef<THREE.InstancedMesh>(null)
   const pillarRef = useRef<THREE.InstancedMesh>(null)
 
-  // 1. Procedural grass material for estate lawn
+  // 1. Procedural grass material for estate lawn (multi-tone organic lawn)
   const lawnMaterial = useMemo(() => {
-    const texture = tiled(lawnMap(), 16, 20)
+    const texture = tiled(lawnMap(), 24, 28)
     return new THREE.MeshStandardMaterial({
       map: texture,
       roughness: 0.95,
       metalness: 0.05,
-      color: '#415b36',
+      color: '#3d5c34',
     })
   }, [])
 
@@ -60,7 +58,7 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
 
     const y = SURFACE_Y
 
-    // Perimeter pillars along front wall (Z = LOT_BOUNDS.minZ), leaving 6m opening for gate
+    // Perimeter pillars along front wall (Z = LOT_BOUNDS.minZ), leaving 7m opening for gate
     for (let x = LOT_BOUNDS.minX; x <= LOT_BOUNDS.maxX; x += 4) {
       if (Math.abs(x) < 3.5) continue // Grand Gate opening at center
       pList.push({ x, y: y + 0.6, z: LOT_BOUNDS.minZ })
@@ -98,11 +96,9 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
       tList.push({ x: tx, y, z: tz, scale: 0.85 + (i % 3) * 0.2 })
     }
 
-    // Driveway lanterns
-    lList.push([-3.2, y + 1.8, -32])
-    lList.push([3.2, y + 1.8, -32])
-    lList.push([-3.2, y + 1.8, -18])
-    lList.push([3.2, y + 1.8, -18])
+    // Formal garden roundabout lanterns
+    lList.push([-4.0, y + 1.8, -25])
+    lList.push([4.0, y + 1.8, -25])
 
     return { pillars: pList, hedgePositions: hList, treePositions: tList, lanterns: lList }
   }, [layout, profile.density])
@@ -145,7 +141,7 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
 
   return (
     <group name="ExteriorGrounds">
-      {/* 1. Main Estate Lawn Plane */}
+      {/* 1. Main Estate Lawn Plane (100% full grass coverage) */}
       <mesh
         position={[lotCenterX, SURFACE_Y - 0.03, lotCenterZ]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -155,37 +151,65 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
         <planeGeometry args={[lotWidth, lotDepth]} />
       </mesh>
 
-      {/* 2. Extended Surrounding Hills/Terrain to prevent floating island look */}
+      {/* 2. Extended Surrounding Grounds (>= 3x lot dimensions, lush grass with no void) */}
       <mesh
-        position={[lotCenterX, SURFACE_Y - 0.25, lotCenterZ - 15]}
+        position={[lotCenterX, SURFACE_Y - 0.04, lotCenterZ - 15]}
         rotation={[-Math.PI / 2, 0, 0]}
-        material={m.rock}
+        material={lawnMaterial}
         receiveShadow
       >
-        <planeGeometry args={[160, 180]} />
+        <planeGeometry args={[192, 240]} />
       </mesh>
 
-      {/* 3. Central Cobblestone Driveway */}
+      {/* 3. Front Terrace Steps right at Door D [0, SURFACE_Y, -8.0] */}
       <mesh
-        position={[0, SURFACE_Y - 0.02, (LOT_BOUNDS.gateZ + LOT_BOUNDS.frontDoorZ) / 2]}
+        position={[0, SURFACE_Y + 0.1, -8.75]}
+        material={m.stone}
+        receiveShadow
+      >
+        <boxGeometry args={[4.2, 0.2, 1.5]} />
+      </mesh>
+
+      {/* 4. Stone Path (2.0m width) connecting terrace to formal garden roundabout */}
+      <mesh
+        position={[0, SURFACE_Y - 0.02, -14.75]}
         rotation={[-Math.PI / 2, 0, 0]}
         material={drivewayMaterial}
         receiveShadow
       >
-        <planeGeometry args={[4.8, Math.abs(LOT_BOUNDS.frontDoorZ - LOT_BOUNDS.gateZ)]} />
+        <planeGeometry args={[2.0, 10.5]} />
       </mesh>
 
-      {/* 4. Driveway Porte-Cochère Forecourt Circle in front of Manor entrance */}
+      {/* 5. Formal Garden Roundabout (Z = -20 to -30) */}
       <mesh
-        position={[0, SURFACE_Y - 0.015, LOT_BOUNDS.frontDoorZ - 2]}
+        position={[0, SURFACE_Y - 0.02, -25.0]}
         rotation={[-Math.PI / 2, 0, 0]}
         material={drivewayMaterial}
         receiveShadow
       >
-        <circleGeometry args={[5.5, 24]} />
+        <circleGeometry args={[5.0, 32]} />
+      </mesh>
+      {/* Center grass island in roundabout */}
+      <mesh
+        position={[0, SURFACE_Y - 0.01, -25.0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        material={lawnMaterial}
+        receiveShadow
+      >
+        <circleGeometry args={[2.2, 24]} />
       </mesh>
 
-      {/* 5. Instanced Stone Pillars */}
+      {/* 6. Driveway (4.0m width) connecting roundabout to Grand Gate */}
+      <mesh
+        position={[0, SURFACE_Y - 0.02, -38.0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        material={drivewayMaterial}
+        receiveShadow
+      >
+        <planeGeometry args={[4.0, 16.0]} />
+      </mesh>
+
+      {/* 7. Instanced Stone Pillars */}
       {pillars.length > 0 && (
         <instancedMesh
           ref={pillarRef}
@@ -195,7 +219,7 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
         />
       )}
 
-      {/* 6. Instanced Gothic Pine Trees */}
+      {/* 8. Instanced Gothic Pine Trees */}
       {treePositions.length > 0 && (
         <instancedMesh
           ref={treeRef}
@@ -205,7 +229,7 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
         />
       )}
 
-      {/* 7. Formal Boxwood Hedges */}
+      {/* 9. Formal Boxwood Hedges */}
       {hedgePositions.map((h, i) => (
         <mesh
           key={i}
@@ -218,7 +242,7 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
         </mesh>
       ))}
 
-      {/* 8. Front Gate Ironwork */}
+      {/* 10. Front Gate Ironwork */}
       <group position={[0, SURFACE_Y + 1.2, LOT_BOUNDS.minZ]}>
         <mesh position={[-1.7, 0, 0]} material={m.blackSteel}>
           <boxGeometry args={[3.0, 2.2, 0.08]} />
@@ -228,7 +252,7 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
         </mesh>
       </group>
 
-      {/* 9. Warm Amber Atmospheric Lanterns */}
+      {/* 11. Warm Amber Atmospheric Lanterns */}
       <Glows
         glows={lanterns.map((pos) => ({ position: pos, color: '#f2c58a' }))}
         size={2.2}
