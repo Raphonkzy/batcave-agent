@@ -4,11 +4,11 @@ Branch: `theme/tactical-manor`, started fresh from `main`. The earlier v3 attemp
 
 ## Baseline (`main`, Windows)
 
-| Command | Result |
-| --- | --- |
-| `npm run lint` | passes |
-| `npm test` | 122 passed, 2 failed, 7 skipped. The failures are environmental: `server/activity-folders.test.ts` (symlink creation denied, EPERM) and the file-mode checks in `server/access.test.ts` and `server/profile-lock.test.ts` (Windows ignores 0o600). `server/` is off limits, so they stay. |
-| `npm run build` | passes; `Office3D` chunk 1,009.75 kB (gzip 272.14 kB) |
+| Command         | Result                                                                                                                                                                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`  | passes                                                                                                                                                                                                                                                                                    |
+| `npm test`      | 122 passed, 2 failed, 7 skipped. The failures are environmental: `server/activity-folders.test.ts` (symlink creation denied, EPERM) and the file-mode checks in `server/access.test.ts` and `server/profile-lock.test.ts` (Windows ignores 0o600). `server/` is off limits, so they stay. |
+| `npm run build` | passes; `Office3D` chunk 1,009.75 kB (gzip 272.14 kB)                                                                                                                                                                                                                                     |
 
 ## Decisions agreed with the owner
 
@@ -21,12 +21,12 @@ Branch: `theme/tactical-manor`, started fresh from `main`. The earlier v3 attemp
 
 ## Code map
 
-| Concern | Location |
-| --- | --- |
-| Layout engine (pure) | `src/utils/layout/computeLayout.ts` with `dimensions.ts`, `zones.ts`, `subterranean.ts`, `surface.ts`, `structure.ts`, `geometry.ts`, `types.ts` |
-| Routes between any two points, three floors | `src/utils/layout/navigation.ts` |
-| Theme choice | `src/preferences.ts` (key `mc.theme`, values `day` / `night` / `manor`, old `light` / `dark` still read) |
-| Classic scenes (untouched) | `src/pages/Office3D.tsx`, `src/scene3d/*`, `src/office3d-layout.ts` |
+| Concern                                     | Location                                                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Layout engine (pure)                        | `src/utils/layout/computeLayout.ts` with `dimensions.ts`, `zones.ts`, `subterranean.ts`, `surface.ts`, `structure.ts`, `geometry.ts`, `types.ts` |
+| Routes between any two points, three floors | `src/utils/layout/navigation.ts`                                                                                                                 |
+| Theme choice                                | `src/preferences.ts` (key `mc.theme`, values `day` / `night` / `manor`, old `light` / `dark` still read)                                         |
+| Classic scenes (untouched)                  | `src/pages/Office3D.tsx`, `src/scene3d/*`, `src/office3d-layout.ts`                                                                              |
 
 ## Layout in one paragraph
 
@@ -53,11 +53,11 @@ Phase D draw-call savings: the jet and the spikes cast shadows only on High, and
 Draw calls, Medium quality, 1280 x 800, including the shadow pass. Lights: 6 in every case.
 
 | Agents | Command Deck | Full Overview | Grand Manor |
-| --- | --- | --- | --- |
-| 1 | 114 | 126 | 71 |
-| 12 | 127 | 138 | 85 |
-| 24 | 126 | 138 | 84 |
-| 40 | 126 | 137 | 84 |
+| ------ | ------------ | ------------- | ----------- |
+| 1      | 114          | 126           | 71          |
+| 12     | 127          | 138           | 85          |
+| 24     | 126          | 138           | 84          |
+| 40     | 126          | 137           | 84          |
 
 A 120-second run of `?mockAgents=cycle` (1 to 40 agents and back) on Low raised no exceptions.
 

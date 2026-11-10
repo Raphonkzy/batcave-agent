@@ -51,3 +51,4 @@ export function Plumbob({
 
   return <mesh ref={meshRef} geometry={geometry} material={material} castShadow={false} receiveShadow={false} />
 }
+

@@ -7,9 +7,11 @@ Dokumen ini merupakan Design Brief lengkap yang menjadi acuan eksekusi otonom Ba
 ## 1. Sistem Desain: "Minimal Obsidian"
 
 ### 1.1 Filosofi
+
 Minimalis, tenang, spasi lega, hierarki dibangun lewat tipografi dan hairline 1px (bukan kotak tebal atau shadow berat), aksen tunggal kuningan hangat (`#e8b65b`), data sebagai fokus utama.
 
 ### 1.2 Token CSS Sumber Tunggal
+
 ```css
 :root {
   /* Permukaan & Background */
@@ -46,6 +48,7 @@ Minimalis, tenang, spasi lega, hierarki dibangun lewat tipografi dan hairline 1p
 ```
 
 ### 1.3 Tipografi (Gilroy & Fallback)
+
 - **Display (Judul Halaman)**: Gilroy 800 (Bold/Extrabold), 40px/44px, tracking -0.02em
 - **H2 (Seksi)**: Gilroy 700, 22px/28px
 - **H3 (Item/Sub)**: Gilroy 600, 16px/22px
@@ -59,16 +62,19 @@ Minimalis, tenang, spasi lega, hierarki dibangun lewat tipografi dan hairline 1p
 ## 2. Shell & Navigasi (ADR-005: Persistent Side Navigation)
 
 ### 2.1 Topbar (48px, transparan, backdrop-blur)
+
 ```
 +------------------------------------------------------------------+
 | [☰] [◆ batcave]        [ ⌘K  Cari halaman atau agent… ]   ● 12   |
 +------------------------------------------------------------------+
 ```
+
 - **Kiri**: Toggle drawer mobile (`.mo-nav-toggle`) + Wordmark `◆ batcave`
 - **Tengah**: Command Palette trigger (`⌘K` / `Ctrl+K`)
 - **Kanan**: Badge hitungan agent aktif (`● 12`) + tombol refresh
 
 ### 2.2 Menu Samping Selalu Terlihat (`.mo-side-nav`)
+
 ```
 +----------+-------------------------------------------------------+
 | Operasi  |                                                       |
@@ -89,6 +95,7 @@ Minimalis, tenang, spasi lega, hierarki dibangun lewat tipografi dan hairline 1p
 | [◀ Ciut] |                                                       |
 +----------+-------------------------------------------------------+
 ```
+
 - **Desktop (>= 1100px)**: Lebar 224px, teks penuh + ikon + kelompok (Operasi & Sistem).
 - **Tablet (760px - 1099px)**: Lebar 64px, mode rail (ikon saja + tooltip).
 - **Mobile (< 760px)**: Drawer overlay yang dibuka via `.mo-nav-toggle` di topbar (bukan `.menu-button`).
@@ -98,6 +105,7 @@ Minimalis, tenang, spasi lega, hierarki dibangun lewat tipografi dan hairline 1p
 ## 3. Wireframe ASCII 11 Rute + LockScreen
 
 ### 3.1 `#/batcave` (Home 3D HUD ala Simulasi Rumah)
+
 ```
 +------------------------------------------------------------------+
 | [◆ batcave]            [ ⌘K  Cari… ]         ● 12 aktif · 3 idle |
@@ -115,6 +123,7 @@ Minimalis, tenang, spasi lega, hierarki dibangun lewat tipografi dan hairline 1p
 ```
 
 ### 3.2 `#/agents` (Hairline Rows)
+
 ```
 Agents                                         [Semua ▾] [Cari…]
 12 agent · 9 aktif
@@ -126,6 +135,7 @@ Agents                                         [Semua ▾] [Cari…]
 ```
 
 ### 3.3 `#/usage` (Big Metrics & Line Chart)
+
 ```
 Usage & Tokens
 Penggunaan komputasi dan token Hermes Agent
@@ -142,6 +152,7 @@ gemini-1.5-pro        120k  [==                         ]   5%
 ```
 
 ### 3.4 `#/task-board` (Kanban Hairline)
+
 ```
 Task Board                                     [Filter ▾] [Cari…]
 18 tugas · 4 kolom
@@ -154,6 +165,7 @@ Implement HUD Sims  | Verify AA Contrast   | Create Tokens
 ```
 
 ### 3.5 `#/calendar` (Agenda Kronologis)
+
 ```
 Calendar & Schedules
 Jadwal eksekusi cron dan otomasi background
@@ -166,6 +178,7 @@ BESOK (Jumat, 7 Nov)
 ```
 
 ### 3.6 `#/activity` (Vertical Stream Timeline)
+
 ```
 Activity Feed
 Live event streaming dari session & gateway
@@ -176,6 +189,7 @@ Live event streaming dari session & gateway
 ```
 
 ### 3.7 `#/memory` (2-Kolom: Daftar Berkas & Pratinjau)
+
 ```
 Memory & Persona
 Inspeksi file instruksi kepribadian dan persistent memory
@@ -184,12 +198,13 @@ BERKAS (3)               | PRATINJAU: SOUL.md
 -------------------------+--------------------------------------
 ● SOUL.md        4.2 KB  | # Soul Configuration
 ○ MEMORY.md      8.9 KB  | Kamu adalah batcave orchestrator...
-○ USER.md        1.1 KB  | 
+○ USER.md        1.1 KB  |
                          | Kapasitas Karakter: 4,210 / 12,000
                          | [====================                  ] 35%
 ```
 
 ### 3.8 `#/folders` (Breadcrumb & File Row)
+
 ```
 Workspace Folders
 Penjelajah folder tersandbox dengan proteksi path traversal
@@ -202,6 +217,7 @@ batcave / src / scenes / manor /
 ```
 
 ### 3.9 `#/logs` (Full Height Mono Panel)
+
 ```
 System Logs                                [Semua Level ▾] [☑ Ikuti Ekor]
 Streaming log tail dari agent, gateway, dan proses background
@@ -212,6 +228,7 @@ Streaming log tail dari agent, gateway, dan proses background
 ```
 
 ### 3.10 `#/settings` (Kolom Ramping Maks 640px)
+
 ```
 Settings
 Pengaturan keamanan dan sesi lokal
@@ -226,6 +243,7 @@ PIN perlindungan identitas agent lokal.
 ```
 
 ### 3.11 `#/missions` (Swimlane Per Agent)
+
 ```
 Missions Swimlane                              [Tier 2 Mode] [SIMULASI]
 Relasi task nyata ke masing-masing agent
@@ -240,6 +258,7 @@ UNASSIGNED TASKS (Belum terhubung agent tertentu):
 ```
 
 ### 3.12 LockScreen / PIN Modal
+
 ```
 +------------------------------------------------------------------+
 |                                                                  |
@@ -257,6 +276,7 @@ UNASSIGNED TASKS (Belum terhubung agent tertentu):
 ## 4. Denah Lot 3D & Pintu Utama Manor
 
 ### 4.1 Titik Ambang & Vektor Hadap Pintu (Section 6.1)
+
 - **Titik Ambang `D`**: `[0, SURFACE_Y, -8.0]` (tengah fasad utara grand foyer)
 - **Vektor Hadap Luar `F`**: `[0, 0, -1]` (mengarah ke luar, ke utara/arah Z negatif)
 - **Grand Gate**: `[0, SURFACE_Y, -46.0]`
@@ -268,6 +288,7 @@ UNASSIGNED TASKS (Belum terhubung agent tertentu):
   5. Semua titik jalan memenuhi: `dot(sub(p, D), F) >= -0.25`
 
 ### 4.2 Cakupan Rumput (Section 6.3)
+
 - Bidang tanah membentang `X: [-96, 96]`, `Z: [-144, 96]` (>= 3x dimensi lot).
 - Tekstur rumput prosedural multi-tone (3-tone noise) menutupi 100% tanah luar.
 - Rasio rumput di area luar lot >= 98%.
@@ -276,12 +297,11 @@ UNASSIGNED TASKS (Belum terhubung agent tertentu):
 
 ## 5. Daftar File Pengerjaan
 
-| Modul | File yang Dibuat / Diubah |
-| :--- | :--- |
-| **Token & Primitive UI** | `src/styles.css`, `src/components/ui/Primitives.tsx`, `tests/tokens-contrast.test.ts` |
-| **Shell & Navigasi** | `src/App.tsx`, `src/components/shell/AppHeader.tsx`, `src/components/shell/BottomDock.tsx`, `src/components/shell/CommandPalette.tsx` |
-| **World Config & Lot** | `src/scenes/manor/worldConfig.ts`, `src/scenes/manor/ExteriorGrounds.tsx`, `tests/path-orientation.test.ts`, `tests/grass-coverage.test.ts` |
-| **Sims HUD & Kamera** | `src/pages/ManorOffice3D.tsx`, `src/components/hud/SimsHud.tsx`, `src/components/hud/AgentRadialMenu.tsx`, `tests/camera-rig.test.ts` |
-| **Halaman-Halaman UI** | `src/pages/Agents.tsx`, `src/pages/Usage.tsx`, `src/pages/TaskBoard.tsx`, `src/pages/Calendar.tsx`, `src/pages/Activity.tsx`, `src/pages/Memory.tsx`, `src/pages/Folders.tsx`, `src/pages/Logs.tsx`, `src/pages/Settings.tsx`, `src/LockScreen.tsx`, `src/pages/Missions.tsx`, `src/pages/Office.tsx` |
-| **Verifikasi Gate** | `scripts/verify/verify-harus-berbeda.ts`, `tests/harus-berbeda.test.ts`, `docs/batcave-redesign/REPORT.md` |
-
+| Modul                    | File yang Dibuat / Diubah                                                                                                                                                                                                                                                                             |
+| :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Token & Primitive UI** | `src/styles.css`, `src/components/ui/Primitives.tsx`, `tests/tokens-contrast.test.ts`                                                                                                                                                                                                                 |
+| **Shell & Navigasi**     | `src/App.tsx`, `src/components/shell/AppHeader.tsx`, `src/components/shell/BottomDock.tsx`, `src/components/shell/CommandPalette.tsx`                                                                                                                                                                 |
+| **World Config & Lot**   | `src/scenes/manor/worldConfig.ts`, `src/scenes/manor/ExteriorGrounds.tsx`, `tests/path-orientation.test.ts`, `tests/grass-coverage.test.ts`                                                                                                                                                           |
+| **Sims HUD & Kamera**    | `src/pages/ManorOffice3D.tsx`, `src/components/hud/SimsHud.tsx`, `src/components/hud/AgentRadialMenu.tsx`, `tests/camera-rig.test.ts`                                                                                                                                                                 |
+| **Halaman-Halaman UI**   | `src/pages/Agents.tsx`, `src/pages/Usage.tsx`, `src/pages/TaskBoard.tsx`, `src/pages/Calendar.tsx`, `src/pages/Activity.tsx`, `src/pages/Memory.tsx`, `src/pages/Folders.tsx`, `src/pages/Logs.tsx`, `src/pages/Settings.tsx`, `src/LockScreen.tsx`, `src/pages/Missions.tsx`, `src/pages/Office.tsx` |
+| **Verifikasi Gate**      | `scripts/verify/verify-harus-berbeda.ts`, `tests/harus-berbeda.test.ts`, `docs/batcave-redesign/REPORT.md`                                                                                                                                                                                            |
