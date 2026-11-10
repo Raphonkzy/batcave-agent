@@ -1,23 +1,107 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { CameraPreset } from '../../utils/layout/types.ts'
 // Orbit, pan and zoom, plus smooth flights between the presets (Command Deck, Hangar Bay, Manor Lobby,
-// Grand Manor, Full Overview). Flights are damped in useFrame; with reduced motion the camera jumps instead.
-export interface ManorCameraHandle { reset: () => void }
-export const ManorCamera = forwardRef<ManorCameraHandle, { preset: CameraPreset; panMode: boolean; keyTarget: HTMLElement | null; smooth: boolean }>(function ManorCamera({ preset, panMode, keyTarget, smooth }, handle) {
+// Grand Manor, Full Overview, Exterior). Flights are damped in useFrame; with reduced motion the camera jumps instead.
+export interface ManorCameraHandle {
+  reset: () => void
+  snapRotate: (direction: 1 | -1) => void
+  zoom: (direction: 1 | -1) => void
+  follow: (target: THREE.Vector3 | null) => void
+}
+export const ManorCamera = forwardRef<
+  ManorCameraHandle,
+  {
+    preset: CameraPreset
+    panMode: boolean
+    keyTarget: HTMLElement | null
+    smooth: boolean
+    followTarget?: THREE.Vector3 | null
+    onFollowEnd?: () => void
+  }
+>(function ManorCamera({ preset, panMode, keyTarget, smooth, followTarget }, handle) {
   const { camera, gl, size } = useThree()
   const controls = useRef<OrbitControls | null>(null)
   const flight = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null)
-  /** The preset's view, backed off on narrow screens so the whole floor fits across. */
+  const activeFollow = useRef<THREE.Vector3 | null>(null)
+
+  useEffect(() => {
+    activeFollow.current = followTarget ?? null
+  }, [followTarget])
+
+  /**
+   * The preset's view, framed within the safe area free of HUD panels,
+   * with 8% margin so the whole floor/manor fits across all screen sizes.
+   */
   const goal = useMemo(() => () => {
     const target = new THREE.Vector3(...preset.target)
     const offset = new THREE.Vector3(...preset.position).sub(target)
-    const aspect = size.width / Math.max(size.height, 1)
-    offset.setLength(offset.length() * Math.max(1, 1.35 / aspect))
-    return { position: target.clone().add(offset), target }
+
+    let hudTop = 0
+    let hudBottom = 0
+    if (typeof window !== 'undefined') {
+      hudTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hud-top')) || 0
+      hudBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hud-bottom')) || 0
+    }
+
+    const effectiveHeight = Math.max(size.height - hudTop - hudBottom, 200)
+    const effectiveAspect = size.width / effectiveHeight
+
+    // Scale distance based on effective aspect with 8% margin
+    const distMultiplier = Math.max(1, 1.25 / effectiveAspect) * 1.08
+    offset.setLength(offset.length() * distMultiplier)
+
+    // Center building between top bar and bottom HUD
+    const verticalShift = ((hudBottom - hudTop) / Math.max(size.height, 1)) * 0.1
+    const adjustedTarget = target.clone().add(new THREE.Vector3(0, verticalShift * offset.length() * 0.2, 0))
+
+    return { position: adjustedTarget.clone().add(offset), target: adjustedTarget }
   }, [preset, size.width, size.height])
+
+  const snapRotate = useCallback((direction: 1 | -1) => {
+    const orbit = controls.current
+    if (!orbit) return
+    const offset = camera.position.clone().sub(orbit.target)
+    const angle = (direction * Math.PI) / 2
+    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle)
+    flight.current = {
+      position: orbit.target.clone().add(offset),
+      target: orbit.target.clone(),
+    }
+  }, [camera])
+
+  useImperativeHandle(
+    handle,
+    () => ({
+      reset: () => {
+        flight.current = goal()
+      },
+      snapRotate,
+      zoom: (direction: 1 | -1) => {
+        const orbit = controls.current
+        if (!orbit) return
+        const offset = camera.position.clone().sub(orbit.target)
+        // dir > 0 zoom in, dir < 0 zoom out
+        const factor = direction > 0 ? 0.8 : 1.25
+        const newLen = THREE.MathUtils.clamp(
+          offset.length() * factor,
+          orbit.minDistance,
+          orbit.maxDistance
+        )
+        offset.setLength(newLen)
+        flight.current = {
+          position: orbit.target.clone().add(offset),
+          target: orbit.target.clone(),
+        }
+      },
+      follow: (target: THREE.Vector3 | null) => {
+        activeFollow.current = target
+      },
+    }),
+    [goal, snapRotate, camera]
+  )
   useEffect(() => {
     const orbit = new OrbitControls(camera, gl.domElement)
     // Tuned for smooth interaction: damped, slightly slower than the defaults, and never dipping
@@ -60,7 +144,6 @@ export const ManorCamera = forwardRef<ManorCameraHandle, { preset: CameraPreset;
     orbit.listenToKeyEvents(keyTarget)
     return () => orbit.stopListenToKeyEvents()
   }, [keyTarget])
-  useImperativeHandle(handle, () => ({ reset: () => { flight.current = goal() } }), [goal])
   useFrame((_, delta) => {
     const orbit = controls.current
     if (!orbit) return
@@ -70,6 +153,12 @@ export const ManorCamera = forwardRef<ManorCameraHandle, { preset: CameraPreset;
       camera.position.lerp(trip.position, k)
       orbit.target.lerp(trip.target, k)
       if (camera.position.distanceTo(trip.position) < 0.05 && orbit.target.distanceTo(trip.target) < 0.05) flight.current = null
+    } else if (activeFollow.current) {
+      const follow = activeFollow.current
+      const k = smooth ? 1 - Math.exp(-delta * 4.0) : 1
+      const offset = camera.position.clone().sub(orbit.target)
+      orbit.target.lerp(follow, k)
+      camera.position.copy(orbit.target).add(offset)
     }
     orbit.update()
     // Keep the view over the manor: clamp the target to the preset's pan bounds.

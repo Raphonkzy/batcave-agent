@@ -186,11 +186,55 @@ export function Office({ dashboard, dashboardPending = false, onNavigate }: { da
   const stationButton2d = (station: OfficeStation) => { const badge = officeStateBadge(station.state); const busy = ['Working', 'Reviewing', 'Collaborating'].includes(station.state); return <button className={`pixel-station ${station.roomPosition} state-${station.state.toLowerCase()}`} key={station.id} onClick={(event) => { selectedTrigger.current = event.currentTarget; setSelectedName(station.name) }} aria-label={`${station.name}. ${officeStateLabel(station)}${station.activity ? `: ${station.activity}` : ''}. Open station details.`} title={station.activity || officeStateLabel(station)}>{busy && station.activity && <span className="speech" aria-hidden="true">{station.activity}</span>}<span className="pixel-station-name">{station.privacy === 'locked' ? '🔒 ' : ''}{station.name}</span><span className={`badge ${badge.tone}`}>{officeStateLabel(station)}</span>{station.state === 'Unknown' && <span className="neutral-label">NEUTRAL PRESENCE</span>}<PixelCharacter agent={station.id}/></button> }
   const stationButton = (station: OfficeStation) => { const badge = officeStateBadge(station.state); return <button type="button" className="crew-row" key={station.name} onClick={(event) => { selectedTrigger.current = event.currentTarget; setSelectedName(station.name) }} aria-label={`Details for ${station.name}: ${officeStateLabel(station)}`}><PixelCharacter agent={station.id}/><span><strong>{station.name}</strong><small>{station.activity || station.role}</small></span><span className={`badge ${badge.tone}`}>{station.state}</span></button> }
   return <section className={`office-stage view-${show3d ? '3d' : '2d'}`} aria-label="Visual Batcave">
-    <div className="office-hud" role="list" aria-label="Key statistics">{hud.map((item) => { const body = <><span>{item.label}</span><b>{item.value}</b></>; return <div role="listitem" key={item.label}>{item.page && onNavigate ? <button type="button" className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title ?? `Open ${item.page}`} onClick={() => onNavigate(item.page!)}>{body}</button> : <span className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title}>{body}</span>}</div> })}</div>
-    <div className="office-stage-tools">
-      {(['tasks', 'calendar', 'usage'] as const).map((item) => <button type="button" key={item} className={`panel-toggle${overlay === item ? ' active' : ''}`} aria-pressed={overlay === item} onClick={() => setOverlay(overlay === item ? undefined : item)}>{item === 'tasks' ? '▦ Tasks' : item === 'calendar' ? '◷ Calendar' : '◔ Tokens'}</button>)}
-      <button type="button" className={`panel-toggle${panel ? ' active' : ''}`} aria-expanded={Boolean(panel)} aria-controls="office-panel" onClick={() => choosePanel(panel ? undefined : 'Crew')}>◧ Panel</button>
+    {/* Single layer stage overlay for top controls */}
+    <div className="mo-stage-overlay">
+      <div className="mo-stage-top-left">
+        <div className="office-hud" role="list" aria-label="Key statistics">
+          {hud.map((item) => {
+            const body = <><span>{item.label}</span><b>{item.value}</b></>
+            return (
+              <div role="listitem" key={item.label}>
+                {item.page && onNavigate ? (
+                  <button type="button" className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title ?? `Open ${item.page}`} onClick={() => onNavigate(item.page!)}>
+                    {body}
+                  </button>
+                ) : (
+                  <span className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title}>
+                    {body}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="mo-stage-top-right">
+        <div className="mo-stage-toolbar">
+          {(['tasks', 'calendar', 'usage'] as const).map((item) => (
+            <button
+              type="button"
+              key={item}
+              className={`panel-toggle${overlay === item ? ' active' : ''}`}
+              aria-pressed={overlay === item}
+              onClick={() => setOverlay(overlay === item ? undefined : item)}
+            >
+              {item === 'tasks' ? '▦ Tasks' : item === 'calendar' ? '◷ Calendar' : '◔ Tokens'}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`panel-toggle${panel ? ' active' : ''}`}
+            aria-expanded={Boolean(panel)}
+            aria-controls="office-panel"
+            onClick={() => choosePanel(panel ? undefined : 'Crew')}
+          >
+            ◧ Panel
+          </button>
+        </div>
+      </div>
     </div>
+
     <div className="office-canvas">
       {show3d ? <SceneBoundary fallback={<section className="empty-state"><h2>3D view unavailable</h2><p>The 3D Batcave could not start on this device.</p></section>}><Suspense fallback={<LoadingState message="Loading the 3D Batcave..."/>}><ManorOffice3D stations={office?.stations ?? []} onSelect={select3d}/></Suspense></SceneBoundary> : <><p className="muted office-note">The 3D Batcave needs WebGL, which this browser does not provide. Showing a simple 2D view.</p><div className="room-tabs" role="tablist" aria-label="Batcave zones">{ROOMS.map((item) => <button role="tab" aria-selected={room === item} className={room === item ? 'active' : ''} onClick={() => setChosenRoom(item)} key={item}>{item} <span className="room-count">{counts[item]}</span></button>)}</div>
         <div className="room-scroll"><section className={`pixel-room flow ${room.toLowerCase()}`} aria-label={`${room} room`}><div className="room-label"><span>{room}</span><small>{room === 'Workspace' ? `${deskCount} HOT DESK${deskCount === 1 ? '' : 'S'} + MEETING ROOM` : 'QUIET BREAK AREA'}</small></div>
