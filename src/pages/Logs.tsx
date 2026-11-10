@@ -54,7 +54,7 @@ export function Logs() {
           <div>
             <h1 className="mo-page-title">System Logs</h1>
             <p className="mo-page-description">
-              Streaming tail dari <code>hermes logs</code> (agent, gateway, error) dengan redaksi otomatis string sensitif.
+              Streaming tail from <code>hermes logs</code> (agent, gateway, error) with automatic sensitive string redaction.
             </p>
           </div>
 
@@ -91,7 +91,7 @@ export function Logs() {
             <Icon name="search" size={16} />
             <input
               type="text"
-              placeholder="Filter teks log…"
+              placeholder="Filter log text…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="mo-search-input"
@@ -102,9 +102,9 @@ export function Logs() {
             type="button"
             className={`mo-btn mo-btn-sm ${follow ? 'mo-btn-primary' : 'mo-btn-ghost'}`}
             onClick={() => setFollow(!follow)}
-            title="Auto-scroll mengikuti output terbaru"
+            title="Auto-scroll to latest output"
           >
-            {follow ? '✓ Ikuti Ekor (5s)' : 'Ikuti Ekor (Mati)'}
+            {follow ? '✓ Follow Tail (5s)' : 'Follow Tail (Off)'}
           </button>
         </div>
       </div>
@@ -114,16 +114,16 @@ export function Logs() {
         {tab === MISSION_CONTROL ? (
           <div className="mo-audit-pane">
             <div className="mo-audit-stats font-mono text-muted" style={{ marginBottom: 16 }}>
-              Total Pembacaan: {commandData?.health.total ?? 0} · Gagal: {commandData?.health.failed ?? 0} · Rata-rata: {commandData?.health.averageMs ?? 0} ms
+              Total Reads: {commandData?.health.total ?? 0} · Failed: {commandData?.health.failed ?? 0} · Average: {commandData?.health.averageMs ?? 0} ms
             </div>
             <div className="mo-audit-table-wrapper">
               <table className="mo-table font-mono">
                 <thead>
                   <tr>
-                    <th>Waktu</th>
-                    <th>Perintah CLI</th>
+                    <th>Time</th>
+                    <th>CLI Command</th>
                     <th>Status</th>
-                    <th>Durasi</th>
+                    <th>Duration</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,7 +156,7 @@ export function Logs() {
             })}
             {lines.length === 0 && (
               <div className="mo-log-empty text-muted">
-                (Tidak ada log yang cocok dengan filter saat ini)
+                (No logs match the current filter)
               </div>
             )}
           </pre>

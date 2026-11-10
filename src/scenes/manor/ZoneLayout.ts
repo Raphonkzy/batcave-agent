@@ -7,11 +7,11 @@ import { mulberry32 } from './random.ts'
 export { computeLayout }
 export type { ManorLayoutData }
 
-// 3 Level system (Lantai 2, Grand Manor, Command Deck)
+// 3 Level system (Upper Level, Grand Manor, Command Deck)
 export type Level = 'deck' | 'ground' | 'upper'
 export type WallMode = 'wallsUp' | 'cutaway' | 'wallsDown'
 export const LEVELS: { id: Level; label: string; y: number }[] = [
-  { id: 'upper', label: 'Lantai 2', y: UPPER_Y },
+  { id: 'upper', label: 'Upper Level', y: UPPER_Y },
   { id: 'ground', label: 'Grand Manor', y: SURFACE_Y },
   { id: 'deck', label: 'Command Deck', y: DECK_Y },
 ]

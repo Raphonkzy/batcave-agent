@@ -70,7 +70,7 @@ export function AgentRadialMenu({
       className="mo-radial-menu-root"
       style={{ left: x, top: y }}
       role="menu"
-      aria-label={`Menu interaksi agent ${agent.name}`}
+      aria-label={`Interaction menu for ${agent.name}`}
     >
       {/* Center status marker badge */}
       <div className="mo-radial-center">

@@ -6,15 +6,15 @@ import type { AgentMemory, MemoryDocument, MemorySnapshot, MemoryStore } from '.
 export function AgentMemoryView({ profile }: { profile: string; onOpenFolders?: () => void }) {
   const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
   const agent = snapshot.status === 'ready' ? snapshot.data.agents.find((item) => item.profile === profile) : undefined
-  if (snapshot.status === 'pending') return <div className="mo-panel text-muted">Memuat memory agent...</div>
-  if (!agent) return <div className="mo-panel text-muted">Agent memory tidak tersedia.</div>
+  if (snapshot.status === 'pending') return <div className="mo-panel text-muted">Loading agent memory...</div>
+  if (!agent) return <div className="mo-panel text-muted">Agent memory unavailable.</div>
   return (
     <div className="mo-panel">
       <h3 className="mo-section-heading">{agent.label} ({agent.profile})</h3>
       <div className="text-muted font-mono" style={{ marginBottom: 12 }}>{agent.path}</div>
       <div className="mo-preview-body">
         <pre className="mo-preview-content font-mono">
-          {agent.soul?.content || agent.memory?.path || '(Tidak ada memory yang tercatat)'}
+          {agent.soul?.content || agent.memory?.path || '(No memory recorded)'}
         </pre>
       </div>
     </div>
@@ -31,9 +31,9 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
   const currentAgent: AgentMemory | undefined = agents[selectedAgentIndex]
 
   const docs: { id: 'soul' | 'memory' | 'user'; name: string; desc: string; doc: MemoryDocument | MemoryStore | undefined }[] = [
-    { id: 'soul', name: 'SOUL.md', desc: 'Identitas & System Prompt', doc: currentAgent?.soul },
-    { id: 'memory', name: 'MEMORY.md', desc: 'Catatan Persisten Agent', doc: currentAgent?.memory },
-    { id: 'user', name: 'USER.md', desc: 'Profil Pengguna', doc: currentAgent?.user },
+    { id: 'soul', name: 'SOUL.md', desc: 'Identity & System Prompt', doc: currentAgent?.soul },
+    { id: 'memory', name: 'MEMORY.md', desc: 'Persistent Agent Memory', doc: currentAgent?.memory },
+    { id: 'user', name: 'USER.md', desc: 'User Profile', doc: currentAgent?.user },
   ]
 
   const activeDocObj = docs.find((d) => d.id === selectedDoc)
@@ -52,13 +52,13 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
           <div>
             <h1 className="mo-page-title">Memory & Persona</h1>
             <p className="mo-page-description">
-              Inspeksi berkas identitas <code>SOUL.md</code> dan memori jangka panjang per agent.
+              Inspect <code>SOUL.md</code> identity files and long-term memory per agent.
             </p>
           </div>
 
           {onOpenFolders && (
             <button type="button" className="mo-btn mo-btn-ghost mo-btn-sm" onClick={onOpenFolders}>
-              Buka di Folders ›
+              Open in Folders ›
             </button>
           )}
         </div>
@@ -86,7 +86,7 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
       <div className="mo-memory-two-col">
         {/* Left Column: Files */}
         <div className="mo-memory-sidebar">
-          <div className="mo-memory-col-title">BERKAS MEMORI ({docs.length})</div>
+          <div className="mo-memory-col-title">MEMORY FILES ({docs.length})</div>
           <div className="mo-doc-list">
             {docs.map((item) => {
               const isSelected = selectedDoc === item.id
@@ -117,13 +117,13 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
             <div>
               <h2 className="mo-preview-filename font-mono">{activeDocObj?.name}</h2>
               <div className="mo-preview-meta text-muted">
-                {activeDoc?.modified ? `Diperbarui: ${formatDateTime(activeDoc.modified)}` : 'Berkas aktif'}
+                {activeDoc?.modified ? `Updated: ${formatDateTime(activeDoc.modified)}` : 'Active file'}
               </div>
             </div>
 
             <div className="mo-gauge-container">
               <div className="mo-gauge-label">
-                <span>KAPASITAS KARAKTER</span>
+                <span>CHARACTER CAPACITY</span>
                 <span className="font-mono">{formatNumber(charUsed)} / {formatNumber(charLimit)} ({pct}%)</span>
               </div>
               <div className="mo-gauge-track">
@@ -138,7 +138,7 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
           <div className="mo-preview-body">
             <pre className="mo-preview-content font-mono">
               {activeDoc?.content || (
-                <span className="text-muted">(Tidak ada konten teks atau berkas belum diisi)</span>
+                <span className="text-muted">(No text content or file not yet populated)</span>
               )}
             </pre>
           </div>

@@ -25,7 +25,7 @@ export interface LotHudProps {
 }
 
 const LEVEL_CONFIG: { id: Level; label: string }[] = [
-  { id: 'upper', label: 'Lantai 2' },
+  { id: 'upper', label: 'Upper Level' },
   { id: 'ground', label: 'Grand Manor' },
   { id: 'deck', label: 'Command Deck' },
 ]
@@ -62,11 +62,11 @@ export function LotHud({
   const activeCount = stations.filter((s) => s.state !== 'Idle').length
 
   return (
-    <div className="mo-lot-hud" role="region" aria-label="Kontrol 3D Manor">
+    <div className="mo-lot-hud" role="region" aria-label="3D Manor Controls">
       {/* 1. Left Cluster: Roster + Selected Agent Panel */}
       <div className="mo-hud-cluster mo-hud-agent">
         {/* Roster strip at top */}
-        <div className="mo-hud-roster" role="list" aria-label="Daftar Agent">
+        <div className="mo-hud-roster" role="list" aria-label="Agent Roster">
           {stations.map((station) => {
             const isSel = selectedStation?.id === station.id
             return (
@@ -76,7 +76,7 @@ export function LotHud({
                 className={`mo-roster-pill ${isSel ? 'active' : ''}`}
                 onClick={() => onSelectStation(station)}
                 title={`${station.name} (${station.state})`}
-                aria-label={`Pilih agent ${station.name}`}
+                aria-label={`Select agent ${station.name}`}
               >
                 <span className="mo-roster-avatar">{station.name.charAt(0).toUpperCase()}</span>
                 <StatusDot status={station.state} size={6} />
@@ -97,7 +97,7 @@ export function LotHud({
                 <StatusDot status={selectedStation.state} size={8} />
                 <span className="mo-agent-state">{selectedStation.state}</span>
                 {selectedStation.privacy === 'locked' && (
-                  <span className="mo-pill mo-pill-muted">🔒 Terkunci</span>
+                  <span className="mo-pill mo-pill-muted">🔒 Locked</span>
                 )}
               </div>
               <div className="mo-agent-sub">
@@ -119,7 +119,7 @@ export function LotHud({
                 type="button"
                 className="mo-hud-btn"
                 onClick={onInspectAgent}
-                title="Lihat detail lengkap agent"
+                title="View agent details"
               >
                 Inspect
               </button>
@@ -127,7 +127,7 @@ export function LotHud({
                 type="button"
                 className={`mo-hud-btn ${isFollowing ? 'active' : ''}`}
                 onClick={onFollowAgent}
-                title="Ikuti agent di scene 3D (Esc untuk lepas)"
+                title="Follow agent in 3D scene (Esc to release)"
               >
                 {isFollowing ? 'Following' : 'Follow'}
               </button>
@@ -135,7 +135,7 @@ export function LotHud({
                 type="button"
                 className="mo-hud-btn"
                 onClick={onFocusAgent}
-                title="Fokus kamera ke agent (F)"
+                title="Focus camera on agent (F)"
               >
                 Locate
               </button>
@@ -143,7 +143,7 @@ export function LotHud({
                 type="button"
                 className="mo-hud-btn"
                 onClick={onNavigateMissions}
-                title="Buka Missions terfilter"
+                title="Open filtered missions"
               >
                 Missions
               </button>
@@ -151,7 +151,7 @@ export function LotHud({
                 type="button"
                 className="mo-hud-btn"
                 onClick={onNavigateLogs}
-                title="Buka Logs terfilter"
+                title="Open filtered logs"
               >
                 Logs
               </button>
@@ -159,9 +159,9 @@ export function LotHud({
           </div>
         ) : (
           <div className="mo-agent-empty">
-            <span className="mo-agent-empty-hint">Pilih agent di scene atau roster</span>
+            <span className="mo-agent-empty-hint">Select an agent from scene or roster</span>
             <span className="mo-agent-empty-tally font-mono">
-              {activeCount} aktif · {stations.length - activeCount} idle
+              {activeCount} active · {stations.length - activeCount} idle
             </span>
           </div>
         )}
@@ -180,7 +180,7 @@ export function LotHud({
                   type="button"
                   className={`mo-lift-btn ${isActive ? 'active' : ''}`}
                   onClick={() => onSelectLevel(lvl.id)}
-                  title={`Pindah ke level ${lvl.label}`}
+                  title={`Switch to ${lvl.label}`}
                 >
                   <span className="mo-lift-label">{lvl.label}</span>
                   <span className="mo-lift-count font-mono">{counts[lvl.id] ?? 0}</span>
@@ -194,8 +194,8 @@ export function LotHud({
               type="button"
               className="mo-lift-arrow-btn"
               onClick={() => onCycleLevel(-1)}
-              title="Naik level ([ / PageUp])"
-              aria-label="Naik satu lantai"
+              title="Move level up ([ / PageUp])"
+              aria-label="Move one level up"
             >
               <Icon name="chevron-up" size={16} />
             </button>
@@ -203,8 +203,8 @@ export function LotHud({
               type="button"
               className="mo-lift-arrow-btn"
               onClick={() => onCycleLevel(1)}
-              title="Turun level (] / PageDown)"
-              aria-label="Turun satu lantai"
+              title="Move level down (] / PageDown)"
+              aria-label="Move one level down"
             >
               <Icon name="chevron-down" size={16} />
             </button>
@@ -212,12 +212,12 @@ export function LotHud({
         </div>
 
         {/* Wall Mode Segmented Control */}
-        <div className="mo-wall-control" role="group" aria-label="Mode Dinding">
+        <div className="mo-wall-control" role="group" aria-label="Wall Mode">
           <button
             type="button"
             className={`mo-wall-btn ${wallMode === 'wallsUp' ? 'active' : ''}`}
             onClick={() => onSetWallMode('wallsUp')}
-            title="Dinding Penuh & Atap (Tombol 1)"
+            title="Full Walls & Roof (Key 1)"
           >
             <span className="mo-wall-icon">▣</span>
             <span className="mo-wall-text">Up</span>
@@ -227,7 +227,7 @@ export function LotHud({
             type="button"
             className={`mo-wall-btn ${wallMode === 'cutaway' ? 'active' : ''}`}
             onClick={() => onSetWallMode('cutaway')}
-            title="Dinding Terpotong Kamera (Tombol 2)"
+            title="Camera Cutaway Walls (Key 2)"
           >
             <span className="mo-wall-icon">◐</span>
             <span className="mo-wall-text">Cut</span>
@@ -237,7 +237,7 @@ export function LotHud({
             type="button"
             className={`mo-wall-btn ${wallMode === 'wallsDown' ? 'active' : ''}`}
             onClick={() => onSetWallMode('wallsDown')}
-            title="Dinding Rendah Terbuka (Tombol 3)"
+            title="Low Open Walls (Key 3)"
           >
             <span className="mo-wall-icon">▭</span>
             <span className="mo-wall-text">Down</span>
@@ -253,8 +253,8 @@ export function LotHud({
             type="button"
             className="mo-cam-btn"
             onClick={() => onSnapRotate(-1)}
-            title="Putar kiri 90° (Q)"
-            aria-label="Putar kiri 90 derajat"
+            title="Rotate left 90° (Q)"
+            aria-label="Rotate left 90 degrees"
           >
             <Icon name="rotate-left" size={16} />
             <Kbd>Q</Kbd>
@@ -263,8 +263,8 @@ export function LotHud({
             type="button"
             className="mo-cam-btn"
             onClick={() => onSnapRotate(1)}
-            title="Putar kanan 90° (E)"
-            aria-label="Putar kanan 90 derajat"
+            title="Rotate right 90° (E)"
+            aria-label="Rotate right 90 degrees"
           >
             <Icon name="rotate-right" size={16} />
             <Kbd>E</Kbd>
@@ -273,7 +273,7 @@ export function LotHud({
             type="button"
             className="mo-cam-btn"
             onClick={() => onZoom(-1)}
-            title="Perjauh kamera (-)"
+            title="Zoom out (-)"
             aria-label="Zoom out"
           >
             <Icon name="minus" size={16} />
@@ -282,7 +282,7 @@ export function LotHud({
             type="button"
             className="mo-cam-btn"
             onClick={() => onZoom(1)}
-            title="Perdekat kamera (+)"
+            title="Zoom in (+)"
             aria-label="Zoom in"
           >
             <Icon name="plus" size={16} />
@@ -294,7 +294,7 @@ export function LotHud({
             type="button"
             className="mo-cam-btn mo-cam-btn-text"
             onClick={onResetCamera}
-            title="Kembalikan posisi kamera (R)"
+            title="Reset camera position (R)"
           >
             <Icon name="home" size={16} />
             <span>Reset</span>
@@ -304,10 +304,10 @@ export function LotHud({
             type="button"
             className="mo-cam-btn mo-cam-btn-text"
             onClick={onFocusAgent}
-            title="Fokus ke agent terpilih (F)"
+            title="Focus on selected agent (F)"
           >
             <Icon name="target" size={16} />
-            <span>Fokus</span>
+            <span>Focus</span>
             <Kbd>F</Kbd>
           </button>
 
@@ -317,11 +317,11 @@ export function LotHud({
               type="button"
               className="mo-cam-btn mo-cam-btn-text"
               onClick={() => setFocusOpen(!focusOpen)}
-              title="Pilihan Fokus Zona"
+              title="Focus Zone Presets"
               aria-haspopup="true"
               aria-expanded={focusOpen}
             >
-              <span>Zona</span>
+              <span>Zone</span>
               <Icon name="chevron-down" size={16} />
             </button>
 
@@ -336,7 +336,7 @@ export function LotHud({
                   }}
                   role="menuitem"
                 >
-                  Tampak Depan (Fasad & Jalan Masuk)
+                  Front Facade (Driveway & Gate)
                 </button>
                 <button
                   type="button"
@@ -347,7 +347,7 @@ export function LotHud({
                   }}
                   role="menuitem"
                 >
-                  Lobby Grand Manor
+                  Grand Manor Lobby
                 </button>
                 <button
                   type="button"

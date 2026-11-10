@@ -85,32 +85,32 @@ export function TaskDetailDialog({
           {privacy === 'unlocked' && task.assignee && (
             <RelockBar agent={task.assignee} minutes={lock?.unlockMinutes ?? 15} />
           )}
-          {state.status === 'pending' && task.id && <p className="muted">Memuat rincian task…</p>}
+          {state.status === 'pending' && task.id && <p className="muted">Loading task details…</p>}
           {failed && (
             <p className="file-notice">
               {task.id
-                ? 'Detail lengkap tidak tersedia saat ini (hermes kanban show gagal dibaca). Menampilkan ringkasan.'
-                : 'Task ini tidak memiliki ID.'}
+                ? 'Full details unavailable at this time (failed to read hermes kanban show). Showing summary.'
+                : 'This task has no ID.'}
             </p>
           )}
           {detail && (
             <>
               <dl className="office-detail-grid task-grid">
                 <Field
-                  label="Dibuat"
-                  value={detail.createdAt ? `${formatDateTime(detail.createdAt)}${detail.createdBy ? ` oleh ${detail.createdBy}` : ''}` : undefined}
+                  label="Created"
+                  value={detail.createdAt ? `${formatDateTime(detail.createdAt)}${detail.createdBy ? ` by ${detail.createdBy}` : ''}` : undefined}
                 />
-                <Field label="Mulai" value={detail.startedAt && formatDateTime(detail.startedAt)} />
-                <Field label="Selesai" value={detail.completedAt && formatDateTime(detail.completedAt)} />
+                <Field label="Started" value={detail.startedAt && formatDateTime(detail.startedAt)} />
+                <Field label="Completed" value={detail.completedAt && formatDateTime(detail.completedAt)} />
                 <Field label="Workspace" value={detail.workspace} />
                 <Field label="Branch" value={detail.branch} />
                 <Field label="Model" value={detail.model} />
-                {links('Tergantung pada', detail.parents)}
-                {links('Memblokir', detail.children)}
+                {links('Depends on', detail.parents)}
+                {links('Blocks', detail.children)}
               </dl>
               {detail.body && (
                 <section className="task-section">
-                  <p className="eyebrow">DESKRIPSI</p>
+                  <p className="eyebrow">DESCRIPTION</p>
                   <pre className="task-text">{detail.body}</pre>
                 </section>
               )}
@@ -155,14 +155,14 @@ export function TaskBoard() {
       <header className="mo-page-header">
         <h1 className="mo-page-title">Task Board</h1>
         <p className="mo-page-description">
-          Kanban board real-time dari <code>hermes kanban list</code>. Tampilan tugas terorganisir per tahapan proses.
+          Real-time Kanban board from <code>hermes kanban list</code>. Tasks organized by workflow stages.
         </p>
       </header>
 
       {/* Toolbar Hairline */}
       <div className="mo-filter-bar">
         <div className="mo-filter-tally">
-          <strong>{visible.length}</strong> tugas ditampilkan
+          <strong>{visible.length}</strong> tasks displayed
         </div>
 
         <div className="mo-filter-controls">
@@ -170,7 +170,7 @@ export function TaskBoard() {
             <Icon name="search" size={16} />
             <input
               type="text"
-              placeholder="Cari tugas…"
+              placeholder="Search tasks…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="mo-search-input"
@@ -184,7 +184,7 @@ export function TaskBoard() {
               onChange={(e) => setAssignee(e.target.value)}
               className="mo-select-input"
             >
-              <option value="all">Semua ({all.length})</option>
+              <option value="all">All ({all.length})</option>
               {assignees.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -201,7 +201,7 @@ export function TaskBoard() {
                 onChange={(e) => setBoard(e.target.value)}
                 className="mo-select-input"
               >
-                <option value="all">Semua board</option>
+                <option value="all">All boards</option>
                 {boards.map((b) => (
                   <option key={b.slug} value={b.slug}>
                     {b.name}
@@ -261,7 +261,7 @@ export function TaskBoard() {
                 })}
 
                 {colTasks.length === 0 && (
-                  <div className="mo-col-empty">Tidak ada tugas</div>
+                  <div className="mo-col-empty">No tasks</div>
                 )}
               </div>
             </div>

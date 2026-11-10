@@ -34,7 +34,7 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
   const isMock = import.meta.env.DEV && typeof window !== 'undefined' && Boolean(parseMockRequest(window.location.search))
 
   if (board.status === 'pending' && office.status === 'pending') {
-    return <LoadingState message="Memuat telemetri Missions..." />
+    return <LoadingState message="Loading Missions telemetry..." />
   }
 
   const tasksData =
@@ -73,11 +73,11 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
           <div>
             <div className="mo-title-with-pill">
               <h1 className="mo-page-title">Missions</h1>
-              {isMock && <Pill variant="accent">SIMULASI</Pill>}
+              {isMock && <Pill variant="accent">SIMULATION</Pill>}
               <Pill variant="muted">{attributionTier} ATTRIBUTION</Pill>
             </div>
             <p className="mo-page-description">
-              Pemetaan relasi real-time antara tugas aktif dengan agent yang mengeksekusinya.
+              Real-time relationship mapping between active tasks and executing agents.
             </p>
           </div>
 
@@ -96,23 +96,23 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
       {/* Metrics Row */}
       <div className="mo-metrics-top-row" style={{ marginBottom: 24 }}>
         <div className="mo-stat-card">
-          <Stat label="TOTAL MISSIONS" value={missionsData.summary.total} sub="Seluruh tugas aktif" />
+          <Stat label="TOTAL MISSIONS" value={missionsData.summary.total} sub="All active tasks" />
         </div>
         <div className="mo-stat-card">
-          <Stat label="TERHUBUNG KE AGENT" value={missionsData.summary.assigned} sub="Attributed tasks" />
+          <Stat label="CONNECTED TO AGENTS" value={missionsData.summary.assigned} sub="Attributed tasks" />
         </div>
         <div className="mo-stat-card">
           <Stat
             label="UNASSIGNED (TIER 2)"
             value={missionsData.summary.unassigned}
-            sub="Tanpa relasi definitif"
+            sub="No definitive relation"
           />
         </div>
         <div className="mo-stat-card">
           <Stat
             label="ACTIVE CREW"
             value={missionsData.activeAgents.length}
-            sub="Agent terdeteksi"
+            sub="Detected agents"
           />
         </div>
       </div>
@@ -120,7 +120,7 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
       {/* Filter Bar */}
       <div className="mo-filter-bar">
         <div className="mo-filter-tally">
-          <strong>{filteredMissions.length}</strong> misi ditampilkan
+          <strong>{filteredMissions.length}</strong> missions displayed
         </div>
 
         <div className="mo-filter-controls">
@@ -128,7 +128,7 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
             <Icon name="search" size={16} />
             <input
               type="text"
-              placeholder="Cari judul misi…"
+              placeholder="Search mission title…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="mo-search-input"
@@ -142,7 +142,7 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
               onChange={(e) => setSelectedAgent(e.target.value)}
               className="mo-select-input"
             >
-              <option value="all">Semua Agent</option>
+              <option value="all">All Agents</option>
               {missionsData.activeAgents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
                   {agent.name}
@@ -157,7 +157,7 @@ export function Missions({ onNavigate }: { onNavigate?: (page: Page) => void }) 
       <div className="mo-missions-content">
         {filteredMissions.length === 0 ? (
           <div className="mo-empty-state mo-panel">
-            <p>Tidak ada misi aktif yang sesuai dengan kriteria filter saat ini.</p>
+            <p>No active missions match the current filter criteria.</p>
           </div>
         ) : viewMode === 'swimlane' ? (
           <SwimlaneView
