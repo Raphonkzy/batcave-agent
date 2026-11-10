@@ -177,6 +177,34 @@ export function Icon({ name, size = 16, className = '' }: { name: string; size?:
           <polyline points="6 17 11 12 6 7" />
         </svg>
       )
+    case 'maximize':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+        </svg>
+      )
+    case 'minimize':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M4 14h6v6m10-10h-6V4m0 6l7-7M3 21l7-7" />
+        </svg>
+      )
+    case 'pin':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <line x1="12" y1="17" x2="12" y2="22" />
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v7.55l-1.78.9A2 2 0 0 0 5 15.24Z" />
+        </svg>
+      )
+    case 'pin-off':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <line x1="2" y1="2" x2="22" y2="22" />
+          <line x1="12" y1="17" x2="12" y2="22" />
+          <path d="M9 9v3.55l-1.78.9A2 2 0 0 0 6 15.24V17h11" />
+          <path d="M15 9.34V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v1" />
+        </svg>
+      )
     default:
       return null
   }

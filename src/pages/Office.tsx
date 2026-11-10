@@ -148,7 +148,19 @@ function hudItems(office: OfficeSnapshot | undefined, dashboard: DashboardSnapsh
   return items
 }
 
-export function Office({ dashboard, dashboardPending = false, onNavigate }: { dashboard?: DashboardSnapshot | null; dashboardPending?: boolean; onNavigate?: (page: Page) => void } = {}) {
+export function Office({
+  dashboard,
+  dashboardPending = false,
+  onNavigate,
+  isFullscreen = false,
+  onToggleFullscreen,
+}: {
+  dashboard?: DashboardSnapshot | null
+  dashboardPending?: boolean
+  onNavigate?: (page: Page) => void
+  isFullscreen?: boolean
+  onToggleFullscreen?: () => void
+} = {}) {
   // The crew comes through the data layer (live, or a dev-only mock crew with ?mockAgents=N).
   const snapshot = useAgents()
   const activitySnapshot = usePolling<ActivitySnapshot>('/api/activity', 15_000)
@@ -231,12 +243,34 @@ export function Office({ dashboard, dashboardPending = false, onNavigate }: { da
           >
             ◧ Panel
           </button>
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              className={`panel-toggle${isFullscreen ? ' active' : ''}`}
+              aria-pressed={isFullscreen}
+              onClick={onToggleFullscreen}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? '⛶ Window' : '⛶ Fullscreen'}
+            </button>
+          )}
         </div>
       </div>
     </div>
 
     <div className="office-canvas">
-      {show3d ? <SceneBoundary fallback={<section className="empty-state"><h2>3D view unavailable</h2><p>The 3D Batcave could not start on this device.</p></section>}><Suspense fallback={<LoadingState message="Loading the 3D Batcave..."/>}><ManorOffice3D stations={office?.stations ?? []} onSelect={select3d}/></Suspense></SceneBoundary> : <><p className="muted office-note">The 3D Batcave needs WebGL, which this browser does not provide. Showing a simple 2D view.</p><div className="room-tabs" role="tablist" aria-label="Batcave zones">{ROOMS.map((item) => <button role="tab" aria-selected={room === item} className={room === item ? 'active' : ''} onClick={() => setChosenRoom(item)} key={item}>{item} <span className="room-count">{counts[item]}</span></button>)}</div>
+      {show3d ? (
+        <SceneBoundary fallback={<section className="empty-state"><h2>3D view unavailable</h2><p>The 3D Batcave could not start on this device.</p></section>}>
+          <Suspense fallback={<LoadingState message="Loading the 3D Batcave..."/>}>
+            <ManorOffice3D
+              stations={office?.stations ?? []}
+              onSelect={select3d}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={onToggleFullscreen}
+            />
+          </Suspense>
+        </SceneBoundary>
+      ) : <><p className="muted office-note">The 3D Batcave needs WebGL, which this browser does not provide. Showing a simple 2D view.</p><div className="room-tabs" role="tablist" aria-label="Batcave zones">{ROOMS.map((item) => <button role="tab" aria-selected={room === item} className={room === item ? 'active' : ''} onClick={() => setChosenRoom(item)} key={item}>{item} <span className="room-count">{counts[item]}</span></button>)}</div>
         <div className="room-scroll"><section className={`pixel-room flow ${room.toLowerCase()}`} aria-label={`${room} room`}><div className="room-label"><span>{room}</span><small>{room === 'Workspace' ? `${deskCount} HOT DESK${deskCount === 1 ? '' : 'S'} + MEETING ROOM` : 'QUIET BREAK AREA'}</small></div>
           {room === 'Workspace' ? <>
             <div className="flow-desks">{Array.from({ length: deskCount }, (_, index) => {

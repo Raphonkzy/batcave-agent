@@ -9,6 +9,8 @@ export interface AppHeaderProps {
   onNavigateHome: () => void
   onRefresh?: () => void
   onToggleNav?: () => void
+  isFullscreen?: boolean
+  onToggleFullscreen?: () => void
 }
 
 export function AppHeader({
@@ -19,6 +21,8 @@ export function AppHeader({
   onNavigateHome,
   onRefresh,
   onToggleNav,
+  isFullscreen = false,
+  onToggleFullscreen,
 }: AppHeaderProps) {
   return (
     <header className="mo-topbar" data-page={currentPage}>
@@ -56,6 +60,17 @@ export function AppHeader({
           <span className="mo-counter-num">{activeCount}</span>
           <span className="mo-counter-label">active</span>
         </div>
+        {onToggleFullscreen && (
+          <button
+            type="button"
+            className={`mo-icon-btn ${isFullscreen ? 'active' : ''}`}
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          >
+            <Icon name={isFullscreen ? 'minimize' : 'maximize'} size={16} />
+          </button>
+        )}
         {onRefresh && (
           <button type="button" className="mo-icon-btn" onClick={onRefresh} title="Refresh data">
             <Icon name="rotate-right" size={16} />

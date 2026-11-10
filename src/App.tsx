@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Activity } from './pages/Activity.tsx'
 import { Agents } from './pages/Agents.tsx'
 import { Calendar } from './pages/Calendar.tsx'
@@ -33,11 +33,19 @@ function getInitialSideNavMode(): 'open' | 'rail' {
   return window.innerWidth >= 1100 ? 'open' : 'rail'
 }
 
+function getInitialPinned(): boolean {
+  if (typeof window === 'undefined') return true
+  const saved = localStorage.getItem('batcave.sideNavPinned')
+  return saved !== null ? saved === 'true' : true
+}
+
 function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; access: AccessStatus | undefined; onAccessChange: (status: AccessStatus) => void }) {
   const [page, setPage] = useState<Page>(currentPage)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [navMode, setNavMode] = useState<'open' | 'rail'>(getInitialSideNavMode)
+  const [pinned, setPinned] = useState(getInitialPinned)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 760)
 
   useEffect(() => {
@@ -54,6 +62,55 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
       localStorage.setItem('batcave.sideNav', next)
       return next
     })
+  }
+
+  const togglePin = useCallback(() => {
+    setPinned((prev) => {
+      const next = !prev
+      localStorage.setItem('batcave.sideNavPinned', String(next))
+      if (!next) setDrawerOpen(false)
+      return next
+    })
+  }, [])
+
+  const toggleFullscreen = () => {
+    setIsFullscreen((prev) => {
+      const next = !prev
+      if (next) {
+        try {
+          if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+            void document.documentElement.requestFullscreen().catch(() => {})
+          }
+        } catch {
+          // Ignore browser restriction errors
+        }
+      } else {
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            void document.exitFullscreen().catch(() => {})
+          }
+        } catch {
+          // Ignore browser restriction errors
+        }
+      }
+      return next
+    })
+  }
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  const handleToggleNav = () => {
+    if (!pinned || isMobile) {
+      setDrawerOpen((prev) => !prev)
+    } else {
+      togglePin()
+    }
   }
   const dashboard = usePolling<DashboardSnapshot>('/api/dashboard', 15_000)
   const data = dashboard.status === 'ready' ? dashboard.data : null
@@ -81,6 +138,12 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
         setPaletteOpen((prev) => !prev)
         return
       }
+      // ⌘B / Ctrl+B toggles sidebar pin
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
+        event.preventDefault()
+        togglePin()
+        return
+      }
       // 'M' shortcut opens Command Palette as well (clean replacement for old menu)
       if (event.key.toLowerCase() === 'm' && !event.ctrlKey && !event.metaKey && !event.altKey) {
         const target = event.target as HTMLElement | null
@@ -92,7 +155,7 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [togglePin])
 
   const navigate = (next: Page) => {
     window.location.hash = `/${pageSlug(next)}`
@@ -104,12 +167,45 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
   const activeAgents = data?.office ? data.office.active : 0
   const totalAgents = profilesList.length || (data?.office ? data.office.declared : 0)
 
-  const content = page === 'Agents' ? <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'}/> : page === 'Batcave' ? <Office dashboard={data} dashboardPending={dashboard.status === 'pending'} onNavigate={navigate}/> : page === 'Missions' ? <Missions onNavigate={navigate}/> : page === 'Usage' ? <Usage/>: page === 'Task Board' ? <TaskBoard/> : page === 'Calendar' ? <Calendar/> : page === 'Activity' ? <Activity/> : page === 'Memory' ? <Memory onOpenFolders={() => navigate('Folders')}/> : page === 'Folders' ? <Folders/> : page === 'Settings' ? <Settings access={access} onAccessChange={onAccessChange}/> : <Logs/>
+  const content =
+    page === 'Agents' ? (
+      <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'} />
+    ) : page === 'Batcave' ? (
+      <Office
+        dashboard={data}
+        dashboardPending={dashboard.status === 'pending'}
+        onNavigate={navigate}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+      />
+    ) : page === 'Missions' ? (
+      <Missions onNavigate={navigate} />
+    ) : page === 'Usage' ? (
+      <Usage />
+    ) : page === 'Task Board' ? (
+      <TaskBoard />
+    ) : page === 'Calendar' ? (
+      <Calendar />
+    ) : page === 'Activity' ? (
+      <Activity />
+    ) : page === 'Memory' ? (
+      <Memory onOpenFolders={() => navigate('Folders')} />
+    ) : page === 'Folders' ? (
+      <Folders />
+    ) : page === 'Settings' ? (
+      <Settings access={access} onAccessChange={onAccessChange} />
+    ) : (
+      <Logs />
+    )
+
+  const sideWidth = isMobile || !pinned || isFullscreen ? '0px' : navMode === 'rail' ? '64px' : '224px'
 
   return (
     <div
-      className={`mo-app-container ${page === 'Batcave' ? 'mo-page-home' : 'mo-page-sub'}`}
-      style={{ '--side-w': isMobile ? '0px' : navMode === 'rail' ? '64px' : '224px' } as React.CSSProperties}
+      className={`mo-app-container ${page === 'Batcave' ? 'mo-page-home' : 'mo-page-sub'} ${
+        isFullscreen ? 'mo-fullscreen' : ''
+      } ${!pinned ? 'mo-unpinned' : ''}`}
+      style={{ '--side-w': sideWidth } as React.CSSProperties}
     >
       <AppHeader
         currentPage={page}
@@ -118,7 +214,9 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
         onOpenPalette={() => setPaletteOpen(true)}
         onNavigateHome={() => navigate(HOME)}
         onRefresh={onRefresh}
-        onToggleNav={() => setDrawerOpen((prev) => !prev)}
+        onToggleNav={handleToggleNav}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
       />
 
       <div className="mo-app-body">
@@ -130,13 +228,17 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
           drawerOpen={drawerOpen}
           onCloseDrawer={() => setDrawerOpen(false)}
           isMobile={isMobile}
+          pinned={pinned}
+          onTogglePin={togglePin}
         />
 
         <main className="mo-main-content">
-          {versionNotice && <section className="notice version-notice" role="alert"><strong>Restart needed.</strong> {versionNotice}</section>}
-          <div className="mo-page-wrapper">
-            {content}
-          </div>
+          {versionNotice && (
+            <section className="notice version-notice" role="alert">
+              <strong>Restart needed.</strong> {versionNotice}
+            </section>
+          )}
+          <div className="mo-page-wrapper">{content}</div>
         </main>
       </div>
 

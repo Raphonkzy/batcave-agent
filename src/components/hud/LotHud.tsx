@@ -22,6 +22,8 @@ export interface LotHudProps {
   onFocusZone?: (zone: 'hangar' | 'lobby' | 'exterior') => void
   onNavigateMissions: () => void
   onNavigateLogs: () => void
+  isFullscreen?: boolean
+  onToggleFullscreen?: () => void
 }
 
 const LEVEL_CONFIG: { id: Level; label: string }[] = [
@@ -49,6 +51,8 @@ export function LotHud({
   onFocusZone,
   onNavigateMissions,
   onNavigateLogs,
+  isFullscreen = false,
+  onToggleFullscreen,
 }: LotHudProps) {
   const [focusOpen, setFocusOpen] = useState(false)
 
@@ -363,6 +367,20 @@ export function LotHud({
               </div>
             )}
           </div>
+
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              className={`mo-cam-btn mo-cam-btn-text ${isFullscreen ? 'active' : ''}`}
+              onClick={onToggleFullscreen}
+              title={isFullscreen ? 'Exit Fullscreen (Z)' : 'Enter Fullscreen (Z)'}
+              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              <Icon name={isFullscreen ? 'minimize' : 'maximize'} size={16} />
+              <span>{isFullscreen ? 'Exit' : 'Full'}</span>
+              <Kbd>Z</Kbd>
+            </button>
+          )}
         </div>
       </div>
     </div>
