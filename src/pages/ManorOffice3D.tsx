@@ -9,6 +9,7 @@ import { ScreenGlow, FEED_RATE } from '../components/ui/ScreenGlow.tsx'
 import { officeStateBadge } from '../office-state.ts'
 import ThemeManor from '../scenes/ThemeManor.tsx'
 import { ManorCamera, type ManorCameraHandle } from '../scenes/manor/ManorCamera.tsx'
+import { buildObstacles, itemRadius } from '../scenes/manor/cameraRig.ts'
 import { useReducedMotion } from '../scenes/manor/hooks.ts'
 import { screenSlots, slotKinds } from '../scenes/manor/screens.ts'
 import { computeLayout, QUALITY, type Level, type WallMode } from '../scenes/manor/ZoneLayout.ts'
@@ -36,6 +37,8 @@ function useClock(interval: number) {
   return now
 }
 
+/** Bounding radius used to frame a character when focusing it. */
+const CHARACTER_RADIUS = 2.4
 const suit = (profile: string) => suitParts(agentGear(profile))
 
 /**
@@ -127,15 +130,15 @@ function ManorWorld({
   )
 
   const initialCamera = useRef({position: base.camera.grandManor.position, fov:40, near:0.3, far:600})
-  const preset = useMemo(() => {
-    if (zoneFocus === 'hangar') return layout.camera.hangarBay
-    if (zoneFocus === 'lobby') return layout.camera.manorLobby
-    if (zoneFocus === 'exterior') return exteriorPreset
+  const presetFor = useCallback((lv: Level, mode: WallMode, zone: 'hangar' | 'lobby' | 'exterior' | null) => {
+    if (zone === 'hangar') return layout.camera.hangarBay
+    if (zone === 'lobby') return layout.camera.manorLobby
+    if (zone === 'exterior') return exteriorPreset
 
-    if (level === 'deck') return layout.camera.commandDeck
-    if (level === 'ground') return layout.camera.grandManor
+    if (lv === 'deck') return layout.camera.commandDeck
+    if (lv === 'ground') return layout.camera.grandManor
     // upper level
-    if (wallMode === 'wallsUp') return exteriorPreset
+    if (mode === 'wallsUp') return exteriorPreset
     return {
       position: [0, 28, 22] as [number, number, number],
       target: [0, 14.5, 4] as [number, number, number],
@@ -143,7 +146,10 @@ function ManorWorld({
       maxDistance: 100,
       pan: layout.camera.grandManor.pan,
     }
-  }, [level, wallMode, zoneFocus, layout, exteriorPreset])
+  }, [layout, exteriorPreset])
+  const preset = useMemo(() => presetFor(level, wallMode, zoneFocus), [presetFor, level, wallMode, zoneFocus])
+  // Solid geometry for camera obstruction; rebuilt only when the layout, floor or wall mode changes.
+  const obstacles = useMemo(() => buildObstacles(layout, level, wallMode), [layout, level, wallMode])
 
   const idleSeats = stations
     .filter((station) => station.state === 'Idle' && station.room === 'Lounge')
@@ -158,6 +164,8 @@ function ManorWorld({
     setZoneFocus(null)
     setLevel(nextLevel)
     remember(LEVEL_KEY, nextLevel)
+    // Same rotation and zoom, new target on the destination floor.
+    if (nextLevel !== level) camera.current?.retarget(presetFor(nextLevel, wallMode, null))
   }
 
   const handleCycleLevel = useCallback((dir: 1 | -1) => {
@@ -169,7 +177,8 @@ function ManorWorld({
     const next = LEVEL_CYCLE[nextIdx]
     setLevel(next)
     remember(LEVEL_KEY, next)
-  }, [level])
+    if (next !== level) camera.current?.retarget(presetFor(next, wallMode, null))
+  }, [level, wallMode, presetFor])
 
   const handleSetWallMode = useCallback((nextMode: WallMode) => {
     setWallMode(nextMode)
@@ -180,7 +189,8 @@ function ManorWorld({
     setIsFollowing(false); camera.current?.follow(null)
     setPreview(null); setCommanding(false); setSelectedObject(null)
     setZoneFocus(zone)
-    camera.current?.frame(zone === 'hangar' ? layout.camera.hangarBay : zone === 'lobby' ? layout.camera.manorLobby : exteriorPreset)
+    // Recenter on the zone without changing the viewing angle or zoom.
+    camera.current?.retarget(presetFor(level, wallMode, zone))
     if (zone === 'hangar') {
       setLevel('deck')
       remember(LEVEL_KEY, 'deck')
@@ -199,7 +209,8 @@ function ManorWorld({
   const selectAgent = (
     station: OfficeStation,
     x?: number,
-    y?: number
+    y?: number,
+    focusCamera = true
   ) => {
     setSelectedObject(null); setPreview(null); setCommanding(false)
     setSelectedAgentId(station.id)
@@ -217,8 +228,9 @@ function ManorWorld({
     setRadialMenu({ station, x: posX, y: posY })
 
     // Center camera on agent
+    // A plain click in the 3D view only selects; double-click (or F) focuses.
     const anchor = anchors.current.get(`agent-${station.id}`)
-    if (anchor) camera.current?.focus(anchor.position)
+    if (focusCamera && anchor) camera.current?.focus(anchor.position, CHARACTER_RADIUS)
   }
 
   // Keyboard shortcut handler
@@ -263,11 +275,12 @@ function ManorWorld({
         handleCycleLevel(1) // DOWN
       } else if (e.key.toLowerCase() === 'f') {
         const selected = layout.items.find(i=>i.id===selectedObject)
-        if (gateSelected) camera.current?.focus(new THREE.Vector3(gatePosition[0],gatePosition[1]+1,gatePosition[2]))
-        else if (selected) camera.current?.focus(new THREE.Vector3(selected.x,selected.y+1,selected.z))
+        e.preventDefault()
+        if (gateSelected) camera.current?.focus(new THREE.Vector3(gatePosition[0],gatePosition[1]+1,gatePosition[2]), 5)
+        else if (selected) camera.current?.focus(new THREE.Vector3(selected.x,selected.y+selected.h/2,selected.z), itemRadius(selected))
         else if (selectedAgentId) {
           const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-          if (anchor) camera.current?.focus(anchor.position)
+          if (anchor) camera.current?.focus(anchor.position, CHARACTER_RADIUS)
         }
       } else if (e.key.toLowerCase() === 'z') {
         e.preventDefault()
@@ -359,8 +372,13 @@ function ManorWorld({
             onSelect={(index) => {
               const station = stations[index]
               if (station) {
-                selectAgent(station, window.innerWidth / 2, window.innerHeight / 2)
+                selectAgent(station, window.innerWidth / 2, window.innerHeight / 2, false)
               }
+            }}
+            onFocus={(index) => {
+              const station = stations[index]
+              const anchor = station && anchors.current.get(`agent-${station.id}`)
+              if (anchor) camera.current?.focus(anchor.position, CHARACTER_RADIUS)
             }}
           />
           {level === 'deck' && (
@@ -369,6 +387,7 @@ function ManorWorld({
         </ThemeManor>
         <InteractionLayer layout={layout} level={level} selected={object} preview={preview} commanding={commanding}
           destination={selectedAgentId ? commands[selectedAgentId] ?? null : null}
+          onFocus={i=>camera.current?.focus(new THREE.Vector3(i.x,i.y+i.h/2,i.z), itemRadius(i))}
           onSelect={i=>{setSelectedObject(i.id);setSelectedAgentId(null);setRadialMenu(null);setIsFollowing(false);camera.current?.follow(null)}}
           onPreview={p=>setPreview(i=>i?{...i,x:snapping?Math.round(p[0]*2)/2:p[0],z:snapping?Math.round(p[2]*2)/2:p[2]}:null)}
           onGround={p=>{
@@ -379,7 +398,7 @@ function ManorWorld({
             setCommands(c=>({...c,[selectedAgentId]:p}));setCommanding(false);setFeedback('Movement command issued')
           }}/>
         <LabelProjector anchors={anchors} labels={labels} />
-        <ManorCamera ref={camera} preset={preset} panMode={false} keyTarget={keyTarget} smooth={!reduced} enabled={!preview && !commanding} followTarget={isFollowing && selectedAnchor ? selectedAnchor.position : null} onFollowEnd={() => setIsFollowing(false)} />
+        <ManorCamera ref={camera} preset={preset} obstacles={obstacles} panMode={false} keyTarget={keyTarget} smooth={!reduced} enabled={!preview && !commanding} followTarget={isFollowing && selectedAnchor ? selectedAnchor.position : null} onFollowEnd={() => setIsFollowing(false)} />
         <FrameReporter onSample={report} />
       </Canvas>
 
@@ -433,7 +452,7 @@ function ManorWorld({
 
       {gateSelected && level !== 'deck' && <GateActions open={gateOpen} moving={gateMoving}
         onToggle={() => { setGateOpen(open => !open); setGateMoving(true) }}
-        onFocus={() => camera.current?.focus(new THREE.Vector3(gatePosition[0], gatePosition[1] + 1, gatePosition[2]))}
+        onFocus={() => camera.current?.focus(new THREE.Vector3(gatePosition[0], gatePosition[1] + 1, gatePosition[2]), 5)}
         onClose={() => { setSelectedObject(null); keyTarget?.focus() }}/>}
       {object && <section className="mo-context-panel" aria-label="Object actions">
         <button className="mo-hud-btn" aria-label="Close object actions" onClick={()=>{cancelMode();setSelectedObject(null)}}>Close</button>
@@ -442,7 +461,7 @@ function ManorWorld({
         <p className="font-mono">{object.w.toFixed(1)} × {object.d.toFixed(1)} × {object.h.toFixed(1)} m</p>
         {VEHICLES.has(object.type) && <p>Original tactical design · graphite armor · {object.type === 'pursuitBike' ? 'two-wheel pursuit' : object.type === 'assaultVtol' || object.type === 'tacticalJet' ? 'aerial platform' : 'special operations platform'}</p>}
         <div className="mo-context-actions">
-          <button className="mo-hud-btn" onClick={()=>camera.current?.focus(new THREE.Vector3(object.x,object.y+1,object.z))}>Focus camera</button>
+          <button className="mo-hud-btn" onClick={()=>camera.current?.focus(new THREE.Vector3(object.x,object.y+object.h/2,object.z), itemRadius(object))}>Focus camera</button>
           {MOVABLE.has(object.type) && !preview && <button className="mo-hud-btn" onClick={()=>setPreview({...object})}>Move / rotate</button>}
           {VEHICLES.has(object.type) && object.type!=='tacticalJet' && <button className="mo-hud-btn" disabled={!!rotationError} title={rotationError ?? 'Turn vehicle within its existing parking footprint'} onClick={()=>{const next={...object,rotY:object.rotY+Math.PI};if(!rotationError)setEdits(e=>({...e,[next.id]:next}))}}>Rotate display 180°</button>}
           {preview && <>
@@ -488,7 +507,7 @@ function ManorWorld({
           }}
           onLocate={() => {
             const anchor = anchors.current.get(`agent-${radialMenu.station.id}`)
-            if (anchor) camera.current?.focus(anchor.position)
+            if (anchor) camera.current?.focus(anchor.position, CHARACTER_RADIUS)
           }}
           onMissions={() => {
             window.location.hash = `#/missions?agent=${encodeURIComponent(radialMenu.station.id)}`
@@ -518,7 +537,7 @@ function ManorWorld({
           onFocusAgent={() => {
             if (selectedAgentId) {
               const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-              if (anchor) camera.current?.focus(anchor.position)
+              if (anchor) camera.current?.focus(anchor.position, CHARACTER_RADIUS)
             }
           }}
           onInspectAgent={() => {

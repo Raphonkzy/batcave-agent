@@ -70,8 +70,10 @@ export interface CrewProps {
   shadows: boolean
   anchors: MutableRefObject<Map<string, THREE.Object3D>>
   onSelect: (index: number) => void
+  /** Double-click on a character (the camera focuses it). */
+  onFocus?: (index: number) => void
 }
-export function Crew({ layout, stations, placements, visible, animate, shadows, anchors, onSelect }: CrewProps) {
+export function Crew({ layout, stations, placements, visible, animate, shadows, anchors, onSelect, onFocus }: CrewProps) {
   const signature = stations.map((station) => `${station.id}:${station.state === 'Offline' ? 'off' : 'on'}`).join('|')
   // Rebuilt only when the crew or someone's online status changes; poses update every frame.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,6 +183,7 @@ export function Crew({ layout, stations, placements, visible, animate, shadows, 
     {batches.map((batch) => <CrewMesh key={`${batch.key}:${batch.slots.length}`} batch={batch} bones={bones} shadows={shadows}/>)}
     <instancedMesh key={`hit${stations.length}`} ref={hitbox} args={[geometryFor('box'), hitMaterial, Math.max(1, stations.length)]} frustumCulled={false}
       onClick={(event) => { if (event.button !== 0 || event.delta > 4) return; event.stopPropagation(); if (event.instanceId !== undefined && event.instanceId < stations.length) onSelect(event.instanceId) }}
+      onDoubleClick={(event) => { if (event.button !== 0 || event.delta > 4) return; event.stopPropagation(); if (event.instanceId !== undefined && event.instanceId < stations.length) onFocus?.(event.instanceId) }}
       onPointerOver={() => { document.body.style.cursor = 'pointer' }} onPointerOut={() => { document.body.style.cursor = '' }}/>
     <instancedMesh key={`ring${stations.length}`} ref={ring} args={[ringGeometry, ringMaterial, Math.max(1, stations.length)]} frustumCulled={false}/>
   </group>
