@@ -66,9 +66,13 @@ function DynamicFollowCamera({
 export default function ManorOffice3D({
   stations,
   onSelect,
+  isFullscreen = false,
+  onToggleFullscreen,
 }: {
   stations: OfficeStation[]
   onSelect: (station: OfficeStation, trigger: HTMLElement | null) => void
+  isFullscreen?: boolean
+  onToggleFullscreen?: () => void
 }) {
   const layout = useMemo(() => computeLayout(stations.length), [stations.length])
   const [level, setLevel] = useState<Level>(storedLevel)
@@ -232,6 +236,9 @@ export default function ManorOffice3D({
           const anchor = anchors.current.get(`agent-${selectedAgentId}`)
           if (anchor) camera.current?.follow(anchor.position)
         }
+      } else if (e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        onToggleFullscreen?.()
       } else if (e.key === 'Escape') {
         setSelectedAgentId(null)
         setRadialMenu(null)
@@ -241,7 +248,7 @@ export default function ManorOffice3D({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleCycleLevel, handleSetWallMode, selectedAgentId])
+  }, [handleCycleLevel, handleSetWallMode, selectedAgentId, onToggleFullscreen])
 
   const placements: Placement[] = stations.map((station) =>
     rest.get(station.seat)?.placement && station.state === 'Idle' && station.room === 'Lounge'
@@ -452,6 +459,8 @@ export default function ManorOffice3D({
               window.location.hash = '#/logs'
             }
           }}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={onToggleFullscreen}
         />
       </div>
 

@@ -1360,6 +1360,23 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   position: relative;
 }
 
+.mo-unpinned .mo-app-body {
+  grid-template-columns: 1fr;
+}
+
+.mo-fullscreen {
+  grid-template-rows: 1fr;
+}
+
+.mo-fullscreen .mo-topbar {
+  display: none;
+}
+
+.mo-fullscreen .mo-app-body {
+  height: 100dvh;
+  grid-template-columns: 1fr;
+}
+
 .mo-main-content {
   height: 100%;
   min-height: 0;
@@ -1795,16 +1812,60 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   to { transform: translateX(0); }
 }
 
+.mo-nav-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mo-nav-pin-btn {
+  color: var(--text-3);
+  padding: 4px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mo-nav-pin-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.mo-nav-unpin-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-top: 4px;
+  border-radius: var(--r-sm);
+  background: none;
+  border: 1px dashed var(--line);
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+
+.mo-nav-unpin-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
 .mo-nav-toggle {
   background: none;
   border: none;
   color: var(--text-2);
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 6px;
   border-radius: var(--r-sm);
   cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 
 .mo-nav-toggle:hover {
@@ -1815,9 +1876,6 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 @media (max-width: 759px) {
   .mo-app-body {
     grid-template-columns: 1fr;
-  }
-  .mo-nav-toggle {
-    display: flex;
   }
 }
 

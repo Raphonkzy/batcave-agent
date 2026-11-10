@@ -10,6 +10,8 @@ export interface SideNavProps {
   drawerOpen?: boolean
   onCloseDrawer?: () => void
   isMobile?: boolean
+  pinned?: boolean
+  onTogglePin?: () => void
 }
 
 interface NavItem {
@@ -44,12 +46,15 @@ export function SideNav({
   drawerOpen = false,
   onCloseDrawer,
   isMobile = false,
+  pinned = true,
+  onTogglePin,
 }: SideNavProps) {
   const drawerRef = useRef<HTMLElement>(null)
+  const isOverlay = isMobile || !pinned
 
-  // Escape key closes mobile drawer
+  // Escape key closes overlay drawer
   useEffect(() => {
-    if (!isMobile || !drawerOpen) return
+    if (!isOverlay || !drawerOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -58,18 +63,18 @@ export function SideNav({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isMobile, drawerOpen, onCloseDrawer])
+  }, [isOverlay, drawerOpen, onCloseDrawer])
 
   const handleClick = (page: Page) => {
     onNavigate(page)
-    if (isMobile) {
+    if (isOverlay) {
       onCloseDrawer?.()
     }
   }
 
   const renderGroup = (title: string, items: NavItem[]) => (
     <div className="mo-nav-group">
-      {mode === 'open' && <div className="mo-nav-group-title">{title}</div>}
+      {(mode === 'open' || isOverlay) && <div className="mo-nav-group-title">{title}</div>}
       <ul className="mo-nav-list" role="list">
         {items.map((item) => {
           const isActive = currentPage === item.page
@@ -83,12 +88,12 @@ export function SideNav({
                   handleClick(item.page)
                 }}
                 aria-current={isActive ? 'page' : undefined}
-                title={mode === 'rail' ? item.label : undefined}
+                title={mode === 'rail' && !isOverlay ? item.label : undefined}
               >
                 <span className="mo-nav-icon">
                   <Icon name={item.icon} size={16} />
                 </span>
-                {mode === 'open' && <span className="mo-nav-label">{item.label}</span>}
+                {(mode === 'open' || isOverlay) && <span className="mo-nav-label">{item.label}</span>}
                 {isActive && <span className="mo-nav-active-bar" />}
               </a>
             </li>
@@ -101,26 +106,40 @@ export function SideNav({
   const navContent = (
     <nav
       ref={drawerRef}
-      className={`mo-side-nav mo-side-nav-${mode} ${isMobile ? 'mo-side-nav-drawer' : ''}`}
+      className={`mo-side-nav ${isOverlay ? 'mo-side-nav-drawer' : `mo-side-nav-${mode}`}`}
       aria-label="Main Navigation"
-      role={isMobile ? 'dialog' : undefined}
-      aria-modal={isMobile ? true : undefined}
+      role={isOverlay ? 'dialog' : undefined}
+      aria-modal={isOverlay ? true : undefined}
     >
       <div className="mo-side-nav-header">
         <div className="mo-nav-brand">
           <span className="mo-brand-mark">◆</span>
-          {mode === 'open' && <span className="mo-brand-text">batcave</span>}
+          {(mode === 'open' || isOverlay) && <span className="mo-brand-text">batcave</span>}
         </div>
-        {isMobile && (
-          <button
-            type="button"
-            className="mo-icon-btn mo-nav-close-btn"
-            onClick={onCloseDrawer}
-            aria-label="Close menu"
-          >
-            <Icon name="close" size={16} />
-          </button>
-        )}
+        <div className="mo-nav-header-actions">
+          {onTogglePin && !isMobile && (
+            <button
+              type="button"
+              className="mo-icon-btn mo-nav-pin-btn"
+              onClick={onTogglePin}
+              title={pinned ? 'Unpin menu (Full width / Float)' : 'Pin menu to side'}
+              aria-label={pinned ? 'Unpin menu' : 'Pin menu to side'}
+            >
+              <Icon name={pinned ? 'pin' : 'pin-off'} size={16} />
+            </button>
+          )}
+          {isOverlay && (
+            <button
+              type="button"
+              className="mo-icon-btn mo-nav-close-btn"
+              onClick={onCloseDrawer}
+              aria-label="Close menu"
+              title="Close menu"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mo-side-nav-scroll">
@@ -128,7 +147,7 @@ export function SideNav({
         {renderGroup('System', SYSTEM_ROUTES)}
       </div>
 
-      {!isMobile && (
+      {!isOverlay ? (
         <div className="mo-side-nav-footer">
           <button
             type="button"
@@ -140,12 +159,37 @@ export function SideNav({
             <Icon name={mode === 'open' ? 'chevrons-left' : 'chevrons-right'} size={16} />
             {mode === 'open' && <span className="mo-collapse-label">Collapse menu</span>}
           </button>
+          {onTogglePin && mode === 'open' && (
+            <button
+              type="button"
+              className="mo-nav-unpin-btn"
+              onClick={onTogglePin}
+              title="Unpin menu from side (Fullscreen)"
+            >
+              <Icon name="pin-off" size={16} />
+              <span>Unpin (Fullscreen)</span>
+            </button>
+          )}
         </div>
+      ) : (
+        !isMobile && onTogglePin && (
+          <div className="mo-side-nav-footer">
+            <button
+              type="button"
+              className="mo-nav-collapse-btn"
+              onClick={onTogglePin}
+              title="Pin menu to side"
+            >
+              <Icon name="pin" size={16} />
+              <span className="mo-collapse-label">Pin menu to side</span>
+            </button>
+          </div>
+        )
       )}
     </nav>
   )
 
-  if (isMobile) {
+  if (isOverlay) {
     if (!drawerOpen) return null
     return (
       <div className="mo-side-nav-backdrop" onClick={onCloseDrawer}>
