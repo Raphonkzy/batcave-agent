@@ -28,22 +28,22 @@ export function AppHeader({
             type="button"
             className="mo-nav-toggle"
             onClick={onToggleNav}
-            aria-label="Buka menu navigasi"
-            title="Buka menu"
+            aria-label="Toggle navigation menu"
+            title="Toggle menu"
           >
             <Icon name="menu" size={20} />
           </button>
         )}
-        <button type="button" className="mo-brand-btn" onClick={onNavigateHome} title="Ke Home 3D (Batcave)">
+        <button type="button" className="mo-brand-btn" onClick={onNavigateHome} title="Go to 3D Home (Batcave)">
           <span className="mo-brand-mark">◆</span>
           <span className="mo-brand-text">batcave</span>
         </button>
       </div>
 
       <div className="mo-topbar-center">
-        <button type="button" className="mo-search-trigger" onClick={onOpenPalette} aria-label="Buka Command Palette">
+        <button type="button" className="mo-search-trigger" onClick={onOpenPalette} aria-label="Open Command Palette">
           <Icon name="search" size={16} />
-          <span className="mo-search-placeholder">Cari halaman atau agent…</span>
+          <span className="mo-search-placeholder">Search pages or agents…</span>
           <span className="mo-search-shortcut">
             <Kbd>⌘K</Kbd>
           </span>
@@ -51,10 +51,10 @@ export function AppHeader({
       </div>
 
       <div className="mo-topbar-right">
-        <div className="mo-agent-counter" title={`${activeCount} agent aktif dari total ${totalCount}`}>
+        <div className="mo-agent-counter" title={`${activeCount} active agents out of ${totalCount} total`}>
           <StatusDot status="working" size={6} />
           <span className="mo-counter-num">{activeCount}</span>
-          <span className="mo-counter-label">aktif</span>
+          <span className="mo-counter-label">active</span>
         </div>
         {onRefresh && (
           <button type="button" className="mo-icon-btn" onClick={onRefresh} title="Refresh data">

@@ -23,8 +23,8 @@ export function Agents({ runtime, pending = false }: { runtime: RuntimeSnapshot 
   if (!runtime || runtime.profiles.availability === 'unavailable') {
     return (
       <div className="mo-empty-state">
-        <h2>Agents Tidak Tersedia</h2>
-        <p>Daftar profil Hermes tidak dapat dibaca dari server.</p>
+        <h2>Agents Unavailable</h2>
+        <p>Failed to load Hermes profiles from server.</p>
       </div>
     )
   }
@@ -64,14 +64,14 @@ export function Agents({ runtime, pending = false }: { runtime: RuntimeSnapshot 
       <header className="mo-page-header">
         <h1 className="mo-page-title">Agents</h1>
         <p className="mo-page-description">
-          Daftar seluruh profil Hermes agent yang aktif beroperasi pada workstation ini.
+          Directory of all active Hermes agent profiles operating on this workstation.
         </p>
       </header>
 
       {/* Filter and stats hairline bar */}
       <div className="mo-filter-bar">
         <div className="mo-filter-tally">
-          <strong>{rawAgents.length}</strong> agent · <span className="text-accent">{activeCount} aktif</span>
+          <strong>{rawAgents.length}</strong> agents · <span className="text-accent">{activeCount} active</span>
         </div>
 
         <div className="mo-filter-controls">
@@ -81,14 +81,14 @@ export function Agents({ runtime, pending = false }: { runtime: RuntimeSnapshot 
               className={`mo-segmented-item ${filter === 'all' ? 'active' : ''}`}
               onClick={() => setFilter('all')}
             >
-              Semua
+              All
             </button>
             <button
               type="button"
               className={`mo-segmented-item ${filter === 'active' ? 'active' : ''}`}
               onClick={() => setFilter('active')}
             >
-              Aktif
+              Active
             </button>
             <button
               type="button"
@@ -103,7 +103,7 @@ export function Agents({ runtime, pending = false }: { runtime: RuntimeSnapshot 
             <Icon name="search" size={16} />
             <input
               type="text"
-              placeholder="Cari agent atau model…"
+              placeholder="Search agents or models…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="mo-search-input"
@@ -155,7 +155,7 @@ export function Agents({ runtime, pending = false }: { runtime: RuntimeSnapshot 
 
         {filtered.length === 0 && (
           <div className="mo-empty-state">
-            <p>Tidak ada agent yang cocok dengan filter atau pencarian saat ini.</p>
+            <p>No agents match the current filter or search query.</p>
           </div>
         )}
       </div>

@@ -20,21 +20,21 @@ export function Activity() {
       <header className="mo-page-header">
         <h1 className="mo-page-title">Activity</h1>
         <p className="mo-page-description">
-          Stream aktivitas sesi interaksi langsung dari engine Hermes dan session feed.
+          Live interaction session stream from Hermes engine and session feeds.
         </p>
       </header>
 
       {/* Hairline Toolbar */}
       <div className="mo-filter-bar">
         <div className="mo-filter-tally">
-          <strong>{visible.length}</strong> sesi interaksi
+          <strong>{visible.length}</strong> interaction sessions
         </div>
 
         <div className="mo-search-box">
           <Icon name="search" size={16} />
           <input
             type="text"
-            placeholder="Cari aktivitas atau workspace…"
+            placeholder="Search activity or workspace…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="mo-search-input"
@@ -70,7 +70,7 @@ export function Activity() {
 
         {visible.length === 0 && (
           <div className="mo-empty-state">
-            <p>Tidak ada sesi aktivitas yang tercatat saat ini.</p>
+            <p>No activity sessions recorded at this time.</p>
           </div>
         )}
       </div>

@@ -10,7 +10,7 @@ export { MonthView }
 export function CalendarOverlayView() {
   const snapshot = usePolling<CalendarSnapshot>('/api/calendar', 30_000)
   const jobs = snapshot.status === 'ready' ? snapshot.data.jobs : undefined
-  if (snapshot.status === 'pending') return <div className="text-muted">Memuat cron jobs...</div>
+  if (snapshot.status === 'pending') return <div className="text-muted">Loading cron jobs...</div>
   return jobs?.availability === 'available' ? <MonthView jobs={jobs.data} /> : null
 }
 
@@ -20,13 +20,13 @@ function relativeNextRun(dateStr?: string): string {
   const now = Date.now()
   const diffMinutes = Math.round((target - now) / 60000)
 
-  if (diffMinutes < 0) return `${Math.abs(diffMinutes)} mnt lalu (overdue)`
-  if (diffMinutes === 0) return 'sebentar lagi'
-  if (diffMinutes < 60) return `dalam ${diffMinutes} mnt`
+  if (diffMinutes < 0) return `${Math.abs(diffMinutes)}m ago (overdue)`
+  if (diffMinutes === 0) return 'shortly'
+  if (diffMinutes < 60) return `in ${diffMinutes}m`
   const hours = Math.round(diffMinutes / 60)
-  if (hours < 24) return `dalam ${hours} jam`
+  if (hours < 24) return `in ${hours}h`
   const days = Math.round(hours / 24)
-  return `dalam ${days} hari`
+  return `in ${days}d`
 }
 
 export function Calendar() {
@@ -39,7 +39,7 @@ export function Calendar() {
   // Group by day for agenda view
   const groups = new Map<string, ScheduledJob[]>()
   for (const job of sorted) {
-    let day = 'Tidak Dijadwalkan'
+    let day = 'Unscheduled'
     if (job.nextRun) {
       const d = new Date(job.nextRun)
       day = d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -57,7 +57,7 @@ export function Calendar() {
           <div>
             <h1 className="mo-page-title">Calendar & Schedules</h1>
             <p className="mo-page-description">
-              Daftar cron job Hermes terorganisir secara kronologis (agenda view) dan berulang.
+              Chronological agenda and recurring schedule view of Hermes cron jobs.
             </p>
           </div>
 
@@ -84,7 +84,7 @@ export function Calendar() {
       {nextJob && (
         <div className="mo-panel mo-next-run-banner">
           <Stat
-            label="EKSEKUSI BERIKUTNYA"
+            label="NEXT EXECUTION"
             value={relativeNextRun(nextJob.nextRun)}
             sub={`${nextJob.name} (${nextJob.schedule}) · ${formatDateTime(nextJob.nextRun)}`}
           />
@@ -103,7 +103,7 @@ export function Calendar() {
             <div key={day} className="mo-agenda-day-group">
               <div className="mo-agenda-day-header">
                 <span className="mo-agenda-day-title">{day}</span>
-                <span className="mo-agenda-day-tally">{dayJobs.length} tugas</span>
+                <span className="mo-agenda-day-tally">{dayJobs.length} tasks</span>
               </div>
 
               <div className="mo-agenda-items">
@@ -120,7 +120,7 @@ export function Calendar() {
                       </div>
                       <div className="mo-agenda-cron-spec font-mono">
                         <code>{job.schedule}</code>
-                        {job.repeat && <span> · ulang {job.repeat}</span>}
+                        {job.repeat && <span> · repeats {job.repeat}</span>}
                       </div>
                     </div>
 
@@ -141,7 +141,7 @@ export function Calendar() {
 
           {sorted.length === 0 && (
             <div className="mo-empty-state">
-              <p>Tidak ada cron jobs terjadwal yang dilaporkan Hermes.</p>
+              <p>No scheduled cron jobs reported by Hermes.</p>
             </div>
           )}
         </div>

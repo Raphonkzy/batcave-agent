@@ -22,14 +22,14 @@ export function Usage() {
           <div>
             <h1 className="mo-page-title">Usage & Tokens</h1>
             <p className="mo-page-description">
-              Metrik konsumsi komputasi dan token LLM dari <code>hermes insights</code> seluruh agent.
+              LLM token and compute consumption metrics from <code>hermes insights</code> across all agents.
             </p>
           </div>
 
           <div className="mo-period-selector">
             <SegmentedControl
               options={USAGE_PERIODS.map((p) => ({
-                label: p === 1 ? '24 Jam' : `${p} Hari`,
+                label: p === 1 ? '24 Hours' : `${p} Days`,
                 value: p.toString(),
               }))}
               value={days.toString()}
@@ -43,21 +43,21 @@ export function Usage() {
       <div className="mo-metrics-top-row">
         <div className="mo-stat-card">
           <Stat
-            label="TOTAL TOKEN"
+            label="TOTAL TOKENS"
             value={totals ? formatCompact(totals.totalTokens) : '—'}
             sub={totals ? `${formatCompact(totals.inputTokens)} in / ${formatCompact(totals.outputTokens)} out` : ''}
           />
         </div>
         <div className="mo-stat-card">
           <Stat
-            label="ESTIMASI BIAYA"
+            label="ESTIMATED COST"
             value={totals ? formatCost(totals.costUsd) : '$0.00'}
-            sub={totals ? `${formatNumber(totals.sessions)} sesi percakapan` : ''}
+            sub={totals ? `${formatNumber(totals.sessions)} conversation sessions` : ''}
           />
         </div>
         <div className="mo-stat-card">
           <Stat
-            label="MODEL TERATAS"
+            label="TOP MODEL"
             value={topModel}
             sub={topAgent ? `Top consumer: ${topAgent.agent}` : ''}
           />
@@ -67,8 +67,8 @@ export function Usage() {
       {/* 2. Full-Width Line Chart (SVG Procedural) */}
       <div className="mo-chart-container">
         <div className="mo-chart-header">
-          <span className="mo-chart-title">TREN KONSUMSI TOKEN</span>
-          <span className="mo-chart-badge">AKTIF</span>
+          <span className="mo-chart-title">TOKEN CONSUMPTION TREND</span>
+          <span className="mo-chart-badge">ACTIVE</span>
         </div>
         <svg className="mo-line-chart-svg" viewBox="0 0 1000 200" preserveAspectRatio="none">
           <defs>
@@ -109,7 +109,7 @@ export function Usage() {
           })}
           {(!data || data.models.length === 0) && (
             <div className="mo-empty-state">
-              <p>Belum ada data model pada rentang waktu ini.</p>
+              <p>No model data available for this time range.</p>
             </div>
           )}
         </div>

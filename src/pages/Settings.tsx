@@ -42,7 +42,7 @@ function CodeField({
           onClick={() => setShow(!show)}
           aria-pressed={show}
         >
-          {show ? 'SEMBUNYIKAN' : 'LIHAT'}
+          {show ? 'HIDE' : 'SHOW'}
         </button>
       </div>
     </div>
@@ -73,9 +73,9 @@ function CodeSetup({
   const customProblem =
     kind === 'custom' &&
     (custom.trim().length < status.minLength
-      ? `Minimal ${status.minLength} karakter.`
+      ? `Minimum ${status.minLength} characters.`
       : custom.trim() !== confirm.trim()
-      ? 'Kedua kode tidak cocok.'
+      ? 'Access codes do not match.'
       : undefined)
 
   const copy = async () => {
@@ -84,7 +84,7 @@ function CodeSetup({
       setCopied(true)
       setTimeout(() => setCopied(false), 2_000)
     } catch {
-      setError('Gagal menyalin ke clipboard. Silakan unduh file .txt.')
+      setError('Failed to copy to clipboard. Please download the .txt file.')
     }
   }
 
@@ -102,11 +102,11 @@ function CodeSetup({
       return
     }
     if (!saved) {
-      setError('Centang kotak konfirmasi penyimpanan kode.')
+      setError('Please check the box confirming you saved the code.')
       return
     }
     if (status.enabled && !current.trim()) {
-      setError('Masukkan access code saat ini.')
+      setError('Please enter the current access code.')
       return
     }
     setBusy(true)
@@ -125,14 +125,14 @@ function CodeSetup({
           className={`mo-segmented-item ${kind === 'generated' ? 'active' : ''}`}
           onClick={() => changeCode(() => setKind('generated'))}
         >
-          Generate Otomatis
+          Auto Generate
         </button>
         <button
           type="button"
           className={`mo-segmented-item ${kind === 'custom' ? 'active' : ''}`}
           onClick={() => changeCode(() => setKind('custom'))}
         >
-          Kustom
+          Custom
         </button>
       </div>
 
@@ -144,21 +144,21 @@ function CodeSetup({
             className="mo-btn mo-btn-ghost mo-btn-sm"
             onClick={() => changeCode(() => setGenerated(generateCode()))}
           >
-            ↻ ACAK LAGI
+            ↻ RANDOMIZE
           </button>
         </div>
       ) : (
         <>
           <CodeField
             id="custom-code"
-            label="Access code baru"
+            label="New access code"
             value={custom}
             onChange={(val) => changeCode(() => setCustom(val))}
             autoComplete="new-password"
           />
           <CodeField
             id="confirm-code"
-            label="Ulangi access code"
+            label="Confirm access code"
             value={confirm}
             onChange={setConfirm}
             autoComplete="new-password"
@@ -173,7 +173,7 @@ function CodeSetup({
           onClick={() => downloadCode(code)}
           disabled={Boolean(customProblem) || !code}
         >
-          ⬇ Unduh .TXT
+          ⬇ Download .TXT
         </button>
         <button
           type="button"
@@ -181,14 +181,14 @@ function CodeSetup({
           onClick={() => void copy()}
           disabled={Boolean(customProblem) || !code}
         >
-          {copied ? '✓ TERSALIN' : 'SALIN'}
+          {copied ? '✓ COPIED' : 'COPY'}
         </button>
       </div>
 
       {status.enabled && (
         <CodeField
           id="current-code"
-          label="Access code saat ini"
+          label="Current access code"
           value={current}
           onChange={setCurrent}
           autoComplete="current-password"
@@ -198,11 +198,11 @@ function CodeSetup({
       <div className="mo-checkbox-group">
         <label className="mo-check-label">
           <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
-          <span>Saya sudah menyimpan kode ini (unduh atau salin)</span>
+          <span>I have saved this code (downloaded or copied)</span>
         </label>
         <label className="mo-check-label">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-          <span>Ingat browser ini selama {status.rememberDays} hari</span>
+          <span>Remember this browser for {status.rememberDays} days</span>
         </label>
       </div>
 
@@ -210,10 +210,10 @@ function CodeSetup({
 
       <div className="mo-button-row" style={{ marginTop: 16 }}>
         <button type="submit" className="mo-btn mo-btn-primary" disabled={!saved || busy}>
-          {busy ? 'Menyimpan…' : status.enabled ? 'Simpan Kode Baru' : 'Aktifkan Access Code'}
+          {busy ? 'Saving…' : status.enabled ? 'Save New Code' : 'Enable Access Code'}
         </button>
         <button type="button" className="mo-btn mo-btn-ghost" onClick={onCancel}>
-          Batal
+          Cancel
         </button>
       </div>
     </form>
@@ -234,7 +234,7 @@ function TurnOff({
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!current.trim()) {
-      setError('Masukkan access code saat ini.')
+      setError('Please enter the current access code.')
       return
     }
     setBusy(true)
@@ -246,10 +246,10 @@ function TurnOff({
 
   return (
     <form className="mo-access-setup-form" onSubmit={submit}>
-      <p className="text-muted">Siapa pun yang membuka tautan Batcave dapat mengakses tanpa sandi.</p>
+      <p className="text-muted">Anyone opening the Batcave link can access without a passcode.</p>
       <CodeField
         id="disable-code"
-        label="Access code saat ini"
+        label="Current access code"
         value={current}
         onChange={setCurrent}
         autoComplete="current-password"
@@ -257,10 +257,10 @@ function TurnOff({
       {error && <p className="mo-form-error text-bad font-mono">{error}</p>}
       <div className="mo-button-row" style={{ marginTop: 16 }}>
         <button type="submit" className="mo-btn mo-btn-primary" disabled={busy}>
-          {busy ? 'Menonaktifkan…' : 'Nonaktifkan Access Code'}
+          {busy ? 'Disabling…' : 'Disable Access Code'}
         </button>
         <button type="button" className="mo-btn mo-btn-ghost" onClick={onCancel}>
-          Batal
+          Cancel
         </button>
       </div>
     </form>
@@ -294,7 +294,7 @@ export function Settings({
         <header className="mo-page-header">
           <h1 className="mo-page-title">Settings</h1>
           <p className="mo-page-description">
-            Konfigurasi keamanan workstation Batcave. Mesin Hermes tetap beroperasi secara read-only.
+            Batcave workstation security configuration. Hermes engine remains operating in read-only mode.
           </p>
         </header>
 
@@ -302,27 +302,27 @@ export function Settings({
         <section className="mo-settings-section">
           <div className="mo-section-row-head">
             <div>
-              <div className="mo-section-eyebrow">KEAMANAN WORKSTATION</div>
+              <div className="mo-section-eyebrow">WORKSTATION SECURITY</div>
               <h2 className="mo-section-heading">Access Code</h2>
             </div>
             {access && (
               <Pill variant={access.enabled ? 'accent' : 'muted'}>
-                {access.enabled ? 'Aktif' : 'Nonaktif'}
+                {access.enabled ? 'Active' : 'Disabled'}
               </Pill>
             )}
           </div>
 
           <p className="mo-section-desc">
-            Perlindungan sandi saat membuka Batcave di browser. Kunci diverifikasi secara lokal melalui hashing kriptografis.
+            Passcode protection when opening Batcave in a browser. Keys are verified locally using cryptographic hashing.
           </p>
 
           {!access ? (
-            <p className="text-muted">Memuat status keamanan…</p>
+            <p className="text-muted">Loading security status…</p>
           ) : (
             <>
               {access.enabled && access.since && (
                 <div className="mo-section-since font-mono text-muted">
-                  Aktif sejak: {formatDateTime(access.since)}
+                  Active since: {formatDateTime(access.since)}
                 </div>
               )}
               {message && mode === 'idle' && (
@@ -381,15 +381,15 @@ export function Settings({
                   status={access}
                   onDone={done(
                     access.enabled
-                      ? 'Access code berhasil diperbarui.'
-                      : 'Access code telah aktif.'
+                      ? 'Access code successfully updated.'
+                      : 'Access code has been enabled.'
                   )}
                   onCancel={() => setMode('idle')}
                 />
               )}
 
               {mode === 'off' && (
-                <TurnOff onDone={done('Access code dinonaktifkan.')} onCancel={() => setMode('idle')} />
+                <TurnOff onDone={done('Access code disabled.')} onCancel={() => setMode('idle')} />
               )}
             </>
           )}

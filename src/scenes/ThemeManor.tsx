@@ -128,7 +128,7 @@ export default function ThemeManor({
   // 3-Level hierarchy:
   // - deck: Command Deck (subterranean cave + hangar + ops room). Surface is hidden.
   // - ground: Grand Manor (ground floor + terrace + pool + grounds). Deck is hidden.
-  // - upper: Lantai 2 (ground floor + upper floor + roof). Deck is hidden.
+  // - upper: Upper Level (ground floor + upper floor + roof). Deck is hidden.
   const isDeck = level === 'deck' || (view === 'deck' || view === 'hangar')
   const isManor = level === 'ground' || level === 'upper' || (view === 'manor' || view === 'lobby' || view === 'exterior' || view === 'overview')
   const isUpper = level === 'upper' || showUpper

@@ -45,7 +45,7 @@ export function CommandPalette({ open, onClose, onNavigate, agents = [] }: Comma
             ref={inputRef}
             type="text"
             className="mo-palette-input"
-            placeholder="Cari halaman, rute, atau agent…"
+            placeholder="Search pages, routes, or agents…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -54,7 +54,7 @@ export function CommandPalette({ open, onClose, onNavigate, agents = [] }: Comma
 
         <div className="mo-palette-body">
           <div className="mo-palette-group">
-            <div className="mo-palette-label">HALAMAN & RUTE</div>
+            <div className="mo-palette-label">PAGES & ROUTES</div>
             {matchedPages.map((page) => (
               <button
                 key={page}
@@ -69,7 +69,7 @@ export function CommandPalette({ open, onClose, onNavigate, agents = [] }: Comma
                 <span className="mo-palette-slug">#/{pageSlug(page)}</span>
               </button>
             ))}
-            {matchedPages.length === 0 && <div className="mo-palette-empty">Tidak ada halaman yang cocok</div>}
+            {matchedPages.length === 0 && <div className="mo-palette-empty">No matching pages found</div>}
           </div>
 
           {matchedAgents.length > 0 && (

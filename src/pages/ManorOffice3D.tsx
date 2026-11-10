@@ -349,7 +349,7 @@ export default function ManorOffice3D({
                 selectAgent(station)
                 setIsFollowing((prev) => !prev)
               }}
-              aria-label={`${station.name}. ${station.state}.${station.privacy === 'locked' ? ' Locked.' : ''}${resting ? ` ${resting}.` : ''} Buka aksi agent.`}
+              aria-label={`${station.name}. ${station.state}.${station.privacy === 'locked' ? ' Locked.' : ''}${resting ? ` ${resting}.` : ''} Open agent actions.`}
             >
               {isSelected && <span className="mo-diamond-marker" />}
               {resting && (

@@ -102,7 +102,7 @@ export function SideNav({
     <nav
       ref={drawerRef}
       className={`mo-side-nav mo-side-nav-${mode} ${isMobile ? 'mo-side-nav-drawer' : ''}`}
-      aria-label="Navigasi Utama"
+      aria-label="Main Navigation"
       role={isMobile ? 'dialog' : undefined}
       aria-modal={isMobile ? true : undefined}
     >
@@ -116,7 +116,7 @@ export function SideNav({
             type="button"
             className="mo-icon-btn mo-nav-close-btn"
             onClick={onCloseDrawer}
-            aria-label="Tutup menu"
+            aria-label="Close menu"
           >
             <Icon name="close" size={16} />
           </button>
@@ -124,8 +124,8 @@ export function SideNav({
       </div>
 
       <div className="mo-side-nav-scroll">
-        {renderGroup('Operasi', OPERATIONS_ROUTES)}
-        {renderGroup('Sistem', SYSTEM_ROUTES)}
+        {renderGroup('Operations', OPERATIONS_ROUTES)}
+        {renderGroup('System', SYSTEM_ROUTES)}
       </div>
 
       {!isMobile && (
@@ -134,11 +134,11 @@ export function SideNav({
             type="button"
             className="mo-nav-collapse-btn"
             onClick={onToggleMode}
-            title={mode === 'open' ? 'Ciutkan menu (mode rail)' : 'Perluas menu'}
-            aria-label={mode === 'open' ? 'Ciutkan menu' : 'Perluas menu'}
+            title={mode === 'open' ? 'Collapse menu (rail mode)' : 'Expand menu'}
+            aria-label={mode === 'open' ? 'Collapse menu' : 'Expand menu'}
           >
             <Icon name={mode === 'open' ? 'chevrons-left' : 'chevrons-right'} size={16} />
-            {mode === 'open' && <span className="mo-collapse-label">Ciutkan menu</span>}
+            {mode === 'open' && <span className="mo-collapse-label">Collapse menu</span>}
           </button>
         </div>
       )}

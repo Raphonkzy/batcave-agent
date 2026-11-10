@@ -46,31 +46,31 @@ function useRequest<T>(url: string | undefined): FolderRequest<T> {
 
 function FileViewer({ agent, path }: { agent: string; path: string }) {
   const file = useRequest<FolderFile>(folderUrl(agent, 'file', path))
-  if (file.status === 'pending') return <LoadingState message={`Membuka ${path}...`} />
-  if (file.status === 'failed') return <EmptyState title="Tidak dapat membuka file">{file.error ?? 'File gagal dibaca.'}</EmptyState>
+  if (file.status === 'pending') return <LoadingState message={`Opening ${path}...`} />
+  if (file.status === 'failed') return <EmptyState title="Unable to open file">{file.error ?? 'Failed to read file.'}</EmptyState>
   const data = file.data
   return (
-    <section className="mo-file-viewer mo-panel" aria-label={`Isi dari ${data.path}`}>
+    <section className="mo-file-viewer mo-panel" aria-label={`Contents of ${data.path}`}>
       <header className="mo-file-head">
         <div>
           <h2 className="mo-file-title font-mono">{data.path.split('/').pop()}</h2>
           <div className="mo-file-meta text-muted font-mono">
-            {formatBytes(data.size)} · Diperbarui {formatDateTime(data.modified)}
+            {formatBytes(data.size)} · Modified {formatDateTime(data.modified)}
           </div>
         </div>
       </header>
 
       {data.kind === 'sensitive' ? (
         <div className="mo-notice-box warning">
-          🔒 Berkas sensitif (kredensial, kunci API, atau auth). Batcave hanya menampilkan daftar tanpa membaca isi.
+          🔒 Sensitive file (credentials, API keys, or auth). Batcave only lists the file without reading its contents.
         </div>
       ) : data.kind === 'binary' ? (
-        <div className="mo-notice-box">Berkas biner. Pratinjau teks tidak tersedia.</div>
+        <div className="mo-notice-box">Binary file. Text preview is unavailable.</div>
       ) : (
         <>
-          {data.truncated && <div className="mo-notice-box">Menampilkan 256 KB pertama dari berkas ini.</div>}
-          {!!data.redactions && <div className="mo-notice-box">{data.redactions} baris secret disamarkan sebagai [REDACTED].</div>}
-          <pre className="mo-file-content font-mono">{data.content || <span className="text-muted">(berkas kosong)</span>}</pre>
+          {data.truncated && <div className="mo-notice-box">Showing first 256 KB of this file.</div>}
+          {!!data.redactions && <div className="mo-notice-box">{data.redactions} secret lines redacted as [REDACTED].</div>}
+          <pre className="mo-file-content font-mono">{data.content || <span className="text-muted">(empty file)</span>}</pre>
         </>
       )}
     </section>
@@ -97,11 +97,11 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
   return (
     <div className="mo-folder-browser-wrapper">
       {/* Prominent Large Breadcrumb */}
-      <nav className="mo-large-breadcrumb" aria-label="Jalur folder">
+      <nav className="mo-large-breadcrumb" aria-label="Folder path">
         {onBack && (
           <>
             <button type="button" className="mo-crumb-btn" onClick={onBack}>
-              Semua Agent
+              All Agents
             </button>
             <span className="mo-crumb-separator">/</span>
           </>
@@ -135,7 +135,7 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
             <Icon name="search" size={16} />
             <input
               type="text"
-              placeholder="Filter folder ini…"
+              placeholder="Filter this folder…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="mo-search-input"
@@ -177,7 +177,7 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
 
           {entries.length === 0 && (
             <div className="mo-empty-state">
-              <p>{needle ? 'Tidak ada berkas yang cocok.' : 'Folder ini kosong.'}</p>
+              <p>{needle ? 'No matching files.' : 'This folder is empty.'}</p>
             </div>
           )}
         </div>
@@ -187,7 +187,7 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
             <FileViewer agent={agent.profile} path={selected} />
           ) : (
             <div className="mo-empty-state mo-panel">
-              <p>Pilih berkas di sebelah kiri untuk melihat isinya.</p>
+              <p>Select a file on the left to view its contents.</p>
             </div>
           )}
         </div>
@@ -199,9 +199,9 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
 export function AgentFolder({ profile }: { profile: string }) {
   const snapshot = usePolling<FolderAgentsSnapshot>('/api/folders', 60_000)
   const agent = snapshot.status === 'ready' ? snapshot.data.agents.find((item) => item.profile === profile) : undefined
-  if (snapshot.status === 'pending') return <LoadingState message="Mencari folder agent..." />
-  if (snapshot.status === 'failed') return <EmptyState title="Tidak Tersedia">{snapshot.message ?? 'Daftar folder tidak dapat dibaca.'}</EmptyState>
-  if (!agent || !agent.available) return <EmptyState title="Folder tidak tersedia">{agent?.reason ?? 'Agent ini tidak memiliki folder yang dapat dibaca.'}</EmptyState>
+  if (snapshot.status === 'pending') return <LoadingState message="Looking for agent folders..." />
+  if (snapshot.status === 'failed') return <EmptyState title="Unavailable">{snapshot.message ?? 'Failed to load folder list.'}</EmptyState>
+  if (!agent || !agent.available) return <EmptyState title="Folder unavailable">{agent?.reason ?? 'This agent does not have a readable folder.'}</EmptyState>
   return (
     <div className="embedded-folder">
       <PrivateGate agent={agent.profile} compact>
@@ -224,7 +224,7 @@ export function Folders() {
       <header className="mo-page-header">
         <h1 className="mo-page-title">Folders Sandbox</h1>
         <p className="mo-page-description">
-          Penjelajah direktori tersandbox dengan proteksi path traversal untuk profil setiap agent.
+          Sandboxed directory explorer with path-traversal protection for each agent profile.
         </p>
       </header>
 
