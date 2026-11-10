@@ -8,7 +8,7 @@ import { redactActivity, redactCalendar, redactDashboard, redactLogs, redactMemo
 import { installProfileLock, isHidden, type Privacy } from './profile-lock.js'
 import { API_VERSION } from './api-version.js'
 import { collectMemory } from './memory.js'
-import { getActivity, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
+import { getActivity, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getTaskBoard, getTaskDetail, getUsage, type CacheRead } from './mission-control.js'
 
 const HOST = '127.0.0.1'
 // BATCAVE_PORT is the primary port, with legacy aliases RUANG_PORT / MISSION_CONTROL_PORT still honoured.
@@ -32,10 +32,10 @@ installAccess(app)
 // Optional profile lock (off by default): a PIN withholds the private data of chosen agents.
 const privacyOf = installProfileLock(app)
 
-// `?fresh=1` (manual refresh) bypasses the 10s cache for anything older than 2s.
-const FRESH_WINDOW_MS = 8_000
+// Manual refresh bypasses cached values while sharing any in-flight collection.
+const cacheRead = (request: Request): CacheRead => ({ now: Date.now(), forceRefresh: request.query.fresh === '1' })
 // Every snapshot is shared and cached; the private data of locked agents is withheld per request.
-const routes: Record<string, (now: number, privacy: Privacy) => Promise<unknown> | unknown> = {
+const routes: Record<string, (now: CacheRead, privacy: Privacy) => Promise<unknown> | unknown> = {
   '/api/runtime': getSnapshot,
   '/api/dashboard': async (now, privacy) => redactDashboard(await getDashboard(now), privacy),
   '/api/tasks': async (now, privacy) => redactTasks(await getTaskBoard(now), privacy),
@@ -50,13 +50,13 @@ const routes: Record<string, (now: number, privacy: Privacy) => Promise<unknown>
 }
 for (const [path, handler] of Object.entries(routes)) {
   app.get(path, async (request, response) => {
-    const now = Date.now() + (request.query.fresh === '1' ? FRESH_WINDOW_MS : 0)
+    const now = cacheRead(request)
     response.json(await handler(now, await privacyOf(request)))
   })
 }
 const locked = (response: Response, agent: string) => response.status(423).json({ error: `🔒 ${agent} is locked. Enter the PIN to see it.`, locked: 'profile', agent })
 app.get('/api/usage', async (request, response) => {
-  const now = Date.now() + (request.query.fresh === '1' ? FRESH_WINDOW_MS : 0)
+  const now = cacheRead(request)
   response.json(redactUsage(await getUsage(Number(request.query.days) || 7, now), await privacyOf(request)))
 })
 app.get('/api/tasks/:id', async (request, response) => {

@@ -15,10 +15,16 @@ function humanBody(config: AgentGearConfig): BonePart[] {
   // An optional build: a slighter waist and shoulders give a more feminine athletic silhouette.
   const [sx, sy, sz] = config.silhouette ?? [1, 1, 1]
   return [
-    ...on('body', [box('paper', [0, 0.98, 0], [0.48 * sx, 0.58 * sy, 0.3 * sz], undefined, suit)]),
-    ...on('head', [box('paper', [0, 0, 0], [0.38, 0.4, 0.36], undefined, look.skin), box('paper', [-0.08, 0.02, 0.182], [0.05, 0.06, 0.01], undefined, '#17201e'), box('paper', [0.08, 0.02, 0.182], [0.05, 0.06, 0.01], undefined, '#17201e')]),
-    ...(['legL', 'legR'] as const).flatMap((leg) => on(leg, [box('paper', [0, -0.31, 0], [0.17 * sx, 0.62 * sy, 0.2 * sz], undefined, '#202328'), box('paper', [0, -0.6, 0.03], [0.19 * sx, 0.1, 0.26], undefined, '#0f1012')])),
-    ...(['armL', 'armR'] as const).flatMap((arm) => on(arm, [box('paper', [0, -0.26, 0], [0.12 * sx, 0.52 * sy, 0.14 * sz], undefined, suit), box('paper', [0, -0.55, 0], [0.11 * sx, 0.1, 0.12], undefined, '#15171a')])),
+    ...on('body', [
+      box('paper', [0, 1.08, 0], [0.48 * sx, 0.38 * sy, 0.28 * sz], undefined, suit),
+      box('rubber', [0, .81, 0], [.36 * sx, .24, .25 * sz]),
+      cyl('paper', [0, 1.38, 0], [.15,.18,.15],undefined,look.skin),
+      ...[-1,1].map(side=>box('carbon',[side*.125,1.1,.145],[.22*sx,.24,.055],[0,0,side*-.12],suit)),
+      ...[0,1,2].map(row=>box('carbon',[0,.83+row*.07,.14],[.28-row*.02,.045,.035],undefined,suit)),
+    ]),
+    ...on('head', [shape('sphere', 'paper', [0, 0, 0], [0.31, 0.38, 0.32], undefined, look.skin), box('paper',[0,-.105,.015],[.23,.16,.23],undefined,look.skin), box('paper', [-0.08, 0.02, 0.182], [0.05, 0.06, 0.01], undefined, '#17201e'), box('paper', [0.08, 0.02, 0.182], [0.05, 0.06, 0.01], undefined, '#17201e')]),
+    ...(['legL', 'legR'] as const).flatMap((leg) => on(leg, [box('paper', [0, -.16, 0], [.18*sx,.3*sy,.2*sz],undefined,suit), shape('sphere','rubber',[0,-.32,.015],[.15,.15,.17]), box('carbon',[0,-.32,.09],[.14,.14,.065],undefined,suit),box('paper',[0,-.45,0],[.15*sx,.26,.17*sz],undefined,suit),box('rubber',[0,-.58,.035],[.19*sx,.14,.28]),box('carbon',[0,-.63,.05],[.2*sx,.045,.3],undefined,suit)])),
+    ...(['armL', 'armR'] as const).flatMap((arm) => on(arm, [shape('sphere','paper',[0,-.03,0],[.19*sx,.2,.23],undefined,suit), box('paper',[0,-.17,0],[.14*sx,.24*sy,.16*sz],undefined,suit),shape('sphere','rubber',[0,-.3,0],[.13,.13,.14]),box('carbon',[0,-.42,0],[.15*sx,.22,.17*sz],undefined,suit),box('rubber',[0,-.56,.01],[.115,.12,.14])])),
   ]
 }
 /** The combat automaton: faceted sensor head, layered armour, pauldrons, reverse-joint legs. */
@@ -158,7 +164,7 @@ function gearParts(config: AgentGearConfig): BonePart[] {
 }
 /** Every part of a character: its body (human or automaton) and its gear. */
 export function characterParts(config: AgentGearConfig): BonePart[] {
-  return [...(config.body === 'automaton' ? automatonBody(config) : humanBody(config)), ...gearParts(config)]
+  return [...(config.body === 'automaton' ? automatonBody(config) : humanBody(config)), ...gearParts(config)].map(part => part.g === 'box' ? {...part, g: 'roundedBox'} : part)
 }
 /** A suit as it stands in a vault pod: the gear only, at rest, in body coordinates (feet at 0). */
 export function suitParts(config: AgentGearConfig): Part[] {

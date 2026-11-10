@@ -1,5 +1,5 @@
-import { Canvas, useFrame } from '@react-three/fiber'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { agentGear } from '../components/agent/agentLooks.ts'
 import { Crew } from '../components/agent/Crew.tsx'
@@ -16,9 +16,16 @@ import type { OfficeStation } from '../types.ts'
 import { idlePlan, isBriefing, placementFor, type Placement } from '../utils/layout/placements.ts'
 import { FrameReporter, QualityPicker } from './ManorQuality.tsx'
 import { useQuality } from './manorQuality.ts'
-import { remember, LEVEL_KEY, WALL_MODE_KEY, storedLevel, storedWallMode } from './manorViews.ts'
+import { remember, LEVEL_CYCLE, LEVEL_KEY, WALL_MODE_KEY, storedLevel, storedWallMode } from './manorViews.ts'
 import { LotHud } from '../components/hud/LotHud.tsx'
+import { InteractionLayer } from '../scenes/manor/InteractionLayer.tsx'
+import { MOVABLE, VEHICLES, titleOf, placementError, withEdits } from '../scenes/manor/simulation.ts'
+import type { LayoutItem, Vec3 } from '../utils/layout/types.ts'
+import { canCommandMove } from '../utils/layout/navigation.ts'
 import { AgentRadialMenu } from '../components/hud/AgentRadialMenu.tsx'
+import { GateActions } from '../components/hud/GateActions.tsx'
+import { estateConfig } from '../scenes/manor/worldConfig.ts'
+import { EnvironmentControls, useEnvironment } from './EnvironmentControls.tsx'
 
 function useClock(interval: number) {
   const [now, setNow] = useState(() => Date.now())
@@ -43,27 +50,8 @@ const shownIn = (level: Level) => (position: THREE.Vector3) => {
   return position.y > 6 // upper level shows surface + upper floor
 }
 
-export const LEVEL_CYCLE: Level[] = ['upper', 'ground', 'deck']
 
-/** Camera Follow Component that reads anchor position on each frame */
-function DynamicFollowCamera({
-  isFollowing,
-  anchor,
-  cameraRef,
-}: {
-  isFollowing: boolean
-  anchor: THREE.Object3D | null
-  cameraRef: React.RefObject<ManorCameraHandle | null>
-}) {
-  useFrame(() => {
-    if (isFollowing && anchor && anchor.visible) {
-      cameraRef.current?.follow(anchor.position)
-    }
-  })
-  return null
-}
-
-export default function ManorOffice3D({
+function ManorWorld({
   stations,
   onSelect,
   isFullscreen = false,
@@ -74,7 +62,28 @@ export default function ManorOffice3D({
   isFullscreen?: boolean
   onToggleFullscreen?: () => void
 }) {
-  const layout = useMemo(() => computeLayout(stations.length), [stations.length])
+  const base = useMemo(() => computeLayout(stations.length), [stations.length])
+  const [edits, setEdits] = useState<Record<string, LayoutItem>>({})
+  const layout = useMemo(() => withEdits(base, edits), [base, edits])
+  const [selectedObject, setSelectedObject] = useState<string | null>(null)
+  const [gateOpen, setGateOpen] = useState(true)
+  const [gateMoving, setGateMoving] = useState(false)
+  const gateSelected = selectedObject === 'estate-entrance-gate'
+  const gatePosition = useMemo(() => estateConfig(layout).gate.position, [layout])
+  const [preview, setPreview] = useState<LayoutItem | null>(null)
+  const [snapping, setSnapping] = useState(true)
+  const [commanding, setCommanding] = useState(false)
+  const [commands, setCommands] = useState<Record<string, Vec3>>({})
+  const [feedback, setFeedback] = useState('')
+  const object = layout.items.find(i => i.id === selectedObject) ?? null
+  const rotationError = useMemo(() => object && VEHICLES.has(object.type) ? placementError(layout,{...object,rotY:object.rotY+Math.PI}) : null, [object,layout])
+  const cancelMode = () => { setPreview(null); setCommanding(false); setFeedback('') }
+  const commit = () => {
+    if (!preview) return
+    const error = placementError(layout, preview)
+    if (error) { setFeedback(error); return }
+    setEdits(old => ({...old, [preview.id]: preview})); setPreview(null); setFeedback('Placement confirmed')
+  }
   const [level, setLevel] = useState<Level>(storedLevel)
   const [wallMode, setWallMode] = useState<WallMode>(storedWallMode)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
@@ -88,33 +97,36 @@ export default function ManorOffice3D({
   const labels = useRef(new Map<string, HTMLElement>())
   const hudContainerRef = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
+  const environment = useEnvironment()
   const now = useClock(2000)
 
   // Measure HUD height for safe-area framing
   useEffect(() => {
-    if (!hudContainerRef.current) return
+    const hud = hudContainerRef.current?.querySelector('.mo-lot-hud')
+    if (!hud) return
     const ro = new ResizeObserver(([entry]) => {
       if (!entry) return
       const h = entry.contentRect.height
       document.documentElement.style.setProperty('--hud-bottom', `${h + 16}px`)
       document.documentElement.style.setProperty('--hud-top', '48px')
     })
-    ro.observe(hudContainerRef.current)
+    ro.observe(hud)
     return () => ro.disconnect()
   }, [])
 
   // Camera preset resolution based on level and wallMode
   const exteriorPreset = useMemo(
     () => ({
-      position: [0, 34, -54] as [number, number, number],
-      target: [0, 12, -8] as [number, number, number],
+      position: [6, 27, layout.zones.entranceHall.maxZ + 34] as [number, number, number],
+      target: [0, 12, layout.zones.entranceHall.maxZ - 5] as [number, number, number],
       minDistance: 8,
       maxDistance: 140,
-      pan: { minX: -36, maxX: 36, minZ: -52, maxZ: 36 },
+      pan: { minX: -36, maxX: 36, minZ: -20, maxZ: layout.zones.entranceHall.maxZ + 28 },
     }),
-    []
+    [layout]
   )
 
+  const initialCamera = useRef({position: base.camera.grandManor.position, fov:40, near:0.3, far:600})
   const preset = useMemo(() => {
     if (zoneFocus === 'hangar') return layout.camera.hangarBay
     if (zoneFocus === 'lobby') return layout.camera.manorLobby
@@ -140,12 +152,17 @@ export default function ManorOffice3D({
   let briefingIndex = 0
 
   const handleSelectLevel = (nextLevel: Level) => {
+    setIsFollowing(false)
+    camera.current?.follow(null)
+    setPreview(null); setCommanding(false); setSelectedObject(null)
     setZoneFocus(null)
     setLevel(nextLevel)
     remember(LEVEL_KEY, nextLevel)
   }
 
   const handleCycleLevel = useCallback((dir: 1 | -1) => {
+    setIsFollowing(false); camera.current?.follow(null)
+    setPreview(null); setCommanding(false); setSelectedObject(null)
     setZoneFocus(null)
     const idx = LEVEL_CYCLE.indexOf(level)
     const nextIdx = Math.max(0, Math.min(LEVEL_CYCLE.length - 1, idx + dir))
@@ -160,7 +177,10 @@ export default function ManorOffice3D({
   }, [])
 
   const handleFocusZone = (zone: 'hangar' | 'lobby' | 'exterior') => {
+    setIsFollowing(false); camera.current?.follow(null)
+    setPreview(null); setCommanding(false); setSelectedObject(null)
     setZoneFocus(zone)
+    camera.current?.frame(zone === 'hangar' ? layout.camera.hangarBay : zone === 'lobby' ? layout.camera.manorLobby : exteriorPreset)
     if (zone === 'hangar') {
       setLevel('deck')
       remember(LEVEL_KEY, 'deck')
@@ -181,9 +201,11 @@ export default function ManorOffice3D({
     x?: number,
     y?: number
   ) => {
+    setSelectedObject(null); setPreview(null); setCommanding(false)
     setSelectedAgentId(station.id)
     // Auto switch level if agent is on a different level
-    const agentLevel: Level = station.room === 'Lounge' ? 'ground' : 'deck'
+    const currentAnchor = anchors.current.get('agent-'+station.id)
+    const agentLevel: Level = currentAnchor ? currentAnchor.position.y < 6 ? 'deck' : currentAnchor.position.y < 16 ? 'ground' : 'upper' : station.room === 'Lounge' ? 'ground' : 'deck'
     if (agentLevel !== level) {
       setLevel(agentLevel)
       remember(LEVEL_KEY, agentLevel)
@@ -196,7 +218,7 @@ export default function ManorOffice3D({
 
     // Center camera on agent
     const anchor = anchors.current.get(`agent-${station.id}`)
-    if (anchor) camera.current?.follow(anchor.position)
+    if (anchor) camera.current?.focus(anchor.position)
   }
 
   // Keyboard shortcut handler
@@ -204,15 +226,23 @@ export default function ManorOffice3D({
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
       if (document.querySelector('[role="dialog"]')) return
+      if (e.key !== 'Escape' && target?.closest('button, a, [role="menu"]')) return
 
+      if (preview) {
+        if (e.key === 'Escape') { e.preventDefault(); setPreview(null) }
+        else if (e.key.toLowerCase() === 'r') { e.preventDefault(); setPreview(p => p ? {...p, rotY:p.rotY+Math.PI/2} : null) }
+        else if (e.key.toLowerCase() === 'g') { e.preventDefault(); setSnapping(s=>!s) }
+        return
+      }
       if (e.key.toLowerCase() === 'q') {
         e.preventDefault()
         camera.current?.snapRotate(-1)
       } else if (e.key.toLowerCase() === 'e') {
         e.preventDefault()
         camera.current?.snapRotate(1)
-      } else if (e.key.toLowerCase() === 'r') {
+      } else if (e.key === 'Home' || e.key.toLowerCase() === 'r') {
         e.preventDefault()
         setZoneFocus(null)
         camera.current?.reset()
@@ -232,14 +262,19 @@ export default function ManorOffice3D({
         e.preventDefault()
         handleCycleLevel(1) // DOWN
       } else if (e.key.toLowerCase() === 'f') {
-        if (selectedAgentId) {
+        const selected = layout.items.find(i=>i.id===selectedObject)
+        if (gateSelected) camera.current?.focus(new THREE.Vector3(gatePosition[0],gatePosition[1]+1,gatePosition[2]))
+        else if (selected) camera.current?.focus(new THREE.Vector3(selected.x,selected.y+1,selected.z))
+        else if (selectedAgentId) {
           const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-          if (anchor) camera.current?.follow(anchor.position)
+          if (anchor) camera.current?.focus(anchor.position)
         }
       } else if (e.key.toLowerCase() === 'z') {
         e.preventDefault()
         onToggleFullscreen?.()
       } else if (e.key === 'Escape') {
+        setSelectedObject(null)
+        setCommanding(false)
         setSelectedAgentId(null)
         setRadialMenu(null)
         setIsFollowing(false)
@@ -248,9 +283,10 @@ export default function ManorOffice3D({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleCycleLevel, handleSetWallMode, selectedAgentId, onToggleFullscreen])
+  }, [handleCycleLevel, handleSetWallMode, selectedAgentId, onToggleFullscreen, preview, selectedObject, layout, gateSelected, gatePosition])
 
   const placements: Placement[] = stations.map((station) =>
+    commands[station.id] ? { position:commands[station.id], facing:0, seated:false, kind:'command', label:'Moving to destination' } :
     rest.get(station.seat)?.placement && station.state === 'Idle' && station.room === 'Lounge'
       ? rest.get(station.seat)!.placement
       : placementFor(station, layout, now, isBriefing(station) ? briefingIndex++ : 0)
@@ -279,10 +315,13 @@ export default function ManorOffice3D({
     >
       <Canvas
         shadows
-        dpr={[1, 2]}
-        camera={{ position: preset.position, fov: 40, near: 0.3, far: 400 }}
+        dpr={[1, quality === 'high' ? 1.75 : quality === 'medium' ? 1.25 : 1]}
+        camera={initialCamera.current}
         gl={{ antialias: quality !== 'low' }}
-        onPointerMissed={() => {
+        onPointerMissed={(event) => {
+          if (event.button !== 0) return
+          if (preview || commanding) return
+          setSelectedObject(null)
           setSelectedAgentId(null)
           setRadialMenu(null)
           setIsFollowing(false)
@@ -296,12 +335,18 @@ export default function ManorOffice3D({
           wallMode={wallMode}
           showUpper={level === 'upper'}
           quality={quality}
+          hour={environment.settings.realtime ? undefined : environment.settings.hour}
+          sunAzimuth={environment.settings.azimuth}
+          sunIntensity={environment.settings.intensity}
           suit={suit}
           focus={preset.target}
           anchors={anchors}
           selectedAnchor={selectedAnchor}
           selectedStatus={selectedStation?.state}
           briefing={briefing}
+          gate={{ open: gateOpen, selected: gateSelected, interactive: !preview && !commanding, reducedMotion: reduced,
+            onSelect: () => { setSelectedObject('estate-entrance-gate'); setSelectedAgentId(null); setRadialMenu(null); setIsFollowing(false); camera.current?.follow(null) },
+            onSettled: () => setGateMoving(false) }}
         >
           <Crew
             layout={layout}
@@ -322,9 +367,19 @@ export default function ManorOffice3D({
             <ScreenGlow slots={slots} kinds={kinds} rate={FEED_RATE[profile.screens]} animate={!reduced} />
           )}
         </ThemeManor>
+        <InteractionLayer layout={layout} level={level} selected={object} preview={preview} commanding={commanding}
+          destination={selectedAgentId ? commands[selectedAgentId] ?? null : null}
+          onSelect={i=>{setSelectedObject(i.id);setSelectedAgentId(null);setRadialMenu(null);setIsFollowing(false);camera.current?.follow(null)}}
+          onPreview={p=>setPreview(i=>i?{...i,x:snapping?Math.round(p[0]*2)/2:p[0],z:snapping?Math.round(p[2]*2)/2:p[2]}:null)}
+          onGround={p=>{
+            if(preview){commit();return}
+            if(!selectedAgentId)return
+            const anchor=anchors.current.get('agent-'+selectedAgentId)
+            if(!anchor || !canCommandMove(layout,[anchor.position.x,anchor.position.y-2.05,anchor.position.z],p)){setFeedback('Choose reachable open floor on the character’s current level');return}
+            setCommands(c=>({...c,[selectedAgentId]:p}));setCommanding(false);setFeedback('Movement command issued')
+          }}/>
         <LabelProjector anchors={anchors} labels={labels} />
-        <ManorCamera ref={camera} preset={preset} panMode={false} keyTarget={keyTarget} smooth={!reduced} />
-        <DynamicFollowCamera isFollowing={isFollowing} anchor={selectedAnchor} cameraRef={camera} />
+        <ManorCamera ref={camera} preset={preset} panMode={false} keyTarget={keyTarget} smooth={!reduced} enabled={!preview && !commanding} followTarget={isFollowing && selectedAnchor ? selectedAnchor.position : null} onFollowEnd={() => setIsFollowing(false)} />
         <FrameReporter onSample={report} />
       </Canvas>
 
@@ -376,6 +431,42 @@ export default function ManorOffice3D({
         })}
       </div>
 
+      {gateSelected && level !== 'deck' && <GateActions open={gateOpen} moving={gateMoving}
+        onToggle={() => { setGateOpen(open => !open); setGateMoving(true) }}
+        onFocus={() => camera.current?.focus(new THREE.Vector3(gatePosition[0], gatePosition[1] + 1, gatePosition[2]))}
+        onClose={() => { setSelectedObject(null); keyTarget?.focus() }}/>}
+      {object && <section className="mo-context-panel" aria-label="Object actions">
+        <button className="mo-hud-btn" aria-label="Close object actions" onClick={()=>{cancelMode();setSelectedObject(null)}}>Close</button>
+        <h3>{titleOf(object)}</h3>
+        <p>{object.zone} · {object.level}</p>
+        <p className="font-mono">{object.w.toFixed(1)} × {object.d.toFixed(1)} × {object.h.toFixed(1)} m</p>
+        {VEHICLES.has(object.type) && <p>Original tactical design · graphite armor · {object.type === 'pursuitBike' ? 'two-wheel pursuit' : object.type === 'assaultVtol' || object.type === 'tacticalJet' ? 'aerial platform' : 'special operations platform'}</p>}
+        <div className="mo-context-actions">
+          <button className="mo-hud-btn" onClick={()=>camera.current?.focus(new THREE.Vector3(object.x,object.y+1,object.z))}>Focus camera</button>
+          {MOVABLE.has(object.type) && !preview && <button className="mo-hud-btn" onClick={()=>setPreview({...object})}>Move / rotate</button>}
+          {VEHICLES.has(object.type) && object.type!=='tacticalJet' && <button className="mo-hud-btn" disabled={!!rotationError} title={rotationError ?? 'Turn vehicle within its existing parking footprint'} onClick={()=>{const next={...object,rotY:object.rotY+Math.PI};if(!rotationError)setEdits(e=>({...e,[next.id]:next}))}}>Rotate display 180°</button>}
+          {preview && <>
+            <button className="mo-hud-btn" onClick={()=>setPreview(p=>p?{...p,rotY:p.rotY+Math.PI/2}:null)}>Rotate (R)</button>
+            <button className="mo-hud-btn" aria-pressed={snapping} onClick={()=>setSnapping(s=>!s)}>Snap {snapping?'on':'off'} (G)</button>
+            <button className="mo-hud-btn" disabled={!!placementError(layout,preview)} onClick={commit}>Confirm placement</button>
+            <button className="mo-hud-btn" onClick={cancelMode}>Cancel</button>
+            <p>{placementError(layout,preview) ?? 'Valid placement · click floor to confirm'}</p>
+          </>}
+        </div>
+        <small>Scene-session changes only; runtime agents are unaffected.</small>
+      </section>}
+      {selectedStation && <div className="mo-command-strip">
+        <button className="mo-hud-btn" aria-pressed={commanding} onClick={()=>{setCommanding(c=>!c);setRadialMenu(null)}}>{commanding?'Choose ground destination':'Move character'}</button>
+        {commands[selectedStation.id] && <button className="mo-hud-btn" onClick={()=>{
+          const a=anchors.current.get('agent-'+selectedStation.id)
+          if(a)setCommands(c=>({...c,[selectedStation.id]:[a.position.x,a.position.y-2.05,a.position.z]}))
+          setCommanding(false)
+        }}>Stop here</button>}
+        <button className="mo-hud-btn" onClick={()=>{setCommands(c=>{const next={...c};delete next[selectedStation.id];return next});setCommanding(false)}}>Resume routine</button>
+      </div>}
+      {feedback && <output className="mo-scene-feedback" aria-live="polite">{feedback}</output>}
+      <details className="mo-controls-help"><summary>Controls & help</summary><p>Left click: select · left drag: rotate · right/middle drag: pan · wheel: zoom</p><p>Q/E: rotate · R/Home: reset view · F: focus selection · 1/2/3: walls · Esc: cancel</p><p>Select objects to inspect. Loose furnishings support Move; R rotates, G toggles 0.5 m snapping. Select a character, then Move character and click open floor. Dragging interrupts camera flights/follow.</p>{level !== 'deck' && <p><button className="mo-hud-btn" onClick={() => { setSelectedObject('estate-entrance-gate'); setSelectedAgentId(null); setRadialMenu(null); setIsFollowing(false); camera.current?.follow(null) }}>Inspect estate gate</button></p>}<QualityPicker quality={quality} choice={choice} onChoose={setChoice}/><EnvironmentControls settings={environment.settings} onChange={environment.update}/></details>
+
       {/* Radial Menu on Agent Click (5 Read-Only Actions) */}
       {radialMenu && (
         <AgentRadialMenu
@@ -394,12 +485,10 @@ export default function ManorOffice3D({
           }}
           onFollow={() => {
             setIsFollowing((prev) => !prev)
-            const anchor = anchors.current.get(`agent-${radialMenu.station.id}`)
-            if (anchor) camera.current?.follow(anchor.position)
           }}
           onLocate={() => {
             const anchor = anchors.current.get(`agent-${radialMenu.station.id}`)
-            if (anchor) camera.current?.follow(anchor.position)
+            if (anchor) camera.current?.focus(anchor.position)
           }}
           onMissions={() => {
             window.location.hash = `#/missions?agent=${encodeURIComponent(radialMenu.station.id)}`
@@ -429,7 +518,7 @@ export default function ManorOffice3D({
           onFocusAgent={() => {
             if (selectedAgentId) {
               const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-              if (anchor) camera.current?.follow(anchor.position)
+              if (anchor) camera.current?.focus(anchor.position)
             }
           }}
           onInspectAgent={() => {
@@ -437,37 +526,26 @@ export default function ManorOffice3D({
           }}
           onFollowAgent={() => {
             setIsFollowing((prev) => !prev)
-            if (selectedAgentId) {
-              const anchor = anchors.current.get(`agent-${selectedAgentId}`)
-              if (anchor) camera.current?.follow(anchor.position)
-            }
           }}
           isFollowing={isFollowing}
           onSelectStation={(station) => selectAgent(station)}
           onFocusZone={handleFocusZone}
           onNavigateMissions={() => {
-            if (selectedStation) {
-              window.location.hash = `#/missions?agent=${encodeURIComponent(selectedStation.id)}`
-            } else {
-              window.location.hash = '#/missions'
-            }
+            window.location.hash = selectedStation ? `#/missions?agent=${encodeURIComponent(selectedStation.id)}` : '#/missions'
           }}
           onNavigateLogs={() => {
-            if (selectedStation) {
-              window.location.hash = `#/logs?agent=${encodeURIComponent(selectedStation.id)}`
-            } else {
-              window.location.hash = '#/logs'
-            }
+            window.location.hash = selectedStation ? `#/logs?agent=${encodeURIComponent(selectedStation.id)}` : '#/logs'
           }}
           isFullscreen={isFullscreen}
           onToggleFullscreen={onToggleFullscreen}
         />
       </div>
-
-      {/* Top-Right Quality Picker */}
-      <div className="mo-quality-anchor">
-        <QualityPicker quality={quality} choice={choice} onChoose={setChoice} />
-      </div>
     </div>
   )
+}
+
+const Showcase = lazy(() => import('./CharacterShowcase.tsx'))
+export default function ManorOffice3D(props: Parameters<typeof ManorWorld>[0]) {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('characterShowcase')) return <Suspense fallback={<p role="status">Loading character audit…</p>}><Showcase/></Suspense>
+  return <ManorWorld {...props}/>
 }

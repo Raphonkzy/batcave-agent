@@ -12,16 +12,16 @@ export function describeFailure(httpStatus: number | undefined, serverMessage?: 
   return serverMessage ? `${serverMessage} (HTTP ${httpStatus})` : `The Batcave API answered HTTP ${httpStatus}.`
 }
 
-export async function loadSnapshot<T>(path: string, request: typeof fetch = fetch): Promise<RequestState<T>> {
+export async function loadSnapshot<T>(path: string, request: typeof fetch = fetch, signal?: AbortSignal): Promise<RequestState<T>> {
   let response: Response
   try {
-    response = await request(path)
+    response = await request(path, signal ? { signal } : undefined)
   } catch {
     return { status: 'failed', message: describeFailure(undefined) }
   }
   if (!response.ok) {
     const body = await response.json().catch(() => undefined) as { error?: unknown; locked?: unknown } | undefined
-    if (response.status === 401 && body?.locked === true && typeof window !== 'undefined') window.dispatchEvent(new Event(LOCKED_EVENT))
+    if (!signal?.aborted && response.status === 401 && body?.locked === true && typeof window !== 'undefined') window.dispatchEvent(new Event(LOCKED_EVENT))
     const serverMessage = typeof body?.error === 'string' ? body.error : undefined
     return { status: 'failed', httpStatus: response.status, message: describeFailure(response.status, serverMessage) }
   }

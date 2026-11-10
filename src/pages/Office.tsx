@@ -7,6 +7,7 @@ import { formatCompact, formatDateTime, formatNumber } from '../format.ts'
 import type { Page } from '../routes.ts'
 import type { ActivitySnapshot, ChannelSnapshot, DashboardSnapshot, OfficeRoom, OfficeSnapshot, OfficeStation, UsageSnapshot } from '../types.ts'
 import { LoadingState, SourceStatus } from '../ui.tsx'
+import { SceneResourceStatus } from '../components/shell/SceneResourceStatus.tsx'
 import { CalendarOverlayView } from './Calendar.tsx'
 import { AgentFolder } from './Folders.tsx'
 import { AgentMemoryView } from './Memory.tsx'
@@ -179,6 +180,7 @@ export function Office({
     try { window.localStorage.setItem('mc.officePanel', next ?? 'closed') } catch { /* storage may be blocked */ }
   }
   const show3d = webgl
+  const showcase = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('characterShowcase')
   const select3d = (station: OfficeStation, trigger: HTMLElement | null) => { selectedTrigger.current = trigger; setSelectedName(station.name) }
   const counts = Object.fromEntries(ROOMS.map((item) => [item, office?.stations.filter((station) => station.room === item).length ?? 0])) as Record<OfficeRoom, number>
   // Until the viewer picks a room, open wherever the crew currently is.
@@ -191,7 +193,6 @@ export function Office({
     setSelectedName(undefined)
     selectedTrigger.current?.focus()
   }
-  if (snapshot.status === 'pending') return <LoadingState message="Reading Batcave state..."/>
   const hud = hudItems(office, dashboard)
   // Hot desking: one unlabeled desk per agent.
   const deskCount = office?.stations.length ?? 0
@@ -199,8 +200,9 @@ export function Office({
   const stationButton = (station: OfficeStation) => { const badge = officeStateBadge(station.state); return <button type="button" className="crew-row" key={station.name} onClick={(event) => { selectedTrigger.current = event.currentTarget; setSelectedName(station.name) }} aria-label={`Details for ${station.name}: ${officeStateLabel(station)}`}><PixelCharacter agent={station.id}/><span><strong>{station.name}</strong><small>{station.activity || station.role}</small></span><span className={`badge ${badge.tone}`}>{station.state}</span></button> }
   return <section className={`office-stage view-${show3d ? '3d' : '2d'}`} aria-label="Visual Batcave">
     {/* Single layer stage overlay for top controls */}
-    <div className="mo-stage-overlay">
+    {!showcase && <div className="mo-stage-overlay">
       <div className="mo-stage-top-left">
+        <SceneResourceStatus request={snapshot}/>
         <div className="office-hud" role="list" aria-label="Key statistics">
           {hud.map((item) => {
             const body = <><span>{item.label}</span><b>{item.value}</b></>
@@ -222,7 +224,7 @@ export function Office({
       </div>
 
       <div className="mo-stage-top-right">
-        <div className="mo-stage-toolbar">
+        <div className="mo-stage-toolbar" role="toolbar" aria-label="Scene tools">
           {(['tasks', 'calendar', 'usage'] as const).map((item) => (
             <button
               type="button"
@@ -243,20 +245,10 @@ export function Office({
           >
             ◧ Panel
           </button>
-          {onToggleFullscreen && (
-            <button
-              type="button"
-              className={`panel-toggle${isFullscreen ? ' active' : ''}`}
-              aria-pressed={isFullscreen}
-              onClick={onToggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              {isFullscreen ? '⛶ Window' : '⛶ Fullscreen'}
-            </button>
-          )}
+
         </div>
       </div>
-    </div>
+    </div>}
 
     <div className="office-canvas">
       {show3d ? (
@@ -285,10 +277,9 @@ export function Office({
           {room === 'Lounge' && stations.length === 0 && <p className="room-empty">No declared idle presence</p>}
           {room === 'Workspace' && stations.length === 0 && office && <p className="room-empty">Desks are empty · crew is resting</p>}
         </section></div></>}
-      {snapshot.status === 'failed' && <section className="empty-state office-failed"><h2>Not Available</h2><p>The Batcave source could not be reached.</p></section>}
     </div>
-    {show3d && <small className="office-3d-hint">Drag to rotate · right-drag, two fingers or Geser to pan · scroll to zoom · click an agent for details</small>}
-    {panel && <aside id="office-panel" className="office-panel" aria-label="Batcave panel" onKeyDown={(event) => { if (event.key === 'Escape' && !selected) { event.stopPropagation(); choosePanel(undefined) } }}>
+    {show3d && !showcase && <small className="office-3d-hint">Click to select · left-drag to rotate · right-drag to pan · wheel to zoom · R to reset</small>}
+    {!showcase && panel && <aside id="office-panel" className="office-panel" aria-label="Batcave panel" onKeyDown={(event) => { if (event.key === 'Escape' && !selected) { event.stopPropagation(); choosePanel(undefined) } }}>
       <div className="office-panel-head"><div className="panel-tabs" role="tablist" aria-label="Panel">{PANEL_TABS.map((tab) => <button type="button" role="tab" key={tab} aria-selected={panel === tab} className={panel === tab ? 'active' : ''} onClick={() => choosePanel(tab)}>{tab}</button>)}</div><button type="button" className="icon-button" onClick={() => choosePanel(undefined)} aria-label="Close panel">✕</button></div>
       <div className="office-panel-body" role="tabpanel" aria-label={panel}>
         {panel === 'Crew' && <>

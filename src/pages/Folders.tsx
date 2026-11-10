@@ -148,6 +148,8 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
                 className="mo-file-row-item parent-dir"
                 onClick={() => open(parts.slice(0, -1).join('/'))}
                 role="listitem"
+                tabIndex={0}
+                onKeyDown={event => { if (event.key === 'Enter') open(parts.slice(0, -1).join('/')) }}
               >
                 <span className="mo-file-icon">↰</span>
                 <span className="mo-file-name font-mono">..</span>
@@ -162,6 +164,8 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
                   className={`mo-file-row-item ${isSelected ? 'active' : ''}`}
                   onClick={() => (entry.type === 'dir' ? open(entry.path) : setSelected(entry.path))}
                   role="listitem"
+                  tabIndex={0}
+                  onKeyDown={event => { if (event.key === 'Enter') { if (entry.type === 'dir') open(entry.path); else setSelected(entry.path) } }}
                 >
                   <span className="mo-file-icon font-mono">
                     {entry.unreadable ? '⛔' : entry.type === 'dir' ? '📁' : entry.sensitive ? '🔒' : '📄'}
@@ -224,7 +228,7 @@ export function Folders() {
       <header className="mo-page-header">
         <h1 className="mo-page-title">Folders Sandbox</h1>
         <p className="mo-page-description">
-          Sandboxed directory explorer with path-traversal protection for each agent profile.
+          Read-only directory explorer with path-traversal protection for each agent profile. File editing and saving are not supported by this server.
         </p>
       </header>
 

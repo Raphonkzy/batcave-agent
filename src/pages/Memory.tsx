@@ -1,149 +1,66 @@
 import { useState } from 'react'
 import { formatDateTime, formatNumber } from '../format.ts'
 import { usePolling } from '../polling.ts'
+import { PrivateGate, ProfileUnlock } from '../ProfileLock.tsx'
 import type { AgentMemory, MemoryDocument, MemorySnapshot, MemoryStore } from '../types.ts'
 
+function documentText(doc: MemoryDocument | undefined): string {
+  if (!doc) return 'This document is not exposed by this profile.'
+  if (doc.error) return doc.error
+  if (!doc.exists) return 'File not found in this profile.'
+  return doc.content ?? '(No text content available)'
+}
+function Documents({ agent }: { agent: AgentMemory }) {
+  const [selection, setSelection] = useState('soul')
+  const docs: { id: string; name: string; doc?: MemoryDocument | MemoryStore }[] = agent.kind === 'opencode' ? [] : [
+    { id: 'soul', name: 'SOUL.md', doc: agent.soul },
+    { id: 'memory', name: 'MEMORY.md', doc: agent.memory },
+    { id: 'user', name: 'USER.md', doc: agent.user },
+  ]
+  docs.push(...agent.contextFiles.map(doc => ({ id: doc.path, name: doc.name, doc })))
+  const active = docs.find(doc => doc.id === selection) ?? docs[0]
+  const doc = active?.doc
+  const store = doc && 'limit' in doc ? doc as MemoryStore : undefined
+  if (agent.locked) return <ProfileUnlock agent={agent.profile}/>
+  if (!agent.available) return <p role="alert">{agent.reason ?? 'Memory folder unavailable.'}</p>
+  return <PrivateGate agent={agent.profile}><div className="mo-memory-two-col">
+    <div className="mo-memory-sidebar"><div className="mo-memory-col-title">MEMORY FILES ({docs.length})</div>
+      <div className="mo-doc-list">{docs.map(item => <button type="button" key={item.id} className={'mo-doc-item' + (active?.id === item.id ? ' active' : '')} aria-pressed={active?.id === item.id} onClick={() => setSelection(item.id)}>
+        <span className="mo-doc-head"><span className="mo-doc-name font-mono">{item.name}</span><span className="mo-doc-size">{formatNumber(item.doc?.chars ?? 0)} chars</span></span>
+        <span className="mo-doc-desc">{item.doc?.path ?? 'Not exposed'}</span>
+      </button>)}</div>
+    </div>
+    <section className="mo-memory-preview-panel mo-panel" aria-label="Memory document contents">
+      <header className="mo-preview-header"><div><h2 className="mo-preview-filename font-mono">{active?.name ?? 'No supported context files'}</h2><p className="mo-preview-meta text-muted">{doc?.path} {doc?.modified && ' · Updated ' + formatDateTime(doc.modified)}</p></div>
+        {store && <div className="mo-gauge-container"><span>{formatNumber(store.used)} / {formatNumber(store.limit)} characters</span><progress max={store.limit} value={Math.min(store.used, store.limit)} aria-label="Memory character capacity"/></div>}
+      </header>
+      {doc?.truncated && <p role="status">Preview truncated; open the original file locally to see the full document.</p>}
+      {!!doc?.redactions && <p role="status">Sensitive values have been redacted.</p>}
+      <div className="mo-preview-body"><pre className="mo-preview-content font-mono" role={doc?.error ? 'alert' : undefined}>{documentText(doc)}</pre></div>
+    </section>
+  </div></PrivateGate>
+}
 export function AgentMemoryView({ profile }: { profile: string; onOpenFolders?: () => void }) {
   const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
-  const agent = snapshot.status === 'ready' ? snapshot.data.agents.find((item) => item.profile === profile) : undefined
-  if (snapshot.status === 'pending') return <div className="mo-panel text-muted">Loading agent memory...</div>
-  if (!agent) return <div className="mo-panel text-muted">Agent memory unavailable.</div>
-  return (
-    <div className="mo-panel">
-      <h3 className="mo-section-heading">{agent.label} ({agent.profile})</h3>
-      <div className="text-muted font-mono" style={{ marginBottom: 12 }}>{agent.path}</div>
-      <div className="mo-preview-body">
-        <pre className="mo-preview-content font-mono">
-          {agent.soul?.content || agent.memory?.path || '(No memory recorded)'}
-        </pre>
-      </div>
-    </div>
-  )
+  if (snapshot.status === 'pending') return <p role="status">Loading agent memory…</p>
+  if (snapshot.status === 'failed') return <p role="alert">{snapshot.message ?? 'Agent memory unavailable.'}</p>
+  const agent = snapshot.data.agents.find(item => item.profile === profile)
+  return agent ? <Documents key={agent.profile} agent={agent}/> : <p>Agent memory unavailable.</p>
 }
-
 export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
   const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
-  const data = snapshot.status === 'ready' ? snapshot.data : undefined
-  const agents = data?.agents ?? []
-  const [selectedAgentIndex, setSelectedAgentIndex] = useState(0)
-  const [selectedDoc, setSelectedDoc] = useState<'soul' | 'memory' | 'user'>('soul')
-
-  const currentAgent: AgentMemory | undefined = agents[selectedAgentIndex]
-
-  const docs: { id: 'soul' | 'memory' | 'user'; name: string; desc: string; doc: MemoryDocument | MemoryStore | undefined }[] = [
-    { id: 'soul', name: 'SOUL.md', desc: 'Identity & System Prompt', doc: currentAgent?.soul },
-    { id: 'memory', name: 'MEMORY.md', desc: 'Persistent Agent Memory', doc: currentAgent?.memory },
-    { id: 'user', name: 'USER.md', desc: 'User Profile', doc: currentAgent?.user },
-  ]
-
-  const activeDocObj = docs.find((d) => d.id === selectedDoc)
-  const activeDoc = activeDocObj?.doc
-  const storeDoc = activeDoc && 'limit' in activeDoc ? (activeDoc as MemoryStore) : undefined
-
-  // Gauge calculation (thin 4px bar)
-  const charLimit = storeDoc?.limit || 12000
-  const charUsed = storeDoc?.used || activeDoc?.chars || 0
-  const pct = Math.min(100, Math.round((charUsed / charLimit) * 100))
-
-  return (
-    <div className="mo-page-memory">
-      <header className="mo-page-header">
-        <div className="mo-header-with-actions">
-          <div>
-            <h1 className="mo-page-title">Memory & Persona</h1>
-            <p className="mo-page-description">
-              Inspect <code>SOUL.md</code> identity files and long-term memory per agent.
-            </p>
-          </div>
-
-          {onOpenFolders && (
-            <button type="button" className="mo-btn mo-btn-ghost mo-btn-sm" onClick={onOpenFolders}>
-              Open in Folders ›
-            </button>
-          )}
-        </div>
-      </header>
-
-      {/* Agent Selector Bar */}
-      {agents.length > 1 && (
-        <div className="mo-filter-bar">
-          <div className="mo-agent-pills">
-            {agents.map((agent, idx) => (
-              <button
-                key={agent.profile}
-                type="button"
-                className={`mo-agent-pill-btn ${idx === selectedAgentIndex ? 'active' : ''}`}
-                onClick={() => setSelectedAgentIndex(idx)}
-              >
-                {agent.label || agent.profile}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 2-Column Layout: Left = Files, Right = Preview */}
-      <div className="mo-memory-two-col">
-        {/* Left Column: Files */}
-        <div className="mo-memory-sidebar">
-          <div className="mo-memory-col-title">MEMORY FILES ({docs.length})</div>
-          <div className="mo-doc-list">
-            {docs.map((item) => {
-              const isSelected = selectedDoc === item.id
-              const chars = item.doc && 'used' in item.doc ? item.doc.used : item.doc?.chars ?? 0
-
-              return (
-                <div
-                  key={item.id}
-                  className={`mo-doc-item ${isSelected ? 'active' : ''}`}
-                  onClick={() => setSelectedDoc(item.id)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="mo-doc-head">
-                    <span className="mo-doc-name font-mono">{item.name}</span>
-                    <span className="mo-doc-size font-mono">{formatNumber(chars)} chars</span>
-                  </div>
-                  <div className="mo-doc-desc">{item.desc}</div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: Preview & 4px Gauge */}
-        <div className="mo-memory-preview-panel mo-panel">
-          <div className="mo-preview-header">
-            <div>
-              <h2 className="mo-preview-filename font-mono">{activeDocObj?.name}</h2>
-              <div className="mo-preview-meta text-muted">
-                {activeDoc?.modified ? `Updated: ${formatDateTime(activeDoc.modified)}` : 'Active file'}
-              </div>
-            </div>
-
-            <div className="mo-gauge-container">
-              <div className="mo-gauge-label">
-                <span>CHARACTER CAPACITY</span>
-                <span className="font-mono">{formatNumber(charUsed)} / {formatNumber(charLimit)} ({pct}%)</span>
-              </div>
-              <div className="mo-gauge-track">
-                <div
-                  className={`mo-gauge-bar ${pct > 80 ? 'warning' : ''}`}
-                  style={{ width: `${Math.max(2, pct)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mo-preview-body">
-            <pre className="mo-preview-content font-mono">
-              {activeDoc?.content || (
-                <span className="text-muted">(No text content or file not yet populated)</span>
-              )}
-            </pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  const [selected, setSelected] = useState<string>()
+  if (snapshot.status === 'pending') return <p role="status">Loading agent memory…</p>
+  if (snapshot.status === 'failed') return <p role="alert">{snapshot.message ?? 'Unable to read memory from the Batcave API.'}</p>
+  const agents = snapshot.data.agents
+  const current = agents.find(agent => agent.profile === selected) ?? agents[0]
+  return <div className="mo-page-memory">
+    <header className="mo-page-header"><h1 className="mo-page-title">Memory & Persona</h1>
+      <p className="mo-page-description">Read actual profile identity, memory, and supported context files. Read-only: this server does not support editing or saving; use Hermes or your local editor.</p>
+      {onOpenFolders && <button type="button" className="mo-btn mo-btn-ghost" onClick={onOpenFolders}>Open in Folders ›</button>}
+    </header>
+    {snapshot.stale && <p role="status">Showing the last successful snapshot; background refresh failed.</p>}
+    <div className="mo-agent-pills">{agents.map(agent => <button type="button" key={agent.profile} className={'mo-agent-pill-btn' + (current?.profile === agent.profile ? ' active' : '')} onClick={() => setSelected(agent.profile)}>{agent.label || agent.profile}</button>)}</div>
+    {current ? <Documents key={current.profile} agent={current}/> : <p>No agent memory folders are available.</p>}
+  </div>
 }

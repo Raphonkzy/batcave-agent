@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber'
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { CAVE_CEILING, CATWALK_WIDTH } from '../../utils/layout/dimensions.ts'
 import { buildBatches, buildWorldBatches, keepAt } from './batches.ts'
@@ -98,6 +98,7 @@ function Basin({ layout, animate }: { layout: ManorLayoutData; animate: boolean 
     material.map?.offset.set(clock.elapsedTime * 0.01, clock.elapsedTime * 0.03)
     material.bumpMap?.offset.set(-clock.elapsedTime * 0.02, clock.elapsedTime * 0.05)
   })
+  useEffect(() => () => { material.map?.dispose(); material.bumpMap?.dispose(); material.dispose() }, [material])
   return <mesh position={[(basin.minX + basin.maxX) / 2, layout.chasm.waterY, (basin.minZ + basin.maxZ) / 2]} rotation={[-Math.PI / 2, 0, 0]} material={material} receiveShadow>
     <planeGeometry args={[basin.maxX - basin.minX, basin.maxZ - basin.minZ]}/>
   </mesh>

@@ -1,5 +1,5 @@
 import { Builder, EAST, facingTo, NORTH, SOUTH, WEST } from './builder.ts'
-import { CORE_HALF, ELEVATOR, FIREPLACE, LOUNGE_MODULE, loungeModules, NORTH_Z, POOL, SUITE, type Plan } from './dimensions.ts'
+import { CORE_HALF, ELEVATOR, FIREPLACE, NORTH_Z, POOL, SUITE, type Plan } from './dimensions.ts'
 import { LEVEL_Y, type Zone } from './types.ts'
 // The surface manor: purely residential. Foyer with twin stairs, hearth lounge, billiards room,
 // dining hall, butler's pantry, gym, two-storey library, one suite per agent and the terrace with
@@ -14,26 +14,21 @@ export function buildSurface(b: Builder, p: Plan, zones: Zone[], suiteDoorSide: 
   for (const side of [-1, 1]) b.item('grandStair', 'grandFoyer', G, side * STAIR_X, (STAIR.minZ + STAIR.maxZ) / 2, STAIR.w, STAIR.maxZ - STAIR.minZ, 3.5, SOUTH, { role: side < 0 ? 'west' : 'east' })
   b.item('elevatorShaft', 'grandFoyer', G, ELEVATOR.x, ELEVATOR.z, ELEVATOR.radius * 2 + 0.2, ELEVATOR.radius * 2 + 0.2, 3)
   buildLobby(b, rect('grandFoyer'))
-  // Hearth lounge: the fireplace on the north wall, U-shaped sofa sets in front of it.
+  // Two purple salons flank a clear central axis; the fireplace hugs the west wall.
   const lounge = rect('hearthLounge')
-  b.item('fireplace', 'hearthLounge', G, 0, lounge.minZ + FIREPLACE.d / 2, FIREPLACE.w, FIREPLACE.d, FIREPLACE.h, SOUTH)
-  // Enough U-shaped sets for half the crew, and more if the hall runs long, so it reads as one great room.
-  const rowsThatFit = Math.max(1, Math.floor((lounge.maxZ - lounge.minZ - FIREPLACE.d - 1 - 0.8) / LOUNGE_MODULE.d))
-  const modules = Math.max(loungeModules(p.n), Math.min(2 * rowsThatFit, loungeModules(p.n) + 2 * (rowsThatFit - Math.ceil(loungeModules(p.n) / 2))))
+  b.item('fireplace', 'hearthLounge', G, lounge.minX + FIREPLACE.d / 2, lounge.minZ + 2, FIREPLACE.w, FIREPLACE.d, FIREPLACE.h, EAST)
+  const modules = 2 // two balanced salons; never fill circulation with duplicated furniture
   for (let index = 0; index < modules; index += 1) {
-    const row = Math.floor(index / 2)
-    const alone = modules === 1 || (index === modules - 1 && modules % 2 === 1)
-    // Columns are pulled in to -2.3 / 2.3 so a clear ~1-unit band stays along each side wall, where
-    // the doors to the west-wing rooms (and the east wing) sit.
-    const cx = alone ? 0 : index % 2 === 0 ? -2.3 : 2.3
-    const cz = lounge.minZ + FIREPLACE.d + 1 + 2.1 + row * LOUNGE_MODULE.d
-    b.item('rug', 'hearthLounge', G, cx, cz, 4.6, 4.2, 0.02)
+    // Keep a 2.1-unit central aisle and clear routes beside the wing doors.
+    const cx = index % 2 === 0 ? -3 : 3
+    const cz = (lounge.minZ + lounge.maxZ) / 2
+    b.item('rug', 'hearthLounge', G, cx, cz, 4.4, 4.2, 0.02)
     b.item('coffeeTable', 'hearthLounge', G, cx, cz - 0.2, 1.2, 0.8, 0.42)
     b.item('chesterfield', 'hearthLounge', G, cx, cz + 1.5, 2.6, 0.95, 0.85, NORTH, { role: 'back' })
     for (const dx of [-0.8, 0, 0.8]) b.stop('sofa', 'hearthLounge', G, cx + dx, cz + 1.4, NORTH, { seated: true })
     for (const side of [-1, 1]) {
-      b.item('chesterfield', 'hearthLounge', G, cx + side * 1.75, cz, 1.8, 0.95, 0.85, side < 0 ? EAST : WEST, { role: 'side' })
-      for (const dz of [-0.45, 0.45]) b.stop('sofa', 'hearthLounge', G, cx + side * 1.7, cz + dz, side < 0 ? EAST : WEST, { seated: true })
+      b.item('chesterfield', 'hearthLounge', G, cx + side * 1.55, cz, 1.8, 0.8, 0.85, side < 0 ? EAST : WEST, { role: 'side' })
+      for (const dz of [-0.45, 0.45]) b.stop('sofa', 'hearthLounge', G, cx + side * 1.55, cz + dz, side < 0 ? EAST : WEST, { seated: true })
     }
   }
   const west = rect('billiardsRoom').minX
@@ -65,6 +60,14 @@ export function buildSurface(b: Builder, p: Plan, zones: Zone[], suiteDoorSide: 
   buildGrandBath(b, rect, cxW, west)
   buildSuites(b, zones, suiteDoorSide)
   buildCorridors(b, zones)
+  const entrance = rect('entranceHall')
+  b.item('runnerRug', 'entranceHall', G, 0, (entrance.minZ + entrance.maxZ) / 2, 2, 2.6, 0.02)
+  for (const side of [-1, 1]) {
+    b.item('consoleTable', 'entranceHall', G, side * 3.5, entrance.maxZ - 0.5, 1.7, 0.5, 0.85, NORTH)
+    b.item('wallSconce', 'entranceHall', G, side * 2.1, entrance.maxZ - 0.1, 0.18, 0.12, 0.4, NORTH)
+  }
+  b.stop('arrival', 'entranceHall', G, 0, entrance.maxZ - 1.2, NORTH)
+  b.stop('arrival', 'entranceTerrace', G, 0, entrance.maxZ + 2, NORTH)
 }
 /**
  * Dress the suite corridors as classic luxury hallways: a wine-red runner down the centre, brass
@@ -120,11 +123,14 @@ function buildLobby(b: Builder, foyer: Zone['rect']): void {
 function buildPantryLibraryTerrace(b: Builder, p: Plan, rect: (id: Zone['id']) => Zone['rect'], cxW: number, west: number): void {
   // Butler's pantry: service counter on the south wall, wine rack, tea trolley.
   const pantry = rect('butlerPantry')
+  b.item('kitchenCounter', 'butlerPantry', G, cxW, pantry.minZ + 0.4, 3.6, 0.7, 0.95, SOUTH)
+  b.item('refrigerator', 'butlerPantry', G, pantry.maxX - 0.65, pantry.minZ + 0.65, 0.9, 0.9, 2.1)
+  b.item('kitchenIsland', 'butlerPantry', G, cxW, pantry.minZ + 2.5, 2.1, 0.8, 0.95)
   b.item('pantryCounter', 'butlerPantry', G, cxW, pantry.maxZ - 0.4, 3, 0.7, 0.95, NORTH, { role: 'alfred' })
   b.stop('pantry', 'butlerPantry', G, cxW - 0.6, pantry.maxZ - 1.3, SOUTH, { profile: 'alfred' })
   b.stop('pantryBar', 'butlerPantry', G, cxW + 0.8, pantry.maxZ - 1.3, SOUTH)
   b.item('wineRack', 'butlerPantry', G, west + 0.25, pantry.minZ + 2, 1.2, 0.4, 2, EAST)
-  b.item('teaTrolley', 'butlerPantry', G, cxW + 2, pantry.minZ + 1.4, 0.9, 0.5, 0.9)
+  b.item('teaTrolley', 'butlerPantry', G, pantry.maxX - 0.6, pantry.maxZ - 0.5, 0.9, 0.5, 0.9)
   // Grand library: shelves to the ceiling on the north and east walls, a spiral stair to the
   // catwalk, the research desk and two reading chairs.
   const library = rect('grandLibrary')
@@ -146,15 +152,16 @@ function buildPantryLibraryTerrace(b: Builder, p: Plan, rect: (id: Zone['id']) =
   }
   // Terrace: flagstones, sun loungers facing the infinity pool on the cliff edge.
   const terrace = rect('terracePool')
-  b.item('infinityPool', 'terracePool', G, terrace.maxX - POOL.w / 2, terrace.minZ + 3, POOL.w, POOL.d, POOL.depth)
+  b.item('infinityPool', 'terracePool', G, terrace.maxX - 3.2 - POOL.w / 2, terrace.minZ + 4, POOL.w, POOL.d, POOL.depth)
   for (let index = 0; index < 3; index += 1) {
     // The first one keeps clear of the door from the lounge.
-    const z = terrace.minZ + 1.45 + index * 1.6
-    b.item('sunLounger', 'terracePool', G, terrace.minX + 1.2, z, 0.7, 1.9, 0.45, EAST)
+    const z = terrace.minZ + (index === 0 ? 1.25 : 4.75)
+    const x = terrace.minX + (index === 2 ? 3.25 : 1.2)
+    b.item('sunLounger', 'terracePool', G, x, z, 0.7, 1.9, 0.45, EAST)
     // Lying with the head on the backrest (west), feet towards the pool.
-    b.stop('lounger', 'terracePool', G, terrace.minX + 2, z, EAST)
+    b.stop('lounger', 'terracePool', G, x + 0.8, z, EAST)
   }
-  b.stop('poolside', 'terracePool', G, terrace.maxX - POOL.w - 0.6, terrace.minZ + 3, EAST)
+  b.stop('poolside', 'terracePool', G, terrace.maxX - 3.2 - POOL.w - 0.6, terrace.minZ + 4, EAST)
   void p
 }
 /** Gym: treadmills facing the west windows, a dumbbell rack on the south wall, a bench, a heavy bag. */
@@ -187,6 +194,8 @@ function buildGrandBath(b: Builder, rect: (id: Zone['id']) => Zone['rect'], cxW:
   b.item('sunkenBath', 'grandBath', G, bathX, bath.minZ + 2.6, 3.0, 2.4, 0.5)
   // Towel/robe bench against the south wall, clear of the sunken bath to its north.
   b.item('bathBench', 'grandBath', G, bathX, bath.maxZ - 0.3, 2.4, 0.5, 0.45, NORTH)
+  b.item('showerScreen', 'grandBath', G, west + 0.7, bath.maxZ - 1.5, 1.2, 0.06, 1.9)
+  b.item('wetFloor', 'grandBath', G, west + 0.7, bath.maxZ - 1, 1.3, 1.6, 0.02)
   // Three private water-closet stalls along the inner (east) wall, facing west into the room.
   for (let i = 0; i < 3; i += 1) b.item('toiletStall', 'grandBath', G, inner - 0.75, bath.minZ + 1.9 + i * 1.5, 1.4, 1.3, 2.2, WEST)
 }
@@ -196,9 +205,11 @@ function buildGrandBath(b: Builder, rect: (id: Zone['id']) => Zone['rect'], cxW:
  * a half-height marble partition. `at(u)` runs from the outer wall (u 0) to the door wall (u 5).
  */
 function buildSuites(b: Builder, zones: Zone[], doorSide: Map<number, 'east' | 'west'>): void {
-  for (const zone of zones.filter((item) => item.kind === 'suite')) {
-    const owner = zone.owner!
-    const doorEast = doorSide.get(owner) === 'east'
+  const groundRooms = zones.filter((item) => item.level === G && (item.kind === 'suite' || item.id === 'masterBedroom' || item.id === 'guestBedroom'))
+  for (const zone of zones.filter((item) => item.kind === 'suite' || item.id === 'masterBedroom' || item.id === 'guestBedroom')) {
+    const owner = zone.owner
+    const master = zone.level === G && zone === groundRooms[0]
+    const doorEast = owner !== undefined && doorSide.get(owner) === 'east'
     const { minX, maxX, minZ, maxZ } = zone.rect
     const at = (u: number) => (doorEast ? minX + u : maxX - u)
     const toDoor = doorEast ? EAST : WEST
@@ -207,21 +218,27 @@ function buildSuites(b: Builder, zones: Zone[], doorSide: Map<number, 'east' | '
     // part. No partition crosses the room, so the suite stays one connected, reachable space.
     const bedMaxZ = maxZ - SUITE.ensuite
     const zc = (minZ + bedMaxZ) / 2
-    b.item('bed', zone.id, level, at(1.1), zc, 2, 2.2, 0.6, toDoor, { owner })
-    for (const dz of [-1.3, 1.3]) b.item('pedestal', zone.id, level, at(0.25), zc + dz, 0.45, 0.45, 0.55)
+    b.item('bed', zone.id, level, at(1.1), zc, master ? 2.4 : 2, 2.2, 0.6, toDoor, { owner, role: master ? 'master' : zone.level === G ? 'guest' : undefined })
+    for (const dz of master ? [-1.55, 1.55] : [-1.3, 1.3]) b.item('pedestal', zone.id, level, at(0.25), zc + dz, 0.45, 0.45, 0.55)
     b.item('execDesk', zone.id, level, at(3.4), minZ + 0.35, 1.4, 0.6, 0.76, SOUTH, { owner })
     b.item('armchair', zone.id, level, at(3.4), minZ + 1, 0.6, 0.6, 0.9, NORTH)
     // Wardrobe against the door wall at the bedroom's south end, facing into the room (fromDoor).
     const fromDoor = doorEast ? WEST : EAST
     b.item('wardrobe', zone.id, level, at(4.7), bedMaxZ - 0.95, 1.5, 0.55, 2.2, fromDoor)
     b.item('privacyScreen', zone.id, level, at(3.2), bedMaxZ - 0.1, 1.2, 0.08, 1.8, EAST)
-    b.stop('bed', zone.id, level, at(2), zc, toDoor, { owner })
-    b.stop('suiteDesk', zone.id, level, at(3.4), minZ + 1, NORTH, { seated: true, owner })
+    if (owner !== undefined) {
+      b.stop('bed', zone.id, level, at(2), zc, toDoor, { owner })
+      b.stop('suiteDesk', zone.id, level, at(3.4), minZ + 1, NORTH, { seated: true, owner })
+    }
     // Ensuite along the south wall: a freestanding tub in the outer corner, a vanity, and a walk-in
     // glass shower in the door-wall corner. All hug the outer and south walls; the inner edge stays
     // open so the agent can still cross, and a low marble kerb reads as the bathroom threshold.
     b.item('soakingTub', zone.id, level, at(1.0), maxZ - 0.75, 1.7, 0.9, 0.55, SOUTH)
     b.item('vanityCounter', zone.id, level, at(2.5), maxZ - 0.3, 1.2, 0.5, 0.95, NORTH)
     b.item('showerScreen', zone.id, level, at(4.1), maxZ - 0.9, 0.06, 1.4, 1.9, toDoor)
+    if (level === G) {
+      b.item('wetFloor', zone.id, level, (minX + maxX) / 2, maxZ - 1, maxX - minX - 0.1, 1.9, 0.02)
+      b.item('toilet', zone.id, level, at(3.35), maxZ - 0.4, 0.5, 0.65, 0.7, NORTH)
+    }
   }
 }

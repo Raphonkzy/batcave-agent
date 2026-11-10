@@ -14,6 +14,7 @@ import { CliffGrounds, TerracePool } from './manor/TerracePool.tsx'
 import { ExteriorGrounds } from './manor/ExteriorGrounds.tsx'
 import { VerticalShaft } from './manor/VerticalShaft.tsx'
 import { WaterfallMesh } from './manor/WaterfallMesh.tsx'
+import { fullManorShell } from './manor/enclosure.ts'
 import { Roof } from './manor/Roof.tsx'
 import { Plumbob } from './manor/Plumbob.tsx'
 import { lightRig, QUALITY, terraceSun, type ManorLayoutData, type ManorView, type Level, type WallMode, type Quality, type QualityProfile } from './manor/ZoneLayout.ts'
@@ -33,9 +34,11 @@ function ProceduralEnvironment({ intensity }: { intensity: number }) {
   useEffect(() => { scene.environmentIntensity = intensity }, [scene, intensity])
   return null
 }
-function Lights({ layout, profile, hour, focus, animate, view }: { layout: ManorLayoutData; profile: QualityProfile; hour: number; focus: Vec3; animate: boolean; view: ManorView }) {
+function Lights({ layout, profile, hour, focus, animate, view, azimuth, intensity }: { layout: ManorLayoutData; profile: QualityProfile; hour: number; focus: Vec3; animate: boolean; view: ManorView; azimuth: number; intensity: number }) {
   const rig = useMemo(() => lightRig(layout), [layout])
   const sun = terraceSun(hour)
+  const direction = new THREE.Vector3(...sun.direction).applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth * Math.PI / 180)
+  const warmth = sun.daylight ? 0.65 : 1.4
   // On Medium only the command spot casts shadows, and in the overview the deck it lights is under the rock.
   const commandShadow = profile.shadows === 'all' || (profile.shadows === 'main' && view !== 'overview')
   const hearth = useRef<THREE.PointLight>(null)
@@ -49,7 +52,7 @@ function Lights({ layout, profile, hour, focus, animate, view }: { layout: Manor
   }, [rig, targets])
   useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime
-    if (hearth.current) hearth.current.intensity = animate ? 38 + Math.sin(t * 7.3) * 4 + Math.sin(t * 13.1) * 3 : 38
+    if (hearth.current) hearth.current.intensity = (animate ? 38 + Math.sin(t * 7.3) * 4 + Math.sin(t * 13.1) * 3 : 38) * warmth
     if (fill.current) {
       // The fill light follows the camera's focus, so whichever level is in view is lit.
       const k = animate ? Math.min(1, delta * 3) : 1
@@ -63,9 +66,9 @@ function Lights({ layout, profile, hour, focus, animate, view }: { layout: Manor
     <spotLight position={rig.command.position} target={targets.command} angle={1.25} penumbra={0.7} intensity={190} decay={2} distance={0} color="#f0f6ff" castShadow={commandShadow} shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004}/>
     <spotLight position={rig.hangar.position} target={targets.hangar} angle={1.3} penumbra={0.8} intensity={220} decay={2} distance={0} color="#ffb04a" castShadow={profile.shadows === 'all'} shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004}/>
     <pointLight ref={hearth} position={rig.hearth} intensity={38} decay={2} distance={0} color="#ff9944"/>
-    <pointLight position={rig.foyer} intensity={60} decay={2} distance={0} color="#ffe2b8"/>
-    <directionalLight position={[rig.sunTarget[0] + sun.direction[0], rig.sunTarget[1] + sun.direction[1], rig.sunTarget[2] + sun.direction[2]]} target={targets.sun} intensity={sun.intensity} color={sun.color} castShadow={profile.shadows === 'all'} shadow-mapSize={[2048, 2048]} shadow-bias={-0.0005} shadow-camera-left={-half} shadow-camera-right={half} shadow-camera-top={half} shadow-camera-bottom={-half} shadow-camera-far={half * 5}/>
-    <pointLight ref={fill} position={[focus[0], focus[1] + 5, focus[2]]} intensity={45} decay={1.6} distance={0} color="#dfe6f2"/>
+    <pointLight position={rig.foyer} intensity={60 * warmth} decay={2} distance={0} color="#ffe2b8"/>
+    <directionalLight position={[rig.sunTarget[0] + direction.x, rig.sunTarget[1] + direction.y, rig.sunTarget[2] + direction.z]} target={targets.sun} intensity={sun.intensity * intensity} color={sun.color} castShadow={profile.shadows === 'all'} shadow-mapSize={[2048, 2048]} shadow-bias={-0.0005} shadow-camera-left={-half} shadow-camera-right={half} shadow-camera-top={half} shadow-camera-bottom={-half} shadow-camera-far={half * 5}/>
+    <pointLight ref={fill} position={[focus[0], focus[1] + 5, focus[2]]} intensity={sun.daylight ? 35 : 18} decay={1.6} distance={0} color={sun.daylight ? "#dfe6f2" : "#ffc68a"}/>
     {Object.values(targets).map((object, index) => <primitive key={index} object={object}/>)}
   </>
 }
@@ -83,6 +86,7 @@ function Animation({ animate }: { animate: boolean }) {
   return null
 }
 export interface ThemeManorProps {
+  gate?: import('./manor/ExteriorGrounds.tsx').ExteriorGroundsProps['gate']
   layout: ManorLayoutData
   view: ManorView
   level?: Level
@@ -99,12 +103,15 @@ export interface ThemeManorProps {
   selectedAnchor?: THREE.Object3D | null
   selectedStatus?: string
   hour?: number
+  sunAzimuth?: number
+  sunIntensity?: number
   reducedMotion?: boolean
   children?: ReactNode
 }
 export default function ThemeManor({
   layout,
   view,
+  gate,
   level = 'ground',
   wallMode = 'cutaway',
   showUpper,
@@ -116,6 +123,8 @@ export default function ThemeManor({
   selectedAnchor,
   selectedStatus,
   hour,
+  sunAzimuth = 0,
+  sunIntensity = 1,
   reducedMotion,
   children,
 }: ThemeManorProps) {
@@ -131,7 +140,7 @@ export default function ThemeManor({
   // - upper: Upper Level (ground floor + upper floor + roof). Deck is hidden.
   const isDeck = level === 'deck' || (view === 'deck' || view === 'hangar')
   const isManor = level === 'ground' || level === 'upper' || (view === 'manor' || view === 'lobby' || view === 'exterior' || view === 'overview')
-  const isUpper = level === 'upper' || showUpper
+  const isUpper = level === 'upper' || showUpper || fullManorShell(level, wallMode)
 
   const reach = layout.camera.overview.maxDistance
   const underground = isDeck && !isManor
@@ -140,8 +149,8 @@ export default function ThemeManor({
   return <>
     <color attach="background" args={[sky]}/>
     {quality !== 'low' ? <fog attach="fog" args={[underground ? '#07090d' : sun.fog, reach * 0.8, reach * 2.6]}/> : null}
-    <ProceduralEnvironment intensity={underground ? 0.28 : sun.daylight ? 0.5 : 0.3}/>
-    <Lights layout={layout} profile={profile} hour={hour ?? localHour} focus={focus} animate={animate} view={view}/>
+    <ProceduralEnvironment intensity={underground ? 0.28 : sun.daylight ? 0.55 : 0.12}/>
+    <Lights layout={layout} profile={profile} hour={hour ?? localHour} focus={focus} animate={animate} view={view} azimuth={sunAzimuth} intensity={sunIntensity}/>
     <Animation animate={animate}/>
     {isDeck && <>
       <SubterraneanCave layout={layout} profile={profile} briefing={briefing} animate={animate} frontOnly={view === 'overview'}/>
@@ -149,8 +158,8 @@ export default function ThemeManor({
       <HangarBay layout={layout} animate={animate} shadows={profile.shadows === 'all'}/>
     </>}
     {isManor && <>
-      <ExteriorGrounds layout={layout} profile={profile} view={view}/>
-      <CliffGrounds layout={layout} profile={profile} grass={view !== 'overview'}/>
+      <ExteriorGrounds layout={layout} profile={profile} view={view} gate={gate}/>
+      <CliffGrounds layout={layout} profile={profile}/>
       <SurfaceManor layout={layout} profile={profile} showUpper={isUpper} wallMode={wallMode}/>
       <Roof layout={layout} level={level} wallMode={wallMode} quality={quality} reducedMotion={!animate}/>
       <TerracePool layout={layout} profile={profile} animate={animate}/>

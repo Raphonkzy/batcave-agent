@@ -44,9 +44,8 @@ export function FrameReporter({ onSample }: { onSample: (fps: number) => void })
     const now = performance.now()
     const delta = now - lastFrame.current
     lastFrame.current = now
-    if (frameDeltas.current.length < 300) {
-      frameDeltas.current.push(delta)
-    }
+    frameDeltas.current.push(delta)
+    if (frameDeltas.current.length > 300) frameDeltas.current.shift()
 
     if (now - since.current < 1000) return
     const fps = (frames.current * 1000) / (now - since.current)

@@ -106,16 +106,35 @@ function deckParts2(item: LayoutItem): Part[] | undefined {
       box('hazard', [w / 2 - 0.15, 0.02, 0], [0.3, 0.03, d - 0.6]), box('hazard', [-(w / 2 - 0.15), 0.02, 0], [0.3, 0.03, d - 0.6]),
     ]
     case 'armoredInterceptor': return [
-      box('blackSteel', [0, 0.6, 0], [w - 0.2, 0.5, d - 0.2]),
+      box('blackSteel', [0, 0.58, 0], [w - 0.3, 0.42, d - 0.25]),
+      // Original split-nose armor, armored sills, swept rear vanes and heat exchangers.
+      ...[-1,1].flatMap(side => [
+        box('carbon', [side*0.62,0.82,1.25], [1.02,0.16,1.9], [0.12,side*0.1,side*0.1]),
+        box('gunmetal', [side*1.08,0.52,0], [0.16,0.28,3.8]),
+        box('blackSteel', [side*0.88,1.1,-1.88], [0.08,0.7,1.0], [0,side*0.2,side*-0.25]),
+        box('ledWhite', [side*0.8,0.76,2.48], [0.46,0.04,0.04]),
+        cyl('gunmetal', [side*0.43,0.55,-2.42], [0.3,0.3,0.3], [Math.PI/2,0,0]),
+        ...[-0.35,0,0.35].map(z=>box('gunmetal',[side*0.78,1.23,z-1.15],[0.32,0.04,0.08])),
+      ]),
+      box('carbon', [0,0.28,2.3], [2.35,0.06,0.4]),
       box('carbon', [0, 1.02, -0.2], [w - 0.4, 0.38, 3.4]),
       box('darkGlass', [0, 1.38, -0.35], [1.5, 0.34, 1.7], [-0.08, 0, 0]),
       box('blackSteel', [0, 0.82, d / 2 - 0.5], [w - 0.3, 0.3, 1.2], [0.35, 0, 0]),
-      ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].flatMap(([sx, sz]) => [cyl('rubber', [sx * (w / 2 - 0.1), 0.45, sz * 1.65], [0.9, 0.5, 0.9], SIDEWAYS), shape('oct', 'chrome', [sx * (w / 2 - 0.02), 0.45, sz * 1.65], [0.38, 0.52, 0.38], SIDEWAYS)]),
+      ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].flatMap(([sx, sz]) => [cyl('rubber', [sx * (w / 2 - 0.26), 0.45, sz * 1.65], [0.9, 0.5, 0.9], SIDEWAYS), shape('oct', 'chrome', [sx * (w / 2 - 0.24), 0.45, sz * 1.65], [0.38, 0.52, 0.38], SIDEWAYS)]),
       ...[-1, 1].flatMap((side) => [box('blackSteel', [side * 0.9, 1.4, -(d / 2 - 0.35)], [0.08, 0.55, 0.7]), box('ledRed', [side * 0.5, 0.62, -(d / 2) + 0.02], [0.25, 0.16, 0.04])]),
-      box('ledWhite', [0, 0.86, d / 2 - 0.02], [w - 0.6, 0.04, 0.03]),
+      box('blackSteel', [0, 0.8, d / 2 - 0.02], [0.22, 0.2, 0.04]),
     ]
     case 'pursuitBike': return [
-      ...[-0.75, 0.75].map((z) => cyl('rubber', [0, 0.31, z], [0.62, 0.16, 0.62], SIDEWAYS)),
+      ...[-0.75, 0.75].flatMap((z) => [
+        cyl('rubber', [0,0.31,z], [0.62,z<0?0.26:0.2,0.62], SIDEWAYS),
+        cyl('gunmetal', [0,0.31,z], [0.27,0.28,0.27], SIDEWAYS),
+        ...[-1,1].map(side=>box('gunmetal',[side*0.11,0.47,z*0.75],[0.04,0.32,0.36],[z>0?-0.3:0.3,0,0])),
+      ]),
+      ...[-1,1].flatMap(side=>[
+        box('blackSteel',[side*0.17,0.65,0.18],[0.12,0.35,0.8],[0.15,side*0.12,side*0.18]),
+        box('carbon',[side*0.13,0.91,-0.57],[0.06,0.25,0.5],[0.2,0,side*-0.2]),
+        box('ledRed',[side*0.1,0.83,-0.87],[0.07,0.025,0.04]),
+      ]),
       box('carbon', [0, 0.62, 0], [0.2, 0.25, 1.3]),
       box('blackSteel', [0, 0.82, 0.2], [0.32, 0.22, 0.6]),
       box('rubber', [0, 0.8, -0.38], [0.28, 0.08, 0.5]),

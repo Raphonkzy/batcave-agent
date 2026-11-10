@@ -1129,12 +1129,17 @@ export function buildDashboard(parts: { runtime: RuntimeSnapshot; board: TaskBoa
 // ---------------------------------------------------------------------------
 // Cached accessors. Concurrent callers share one in-flight read per source.
 
-function cachedSource<T>(collect: () => Promise<T>, ttl = CACHE_MS) {
+/** A real lookup time plus an explicit bypass; never manufacture a future timestamp. */
+export type CacheRead = number | { now: number; forceRefresh: boolean }
+
+export function cachedSource<T>(collect: (read: CacheRead) => Promise<T>, ttl = CACHE_MS) {
   let entry: { value: T; expires: number } | undefined
   let inflight: Promise<T> | undefined
-  const get = (now = Date.now()): Promise<T> => {
-    if (entry && entry.expires > now) return Promise.resolve(entry.value)
-    inflight ??= collect().then((value) => {
+  const get = (read: CacheRead = Date.now()): Promise<T> => {
+    const now = typeof read === 'number' ? read : read.now
+    const forceRefresh = typeof read !== 'number' && read.forceRefresh
+    if (!forceRefresh && entry && entry.expires > now) return Promise.resolve(entry.value)
+    inflight ??= collect(read).then((value) => {
       entry = { value, expires: Date.now() + ttl }
       return value
     }).finally(() => { inflight = undefined })
@@ -1149,26 +1154,26 @@ const calendarSource = cachedSource(() => collectCalendar())
 const activitySource = cachedSource(() => collectActivity())
 const knowledgeSource = cachedSource(() => collectKnowledge())
 const channelSource = cachedSource(() => collectChannels())
-const usageSources = new Map(USAGE_PERIODS.map((days) => [days, cachedSource(async () => collectUsage(days, (await getSnapshot()).profiles.data.map((profile) => profile.name)), INSIGHTS_CACHE_MS)]))
+const usageSources = new Map(USAGE_PERIODS.map((days) => [days, cachedSource(async (read) => collectUsage(days, (await getSnapshot(read)).profiles.data.map((profile) => profile.name)), INSIGHTS_CACHE_MS)]))
 
 /** Token usage of every agent over 1, 7 or 30 days (anything else reads as 7). */
-export function getUsage(days: number, now = Date.now()): Promise<UsageSnapshot> {
+export function getUsage(days: number, now: CacheRead = Date.now()): Promise<UsageSnapshot> {
   return (usageSources.get(days as typeof USAGE_PERIODS[number]) ?? usageSources.get(INSIGHT_DAYS)!)(now)
 }
 const logsSource = cachedSource(() => collectLogs(), 15_000)
-const agentActivitySource = cachedSource(async () => {
-  const runtime = await getSnapshot()
+const agentActivitySource = cachedSource(async (read) => {
+  const runtime = await getSnapshot(read)
   return collectAgentActivity(runtime.profiles.availability === 'available' ? runtime.profiles.data.map((profile) => profile.name) : [])
 }, 30_000)
 
-export function getSnapshot(now = Date.now()): Promise<RuntimeSnapshot> { return runtimeSource(now) }
+export function getSnapshot(now: CacheRead = Date.now()): Promise<RuntimeSnapshot> { return runtimeSource(now) }
 export function clearSnapshotCache(): void { runtimeSource.clear() }
-export function getTaskBoard(now = Date.now()): Promise<TaskBoardSnapshot> { return taskBoardSource(now) }
-export function getCalendar(now = Date.now()): Promise<CalendarSnapshot> { return calendarSource(now) }
-export function getActivity(now = Date.now()): Promise<ActivitySnapshot> { return activitySource(now) }
-export function getKnowledge(now = Date.now()): Promise<KnowledgeSnapshot> { return knowledgeSource(now) }
-export function getChannels(now = Date.now()): Promise<ChannelSnapshot> { return channelSource(now) }
-export function getLogs(now = Date.now()): Promise<LogsSnapshot> { return logsSource(now) }
+export function getTaskBoard(now: CacheRead = Date.now()): Promise<TaskBoardSnapshot> { return taskBoardSource(now) }
+export function getCalendar(now: CacheRead = Date.now()): Promise<CalendarSnapshot> { return calendarSource(now) }
+export function getActivity(now: CacheRead = Date.now()): Promise<ActivitySnapshot> { return activitySource(now) }
+export function getKnowledge(now: CacheRead = Date.now()): Promise<KnowledgeSnapshot> { return knowledgeSource(now) }
+export function getChannels(now: CacheRead = Date.now()): Promise<ChannelSnapshot> { return channelSource(now) }
+export function getLogs(now: CacheRead = Date.now()): Promise<LogsSnapshot> { return logsSource(now) }
 
 /** Detail for a task on the current board; returns undefined for ids Hermes did not list. */
 /** Details of a task on the current board snapshot; `board` picks the board it lives on. */
@@ -1179,12 +1184,12 @@ export async function getTaskDetail(id: string, now = Date.now(), board?: string
   return collectTaskDetail(id, systemRun, board)
 }
 
-export async function getOffice(now = Date.now()): Promise<OfficeSnapshot> {
+export async function getOffice(now: CacheRead = Date.now()): Promise<OfficeSnapshot> {
   const [runtime, board, activity, agentActivity] = await Promise.all([getSnapshot(now), getTaskBoard(now), getActivity(now), agentActivitySource(now)])
   return buildOfficeSnapshot(runtime, board, activity, { agentActivity })
 }
 
-export async function getDashboard(now = Date.now()): Promise<DashboardSnapshot> {
+export async function getDashboard(now: CacheRead = Date.now()): Promise<DashboardSnapshot> {
   const [runtime, board, calendar, activity, knowledge, channels, agentActivity] = await Promise.all([getSnapshot(now), getTaskBoard(now), getCalendar(now), getActivity(now), getKnowledge(now), getChannels(now), agentActivitySource(now)])
   const office = buildOfficeSnapshot(runtime, board, activity, { agentActivity })
   return buildDashboard({ runtime, board, calendar, activity, knowledge, channels, office, commands: commandHealth() })

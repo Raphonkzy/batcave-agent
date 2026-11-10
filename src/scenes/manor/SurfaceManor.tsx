@@ -1,7 +1,13 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { wallBoxes, wallHeight, DEFAULT_SIDES, type ViewSides } from './wallGeometry.ts'
 import * as THREE from 'three'
+import { manorWindows } from './manorArchitecture.ts'
+import { estateConfig } from './worldConfig.ts'
+import { enclosureBands } from './enclosure.ts'
+import { facadeParts } from './facadeParts.ts'
 import { LIBRARY } from '../../utils/layout/dimensions.ts'
-import { LEVEL_Y, type WallSegment, type Zone } from '../../utils/layout/types.ts'
+import { LEVEL_Y, type Zone } from '../../utils/layout/types.ts'
 import { buildBatches, buildWorldBatches, keepAt } from './batches.ts'
 import { Floors } from './Floors.tsx'
 import { Batches, Boxes } from './Instanced.tsx'
@@ -12,87 +18,56 @@ import { Glows } from './Glows.tsx'
 import type { ManorLayoutData, QualityProfile, WallMode } from './ZoneLayout.ts'
 // The surface manor: floors, walls (interactive wallMode: wallsUp, cutaway, wallsDown),
 // tall windows, French doors in the suites, chandeliers, the library catwalk and the furniture.
-/** Interior walls stop at this height so the rooms beyond stay visible from above. */
-const INTERIOR_WALL = 2.4
-const CUTAWAY_WALL = 1
-const WAINSCOT = 1
-type Box = { x: number; y: number; z: number; w: number; h: number; d: number }
-function wallBoxes(walls: WallSegment[], wallMode: WallMode = 'cutaway') {
-  const wainscot: Box[] = []
-  const plaster: Box[] = []
-  const stone: Box[] = []
-  for (const wall of walls) {
-    const length = wall.to - wall.from
-    const mid = (wall.from + wall.to) / 2
-    const base = LEVEL_Y[wall.level]
-    const thick = wall.exterior ? 0.3 : 0.15
-    const at = wall.exterior ? wall.at + (wall.side === 'north' ? -0.15 : wall.side === 'south' ? 0.15 : wall.side === 'west' ? -0.15 : 0.15) : wall.at
-    const shape = (h: number, y0: number): Box => (wall.axis === 'x' ? { x: mid, y: base + y0 + h / 2, z: at, w: length + (wall.exterior ? 0.3 : 0), h, d: thick } : { x: at, y: base + y0 + h / 2, z: mid, w: thick, h, d: length + (wall.exterior ? 0.3 : 0) })
-
-    if (wallMode === 'wallsDown') {
-      // Walls Down (3): All walls reduced to 0.3 low curb for open floorplan view
-      if (wall.exterior) stone.push(shape(0.3, 0))
-      else wainscot.push(shape(0.3, 0))
-    } else if (wallMode === 'wallsUp') {
-      // Walls Up (1): Full height exterior and interior walls
-      if (wall.exterior) {
-        stone.push(shape(wall.height, 0))
-      } else {
-        wainscot.push(shape(WAINSCOT, 0))
-        plaster.push(shape(INTERIOR_WALL - WAINSCOT, WAINSCOT))
-      }
-    } else {
-      // Cutaway (2): Camera-facing south and east walls cut to 1m
-      if (wall.exterior) {
-        const cut = wall.side === 'south' || wall.side === 'east'
-        stone.push(shape(cut ? CUTAWAY_WALL : wall.height, 0))
-      } else {
-        wainscot.push(shape(WAINSCOT, 0))
-        plaster.push(shape(INTERIOR_WALL - WAINSCOT, WAINSCOT))
-      }
-    }
-  }
-  return { wainscot, plaster, stone }
-}
 /** Tall windows along the north and west outer walls, French doors on each suite's outer wall. */
-function openingParts(layout: ManorLayoutData, zones: Zone[]): Part[] {
+function openingParts(layout: ManorLayoutData, zones: Zone[], mode: WallMode, sides: ViewSides): Part[] {
   const parts: Part[] = []
-  for (const wall of layout.walls.filter((item) => item.exterior && (item.side === 'north' || item.side === 'west') && zones.some((zone) => zone.level === item.level))) {
+  for (const wall of layout.walls.filter((item) => item.exterior && zones.some((zone) => zone.level === item.level))) {
+    if (wallHeight(wall, mode, sides) < wall.height) continue
     const base = LEVEL_Y[wall.level]
-    const offset = wall.side === 'north' ? 0.01 : 0.01
-    for (let along = wall.from + 1.4; along <= wall.to - 1.2; along += 2.6) {
-      if (wall.side === 'north' && Math.abs(along) < 1.8) continue
+    const offset = wall.side === 'north' || wall.side === 'west' ? -0.15 : 0.15
+    const openings = manorWindows(wall)
+    for (const along of openings) {
       const tall = Math.min(wall.height - 1.2, 2.8)
       const p: Part['p'] = wall.axis === 'x' ? [along, base + 0.9 + tall / 2, wall.at + offset] : [wall.at + offset, base + 0.9 + tall / 2, along]
       const s: Part['s'] = wall.axis === 'x' ? [1.1, tall, 0.34] : [0.34, tall, 1.1]
-      parts.push(box('glass', p, s), box('brass', [p[0], base + 0.9, p[2]], wall.axis === 'x' ? [1.2, 0.06, 0.36] : [0.36, 0.06, 1.2]), box('brass', [p[0], base + 0.9 + tall, p[2]], wall.axis === 'x' ? [1.2, 0.06, 0.36] : [0.36, 0.06, 1.2]))
+      parts.push(box('glass', p, s))
+      const frame = (alongOffset: number, y: number, span: number, h: number, material: 'stone' | 'brass') => parts.push(box(material, wall.axis === 'x' ? [along + alongOffset, y, p[2]] : [p[0], y, along + alongOffset], wall.axis === 'x' ? [span, h, 0.4] : [0.4, h, span]))
+      frame(0, base + 0.88, 1.38, 0.12, 'stone')
+      frame(0, base + 0.9 + tall, 1.32, 0.12, 'stone')
+      for (const side of [-1, 1]) frame(side * 0.56, p[1], 0.08, tall, 'brass')
+      frame(0, p[1], 0.035, tall, 'brass')
+      frame(0, p[1], 1.1, 0.035, 'brass')
     }
   }
 
-  // Grand Double Entrance Doors at Threshold D [0, LEVEL_Y.surface, -8.0]
+  // Headers keep deliberate door openings from becoming floor-to-roof voids.
+  for (const door of layout.doors.filter(d => zones.some(z => z.level === d.level))) {
+    const wall = layout.walls.find(w => w.level === door.level && w.axis === door.axis && Math.abs(w.at-door.at)<1e-6 && (Math.abs(w.to-(door.center-door.width/2))<1e-6 || Math.abs(w.from-(door.center+door.width/2))<1e-6))
+    if (!wall) continue
+    const h = wallHeight(wall, mode, sides)
+    if (h <= 2.5) continue
+    const offset = wall.exterior ? (wall.side === 'north' || wall.side === 'west' ? -0.15 : 0.15) : 0
+    const p: Part['p'] = door.axis === 'x' ? [door.center, LEVEL_Y[door.level]+(h+2.5)/2, door.at+offset] : [door.at+offset, LEVEL_Y[door.level]+(h+2.5)/2, door.center]
+    parts.push(box(wall.exterior ? 'stone' : 'mahogany', p, door.axis === 'x' ? [door.width+0.02,h-2.5,wall.exterior ? 0.3 : 0.15] : [wall.exterior ? 0.3 : 0.15,h-2.5,door.width+0.02]))
+  }
+
+  // Pool-facing double doors, open against the jambs: the central 2.8m stays usable.
+  const frontZ = estateConfig(layout).entrance.threshold[2]
   const dBase = LEVEL_Y.surface
   parts.push(
-    box('stone', [-1.45, dBase + 1.6, -8.0], [0.35, 3.2, 0.4]),
-    box('stone', [1.45, dBase + 1.6, -8.0], [0.35, 3.2, 0.4]),
-    box('stone', [0, dBase + 3.3, -8.0], [3.25, 0.35, 0.44]),
-    box('brass', [0, dBase + 3.52, -8.0], [3.4, 0.08, 0.48]),
-    box('glass', [0, dBase + 3.9, -8.0], [2.4, 0.65, 0.1]),
-    box('brass', [0, dBase + 3.9, -8.0], [2.5, 0.72, 0.05]),
-    box('mahogany', [-0.62, dBase + 1.5, -8.0], [1.18, 3.0, 0.14]),
-    box('mahogany', [0.62, dBase + 1.5, -8.0], [1.18, 3.0, 0.14]),
-    box('brass', [-0.12, dBase + 1.3, -8.09], [0.06, 0.4, 0.06]),
-    box('brass', [0.12, dBase + 1.3, -8.09], [0.06, 0.4, 0.06]),
-    box('brass', [-0.62, dBase + 0.15, -8.08], [1.14, 0.25, 0.02]),
-    box('brass', [0.62, dBase + 0.15, -8.08], [1.14, 0.25, 0.02])
+    box('stone', [-1.45, dBase + 1.6, frontZ], [0.35, 3.2, 0.4]),
+    box('stone', [1.45, dBase + 1.6, frontZ], [0.35, 3.2, 0.4]),
+    box('stone', [0, dBase + 3.3, frontZ], [3.25, 0.35, 0.44]),
+    box('brass', [0, dBase + 3.52, frontZ], [3.4, 0.08, 0.48]),
+    box('glass', [0, dBase + 2.95, frontZ], [2.4, 0.25, 0.1]),
+    box('brass', [0, dBase + 2.95, frontZ], [2.5, 0.3, 0.05]),
+    box('mahogany', [-1.35, dBase + 1.5, frontZ + 0.62], [0.14, 3.0, 1.18]),
+    box('mahogany', [1.35, dBase + 1.5, frontZ + 0.62], [0.14, 3.0, 1.18]),
+    box('brass', [-1.24, dBase + 1.3, frontZ + 1.05], [0.06, 0.4, 0.06]),
+    box('brass', [1.24, dBase + 1.3, frontZ + 1.05], [0.06, 0.4, 0.06]),
+    box('brass', [-1.26, dBase + 0.15, frontZ + 0.62], [0.02, 0.25, 1.14]),
+    box('brass', [1.26, dBase + 0.15, frontZ + 0.62], [0.02, 0.25, 1.14])
   )
-  for (const zone of zones.filter((item) => item.kind === 'suite')) {
-    const bed = layout.items.find((item) => item.zone === zone.id && item.type === 'bed')!
-    const outerX = Math.abs(bed.x - zone.rect.minX) < Math.abs(bed.x - zone.rect.maxX) ? zone.rect.minX : zone.rect.maxX
-    const exterior = layout.walls.some((wall) => wall.exterior && wall.level === zone.level && wall.axis === 'z' && Math.abs(wall.at - outerX) < 1e-6 && wall.from <= zone.rect.minZ + 1e-6 && wall.to >= zone.rect.maxZ - 1e-6)
-    if (!exterior) continue
-    const base = LEVEL_Y[zone.level]
-    for (const z of [zone.rect.minZ + 0.8, zone.rect.maxZ - 0.8]) parts.push(box('glass', [outerX, base + 1.2, z], [0.34, 2.2, 0.9]), box('brass', [outerX, base + 2.32, z], [0.36, 0.06, 1.0]))
-  }
   return parts
 }
 /** Crystal chandeliers (emissive, no real light) over the foyer, the lounge sets and the banquet table. */
@@ -124,6 +99,12 @@ function chandeliers(layout: ManorLayoutData): { parts: Part[]; halos: [number, 
   const banquet = layout.items.find((item) => item.type === 'banquetTable')!
   const lamps = Math.max(1, Math.floor(banquet.d / 3))
   for (let index = 0; index < lamps; index += 1) hang(banquet.x, LEVEL_Y.surface + 3, banquet.z - banquet.d / 2 + (banquet.d * (index + 0.5)) / lamps, 1)
+  const entrance = layout.zones.entranceHall
+  hang(0, LEVEL_Y.surface + 2.8, (entrance.minZ + entrance.maxZ) / 2, 0.75)
+  const kitchen = layout.zones.butlerPantry
+  hang((kitchen.minX + kitchen.maxX) / 2, LEVEL_Y.surface + 2.7, (kitchen.minZ + kitchen.maxZ) / 2, 0.55)
+  const billiards = layout.items.find((item) => item.type === 'billiardsTable')!
+  hang(billiards.x, LEVEL_Y.surface + 2.7, billiards.z, 0.8)
   return { parts, halos }
 }
 /**
@@ -170,17 +151,31 @@ export function SurfaceManor({
   showUpper: boolean
   wallMode?: WallMode
 }) {
+  const [sides, setSides] = useState<ViewSides>(DEFAULT_SIDES)
+  const direction = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({camera}) => {
+    if (wallMode !== 'cutaway') return
+    camera.getWorldDirection(direction)
+    // Hysteresis prevents quadrant flapping at cardinal boundaries.
+    const x = Math.abs(direction.x) > 0.18 ? direction.x < 0 ? 'east' : 'west' : sides.x
+    const z = Math.abs(direction.z) > 0.18 ? direction.z < 0 ? 'south' : 'north' : sides.z
+    if (x !== sides.x || z !== sides.z) setSides({x, z})
+  })
   const zones = useMemo(() => layout.zoneList.filter((zone) => zone.level === 'surface' || (showUpper && zone.level === 'surfaceUpper')), [layout, showUpper])
   const shown = useMemo(() => new Set(zones.map((zone) => zone.level)), [zones])
   const furniture = useMemo(() => buildBatches(layout.items.filter((item) => shown.has(item.level)), keepAt(profile.density)), [layout, shown, profile.density])
-  const walls = useMemo(() => wallBoxes(layout.walls.filter((wall) => shown.has(wall.level)), wallMode), [layout, shown, wallMode])
+  const walls = useMemo(() => wallBoxes(layout.walls.filter((wall) => shown.has(wall.level)), wallMode, sides), [layout, shown, wallMode, sides])
+  const enclosure = useMemo(() => wallMode === 'wallsUp' ? enclosureBands(layout) : [], [layout, wallMode])
   const lights = useMemo(() => chandeliers(layout), [layout])
-  const extras = useMemo(() => buildWorldBatches([...openingParts(layout, zones), ...lights.parts, ...catwalkParts(layout), ...(showUpper ? mezzanineRailing(layout) : [])]), [layout, zones, lights, showUpper])
+  const extras = useMemo(() => buildWorldBatches([...openingParts(layout, zones, wallMode, sides), ...facadeParts(layout, zones, wallMode, sides), ...lights.parts, ...catwalkParts(layout), ...(showUpper ? mezzanineRailing(layout) : [])]), [layout, zones, lights, showUpper, wallMode, sides])
   const m = manorMaterials()
   const plaster = useMemo(() => new THREE.MeshStandardMaterial({ color: '#e8dcc2', map: tiled(concreteMap(), 2, 1), bumpMap: tiled(concreteBump(), 2, 1), bumpScale: 0.4, roughness: 0.9 }), [])
+  useEffect(() => () => { plaster.dispose() }, [plaster])
+  const floorZones = useMemo(() => zones.filter(zone=>zone.kind !== 'outdoor'), [zones])
   const shadows = profile.shadows === 'all'
   return <group>
-    <Floors zones={zones.filter((zone) => zone.kind !== 'outdoor')}/>
+    <Floors zones={floorZones}/>
+    <group name="UpperVolumeEnclosure"><Boxes boxes={enclosure} material={m.stone} shadows={shadows}/></group>
     <Boxes boxes={walls.stone} material={m.stone} shadows={shadows}/>
     <Boxes boxes={walls.wainscot} material={m.mahogany} shadows={shadows}/>
     <Boxes boxes={walls.plaster} material={plaster} shadows={shadows}/>

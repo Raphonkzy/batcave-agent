@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  cachedSource,
   collectActivity,
   collectCalendar,
   collectKnowledge,
@@ -13,6 +14,35 @@ import {
   parseSessions,
   parseSkills,
 } from './mission-control.js'
+
+describe('snapshot cache freshness', () => {
+  it.each([15_000, 30_000, 45_000, 120_000])('bypasses a recent %i ms cache on manual refresh', async (ttl) => {
+    const collect = vi.fn(async () => ({ version: collect.mock.calls.length }))
+    const source = cachedSource(collect, ttl)
+    const now = Date.now()
+    const first = await source(now)
+    expect(await source(now + 1)).toBe(first)
+    const fresh = await source({ now: now + 1, forceRefresh: true })
+    expect(fresh).not.toBe(first)
+    expect(collect).toHaveBeenCalledTimes(2)
+    expect(await source(now + 2)).toBe(fresh)
+  })
+
+  it('coalesces concurrent forced reads and retries failed collections', async () => {
+    const collect = vi.fn(async () => 1)
+    const source = cachedSource(collect)
+    const read = { now: Date.now(), forceRefresh: true }
+    await source()
+    const a = source(read)
+    const b = source(read)
+    expect(a).toBe(b)
+    await a
+    expect(collect).toHaveBeenCalledTimes(2)
+    collect.mockRejectedValueOnce(new Error('offline'))
+    await expect(source(read)).rejects.toThrow('offline')
+    await expect(source(read)).resolves.toBe(1)
+  })
+})
 
 describe('Hermes output parsers', () => {
   it('extracts profile, model and gateway state from the profile table', () => {

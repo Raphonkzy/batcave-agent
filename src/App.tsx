@@ -27,16 +27,11 @@ function currentPage(): Page {
 }
 
 function getInitialSideNavMode(): 'open' | 'rail' {
-  if (typeof window === 'undefined') return 'open'
-  const saved = localStorage.getItem('batcave.sideNav')
-  if (saved === 'open' || saved === 'rail') return saved
-  return window.innerWidth >= 1100 ? 'open' : 'rail'
+  return 'open'
 }
 
 function getInitialPinned(): boolean {
-  if (typeof window === 'undefined') return true
-  const saved = localStorage.getItem('batcave.sideNavPinned')
-  return saved !== null ? saved === 'true' : true
+  return false
 }
 
 function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; access: AccessStatus | undefined; onAccessChange: (status: AccessStatus) => void }) {
@@ -109,7 +104,8 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
     if (!pinned || isMobile) {
       setDrawerOpen((prev) => !prev)
     } else {
-      togglePin()
+      setPinned(false)
+      setDrawerOpen(false)
     }
   }
   const dashboard = usePolling<DashboardSnapshot>('/api/dashboard', 15_000)
@@ -160,6 +156,7 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
   const navigate = (next: Page) => {
     window.location.hash = `/${pageSlug(next)}`
     setPage(next)
+    setDrawerOpen(false)
     window.scrollTo?.({ top: 0 })
   }
 
@@ -198,7 +195,7 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
       <Logs />
     )
 
-  const sideWidth = isMobile || !pinned || isFullscreen ? '0px' : navMode === 'rail' ? '64px' : '224px'
+  const sideWidth = isMobile || !pinned || isFullscreen ? '0px' : navMode === 'rail' ? '64px' : 'var(--nav-w)'
 
   return (
     <div
@@ -215,6 +212,7 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
         onNavigateHome={() => navigate(HOME)}
         onRefresh={onRefresh}
         onToggleNav={handleToggleNav}
+        navOpen={drawerOpen || (pinned && !isMobile)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
       />

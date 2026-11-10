@@ -1,8 +1,9 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { barkMap, carbonMap, carpetMap, concreteBump, concreteMap, corrugatedMap, fabricMap, hazardMap, leafMap, mahoganyMap, marbleBump, marbleMap, rockBump, rockMap, rugMap, steelPlateMap, velvetMap } from './textures.ts'
 // Shared geometry and materials for the Tactical Manor. Built once and reused by every item, so
 // a bigger crew adds instances, not materials or draw calls.
-export type GeoKey = 'box' | 'cyl' | 'oct' | 'hex' | 'sphere' | 'cone' | 'tri' | 'ico' | 'plane' | 'torus'
+export type GeoKey = 'roundedBox' | 'box' | 'cyl' | 'oct' | 'hex' | 'sphere' | 'cone' | 'tri' | 'ico' | 'plane' | 'torus'
 export type MatKey =
   | 'gunmetal' | 'blackSteel' | 'carbon' | 'concrete' | 'grating' | 'rubber' | 'hazard' | 'chrome' | 'darkGlass' | 'glass' | 'rock'
   | 'ledCyan' | 'ledAmber' | 'ledRed' | 'ledGreen' | 'ledViolet' | 'ledWhite' | 'blinkA' | 'blinkB' | 'holo' | 'screenOff' | 'corrugated'
@@ -14,6 +15,7 @@ export function geometryFor(key: GeoKey): THREE.BufferGeometry {
   let geometry = geometries.get(key)
   if (geometry) return geometry
   switch (key) {
+    case 'roundedBox': geometry = new RoundedBoxGeometry(1, 1, 1, 2, .08); break
     case 'box': geometry = new THREE.BoxGeometry(1, 1, 1); break
     case 'cyl': geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 20); break
     case 'oct': geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 8).rotateY(Math.PI / 8); break
@@ -58,7 +60,7 @@ export function manorMaterials(): Record<MatKey, THREE.Material> {
     mahogany: std({ color: '#ffffff', map: mahoganyMap(), roughness: 0.42 }),
     darkWood: std({ color: '#8a6a52', map: mahoganyMap(), roughness: 0.55 }),
     oak: std({ color: '#d9b98f', map: mahoganyMap(), roughness: 0.6 }),
-    brass: std({ color: '#d4af37', metalness: 1, roughness: 0.28 }),
+    brass: std({ color: '#b69b61', metalness: .85, roughness: 0.36 }),
     silver: std({ color: '#cfd4da', metalness: 1, roughness: 0.22 }),
     marble: std({ color: '#ffffff', map: marbleMap(), bumpMap: marbleBump(), bumpScale: 0.3, roughness: 0.2 }),
     velvet: std({ color: '#6b1f2c', map: velvetMap(), roughness: 0.95 }),

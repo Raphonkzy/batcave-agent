@@ -17,7 +17,7 @@ const LIFT_SPEED = 2.2
 /** Height of the label anchor above an agent's feet (the elevator cab reads it too). */
 export const ANCHOR_HEIGHT = 2.05
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0)
-interface Motion { position: THREE.Vector3; rotY: number; path: THREE.Vector3[]; destination: string; walking: boolean }
+interface Motion { position: THREE.Vector3; rotY: number; path: THREE.Vector3[]; destination: string; walking: boolean; pose?: number[]; bodyY?: number; layout?: ManorLayoutData }
 interface Slot { agent: number; bone: Bone; local: THREE.Matrix4 }
 interface CrewBatch { key: string; g: GeoKey; m: MatKey; tinted: boolean; slots: Slot[]; colors: THREE.Color[] }
 const GREY = new THREE.Color('#7b7f7d')
@@ -57,7 +57,7 @@ function CrewMesh({ batch, bones, shadows }: { batch: CrewBatch; bones: MutableR
     mesh.instanceMatrix.needsUpdate = true
   })
   const glow = batch.m === 'ledCyan' || batch.m === 'blinkA'
-  return <instancedMesh ref={ref} args={[geometryFor(batch.g), material, batch.slots.length]} frustumCulled={false} castShadow={shadows && !glow && batch.g === 'box' && batch.m === 'paper'}/>
+  return <instancedMesh ref={ref} args={[geometryFor(batch.g), material, batch.slots.length]} frustumCulled={false} castShadow={shadows && !glow && (batch.g === 'box' || batch.g === 'roundedBox') && (batch.m === 'paper' || batch.m === 'carbon')}/>
 }
 export interface CrewProps {
   layout: ManorLayoutData
@@ -111,7 +111,8 @@ export function Crew({ layout, stations, placements, visible, animate, shadows, 
       let motion = motions.current.get(station.id)
       if (!motion) { motion = { position: target.clone(), rotY: placement.facing, path: [], destination, walking: false }; motions.current.set(station.id, motion) }
       // A new destination (or a resized manor) re-plans from wherever the agent is now.
-      if (motion.destination !== destination) {
+      if (motion.destination !== destination || motion.layout !== layout) {
+        motion.layout = layout
         motion.path = planPath(layout, [motion.position.x, motion.position.y, motion.position.z], placement.position).map(([x, y, z]) => new THREE.Vector3(x, y, z))
         motion.destination = destination
       }
@@ -128,14 +129,14 @@ export function Crew({ layout, stations, placements, visible, animate, shadows, 
           if (!vertical) motion.rotY += Math.atan2(Math.sin(Math.atan2(to.x, to.z) - motion.rotY), Math.cos(Math.atan2(to.x, to.z) - motion.rotY)) * 0.25
         }
       }
-      writeBones(index, station, placement, motion, t)
+      writeBones(index, station, placement, motion, t, step)
     })
     bones.current.length = stations.length
     if (hitbox.current) hitbox.current.instanceMatrix.needsUpdate = true
     if (ring.current) ring.current.instanceMatrix.needsUpdate = true
   }, -1)
   const SEATED_WORK = ['Working', 'Reviewing', 'Deploying', 'Researching', 'Cron']
-  function writeBones(index: number, station: OfficeStation, placement: Placement, motion: Motion, t: number) {
+  function writeBones(index: number, station: OfficeStation, placement: Placement, motion: Motion, t: number, step: number) {
     const arrived = !motion.walking && motion.path.length === 0
     const lying = arrived && placement.pose === 'lie'
     const seated = arrived && placement.seated
@@ -145,8 +146,11 @@ export function Crew({ layout, stations, placements, visible, animate, shadows, 
     const typing = seated && SEATED_WORK.includes(station.state)
     const talking = arrived && (station.state === 'Collaborating' || station.state === 'Triage')
     const reviewing = arrived && !seated && station.state === 'Reviewing'
-    const breathe = station.state === 'Idle' ? wave(lying ? 1.2 : 2) * 0.015 : 0
-    const bodyY = lying ? (placement.height ?? 0.6) + 0.16 + breathe : seated ? -0.14 + breathe : breathe
+    const personality = index * .73
+    const breathe = !motion.walking ? wave(lying ? 1.2 : 1.7, personality) * .008 : 0
+    const targetBodyY = lying ? (placement.height ?? 0.6) + 0.16 + breathe : seated ? -0.14 + breathe : breathe
+    motion.bodyY = THREE.MathUtils.damp(motion.bodyY ?? targetBodyY, targetBodyY, 10, step)
+    const bodyY = motion.bodyY
     const legs = lying ? 0 : seated ? -Math.PI / 2.2 : swing
     const armL = lying ? 0 : motion.walking ? -swing : typing ? -1.1 + wave(14) * 0.12 : talking ? -0.4 + wave(3) * 0.3 : 0
     const armR = lying ? 0 : motion.walking ? swing : typing ? -1.1 + wave(14, Math.PI / 2) * 0.12 : reviewing ? -1.0 : 0
@@ -156,11 +160,13 @@ export function Crew({ layout, stations, placements, visible, animate, shadows, 
     else {
       temp.root.compose(motion.position, temp.q.setFromAxisAngle(temp.up, motion.rotY), temp.s.set(1, 1, 1))
       temp.body.copy(temp.root).multiply(temp.joint.makeTranslation(0, bodyY, 0)).multiply(new THREE.Matrix4().makeRotationX(lying ? -Math.PI / 2 : 0))
-      const angles: Record<Bone, number> = { body: 0, head: 0, armL, armR, legL: legs, legR: -legs * (seated || lying ? -1 : 1) }
+      const angles: Record<Bone, number> = { body: 0, head: wave(.65, personality)*.025, armL: armL + wave(1.3, personality)*.015, armR: armR + wave(1.3, personality+1)*.015, legL: legs, legR: -legs * (seated || lying ? -1 : 1) }
+      motion.pose ??= BONES.map(bone=>angles[bone])
+      BONES.forEach((bone,k)=>{motion.pose![k]=THREE.MathUtils.damp(motion.pose![k],angles[bone],14,step)})
       BONES.forEach((bone, k) => {
         if (bone === 'body') { set[k].copy(temp.body); return }
         const [px, py, pz] = PIVOTS[bone]
-        set[k].copy(temp.body).multiply(temp.joint.makeTranslation(px, py, pz)).multiply(new THREE.Matrix4().makeRotationX(angles[bone]))
+        set[k].copy(temp.body).multiply(temp.joint.makeTranslation(px, py, pz)).multiply(new THREE.Matrix4().makeRotationX(motion.pose![k]))
       })
     }
     const anchor = anchors.current.get(`agent-${station.id}`)
@@ -174,7 +180,7 @@ export function Crew({ layout, stations, placements, visible, animate, shadows, 
   return <group ref={group}>
     {batches.map((batch) => <CrewMesh key={`${batch.key}:${batch.slots.length}`} batch={batch} bones={bones} shadows={shadows}/>)}
     <instancedMesh key={`hit${stations.length}`} ref={hitbox} args={[geometryFor('box'), hitMaterial, Math.max(1, stations.length)]} frustumCulled={false}
-      onClick={(event) => { event.stopPropagation(); if (event.instanceId !== undefined && event.instanceId < stations.length) onSelect(event.instanceId) }}
+      onClick={(event) => { if (event.button !== 0 || event.delta > 4) return; event.stopPropagation(); if (event.instanceId !== undefined && event.instanceId < stations.length) onSelect(event.instanceId) }}
       onPointerOver={() => { document.body.style.cursor = 'pointer' }} onPointerOut={() => { document.body.style.cursor = '' }}/>
     <instancedMesh key={`ring${stations.length}`} ref={ring} args={[ringGeometry, ringMaterial, Math.max(1, stations.length)]} frustumCulled={false}/>
   </group>

@@ -113,7 +113,7 @@ export function floorStyle(zone: Zone): FloorStyle {
   }
   switch (zone.id) {
     case 'grandFoyer': return { texture: 'checker', color: '#ffffff', roughness: 0.15, tile: 2 }
-    case 'butlerPantry': case 'diningHall': return { texture: 'marble', color: '#ffffff', roughness: 0.2, tile: 3 }
+    case 'entranceHall': case 'grandBath': case 'butlerPantry': case 'diningHall': return { texture: 'marble', color: '#ffffff', roughness: 0.2, tile: 3 }
     case 'grandLibrary': return { texture: 'parquet', color: '#8a5a3a', roughness: 0.45, tile: 3 }
     default: return { texture: 'parquet', color: '#ffffff', roughness: 0.4, tile: 3 }
   }
@@ -145,9 +145,9 @@ export function terraceSun(hour: number): TerraceSun {
   if (h >= 6 && h < 18) {
     const t = (h - 6) / 12
     const elevation = Math.sin(t * Math.PI)
-    return { daylight: true, color: elevation < 0.3 ? '#ffd2a0' : '#fff4e0', intensity: 1.4 + elevation * 1.6, sky: '#7fb8d8', fog: '#8fb8cc', direction: [Math.cos(t * Math.PI) * -14, 8 + elevation * 16, 10] }
+    return { daylight: true, color: elevation < 0.3 ? '#ffb978' : '#fff4e0', intensity: 0.7 + elevation * 2.3, sky: elevation < 0.3 ? '#b88379' : '#7fb8d8', fog: elevation < 0.3 ? '#c89c88' : '#8fb8cc', direction: [Math.cos(t * Math.PI) * -22, 2 + elevation * 24, 10] }
   }
-  return { daylight: false, color: '#88aaff', intensity: 0.7, sky: '#0b1020', fog: '#0e1424', direction: [-10, 18, 12] }
+  return { daylight: false, color: '#88aaff', intensity: 0.18, sky: '#0b1020', fog: '#0e1424', direction: [-10, 18, 12] }
 }
 /** Which levels a view shows. */
 export const showsDeck = (view: ManorView) => !isManorView(view)

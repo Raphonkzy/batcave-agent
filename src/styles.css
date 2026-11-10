@@ -7,6 +7,32 @@
 @import '@fontsource/jetbrains-mono/400.css';
 @import '@fontsource/jetbrains-mono/500.css';
 
+/* Scene interaction surfaces share the tactical design tokens. */
+.mo-context-panel, .mo-controls-help, .mo-command-strip, .mo-scene-feedback {
+  position: absolute; z-index: 12; background: var(--surface-1, #171d22); color: var(--text, #e4eae7);
+  border: 1px solid var(--line, #34423d); border-radius: 10px; padding: 12px;
+  box-shadow: 0 8px 30px #0005; font-size: 12px;
+}
+.mo-context-panel { top: 160px; right: 16px; width: min(300px, calc(100% - 32px)); max-height: calc(100% - 250px); overflow: auto; }
+.mo-context-panel h3 { margin: 10px 0; font-size: 16px; }
+.mo-context-panel p { margin: 8px 0; line-height: 1.5; overflow-wrap: anywhere; }
+.mo-context-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.mo-context-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.mo-controls-help { top: 112px; left: 16px; max-width: min(360px, calc(100% - 32px)); max-height: calc(100% - 144px); overflow: auto; overscroll-behavior: contain; }
+@media (max-width: 600px) { .mo-controls-help { top: 156px; max-height: calc(100% - 188px); } }
+.mo-controls-help summary { cursor: pointer; font-weight: 600; }
+.mo-controls-help p { line-height: 1.6; }
+.mo-command-strip { left: 16px; top: 180px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 32px); }
+.mo-scene-feedback { left: 50%; top: 14px; transform: translateX(-50%); pointer-events: none; max-width: 45%; }
+.mo-nav-toggle.active { color: var(--accent); background: var(--surface-2); }
+.mo-side-nav-backdrop { top: var(--top-h, 48px); }
+@media (max-width: 1000px) {
+  .mo-context-panel { width: 240px; max-height: calc(100% - 210px); }
+  .mo-hud-cluster { min-width: 0; }
+  .mo-lot-hud { gap: 8px; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .mo-side-nav-drawer { animation: none; } }
+
 /* Gilroy Commercial Typography Declarations */
 @font-face {
   font-family: 'Gilroy';
@@ -50,6 +76,8 @@
 
 /* Theme tokens: Minimal Obsidian */
 :root {
+  --top-h: 48px;
+  --nav-w: 272px;
   color-scheme: dark;
   --font-sans: 'Gilroy', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -83,6 +111,11 @@
   --r-lg: 20px;
   --r-pill: 999px;
   --space: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --control-h: 34px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur: 160ms;
 
@@ -1347,14 +1380,14 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   color: var(--text);
   font-family: var(--font-sans);
   display: grid;
-  grid-template-rows: 48px 1fr;
+  grid-template-rows: var(--top-h) 1fr;
   overflow: hidden;
 }
 
 .mo-app-body {
   display: grid;
   grid-template-columns: var(--side-w, 224px) 1fr;
-  height: calc(100dvh - 48px);
+  height: calc(100dvh - var(--top-h));
   min-height: 0;
   overflow: hidden;
   position: relative;
@@ -1365,15 +1398,16 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 }
 
 .mo-fullscreen {
-  grid-template-rows: 1fr;
+  --top-h: 48px;
+  grid-template-rows: var(--top-h) minmax(0, 1fr);
 }
 
 .mo-fullscreen .mo-topbar {
-  display: none;
+  display: flex;
 }
 
 .mo-fullscreen .mo-app-body {
-  height: 100dvh;
+  height: calc(100dvh - var(--top-h));
   grid-template-columns: 1fr;
 }
 
@@ -1400,6 +1434,8 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 }
 
 .mo-page-home .mo-main-content {
+  max-width: none;
+  width: 100%;
   overflow: hidden;
   height: 100%;
   position: relative;
@@ -1425,7 +1461,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 /* Topbar 48px */
 .mo-topbar {
-  height: 48px;
+  height: var(--top-h);
   background: rgba(20, 22, 26, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -1632,6 +1668,8 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 /* Persistent Side Navigation (mo-side-nav) */
 .mo-side-nav {
+  margin: 0;
+  gap: 0;
   height: 100%;
   background: var(--surface-1);
   border-right: 1px solid var(--line);
@@ -1643,7 +1681,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 }
 
 .mo-side-nav-open {
-  width: 224px;
+  width: var(--nav-w);
 }
 
 .mo-side-nav-rail {
@@ -1651,7 +1689,8 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 }
 
 .mo-side-nav-header {
-  height: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1670,9 +1709,11 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 .mo-side-nav-scroll {
   flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 8px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1704,6 +1745,9 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 .mo-nav-link {
   display: flex;
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 36px;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
@@ -1787,23 +1831,21 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 /* Mobile Drawer & Nav Toggle */
 .mo-side-nav-backdrop {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  z-index: 100;
+  inset: var(--top-h) 0 0;
+  background: rgba(0, 0, 0, 0.12);
+  z-index: 45;
   display: flex;
 }
 
 .mo-side-nav-drawer {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 260px;
-  max-width: 80vw;
-  z-index: 101;
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  width: var(--nav-w);
+  max-width: calc(100vw - 32px);
+  z-index: 46;
   background: var(--surface-1);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 8px 0 28px rgba(0, 0, 0, 0.24);
   animation: mo-slide-in 200ms var(--ease);
 }
 
@@ -2174,10 +2216,12 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   inset: 0;
   pointer-events: none;
   z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
 }
 
 .mo-stage-top-left,
@@ -2190,27 +2234,56 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 
 .mo-stage-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.mo-stage-top-left { flex-wrap: wrap; min-width: 0; }
+.mo-stage-top-right { max-width: 100%; min-width: 0; }
+.mo-stage-toolbar .panel-toggle { position: static; min-height: var(--control-h); white-space: nowrap; padding: 6px 10px; }
+.scene-resource-status { position: relative; flex: 0 0 auto; font-size: 12px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.scene-resource-status summary { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; min-height: var(--control-h); padding: 6px 10px; list-style: none; }
+.scene-resource-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #78b89b; }
+.scene-resource-status[data-tone="warning"] .scene-resource-dot { background: #c4a463; }
+.scene-resource-status[data-tone="error"] .scene-resource-dot { background: #c47e7e; }
+.scene-resource-details { position: absolute; top: calc(100% + 8px); left: 0; width: min(300px, calc(100vw - 32px)); padding: var(--space-3); background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: 0 8px 24px #0006; }
+.scene-resource-details p { line-height: 1.6; margin: 0 0 var(--space-3); overflow-wrap: anywhere; }
+.mo-page-crumb { font-size: 12px; color: var(--text-2); border-left: 1px solid var(--line); padding-left: var(--space-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.mo-hud-btn:active, .panel-toggle:active { transform: translateY(1px); }
+@media (max-width: 1000px) {
+  .mo-stage-overlay { grid-template-columns: minmax(0, 1fr); }
+  .mo-stage-top-right { justify-content: flex-end; }
+  .mo-stage-top-left .office-hud { display: none; }
+}
+@media (max-width: 600px) {
+  .mo-stage-overlay { padding: var(--space-2); }
+  .mo-stage-toolbar { justify-content: flex-start; }
+  .mo-stage-toolbar .panel-toggle { padding-inline: 8px; }
+  .mo-page-crumb { display: none; }
 }
 
 .mo-stage-top-left .office-hud {
+  min-width: 0;
+  flex-wrap: wrap;
   position: static;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-/* Quality Picker Anchor */
-.mo-quality-anchor {
-  position: absolute;
-  top: 12px;
-  right: 280px;
-  z-index: 25;
-  pointer-events: auto;
-}
-
-.mo-quality-anchor .manor-quality {
+/* Quality settings live inside the help disclosure, not a competing overlay. */
+.mo-controls-help .manor-quality {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   position: static;
   background: rgba(20, 22, 26, 0.76);
   backdrop-filter: blur(12px);
@@ -2222,7 +2295,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   font-size: 11px;
 }
 
-.mo-quality-anchor .manor-quality span {
+.mo-controls-help .manor-quality span {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2230,7 +2303,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   margin-right: 4px;
 }
 
-.mo-quality-anchor .manor-quality button {
+.mo-controls-help .manor-quality button {
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -2241,23 +2314,16 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   transition: all var(--dur) var(--ease);
 }
 
-.mo-quality-anchor .manor-quality button:hover {
+.mo-controls-help .manor-quality button:hover {
   background: var(--surface-1);
   color: var(--text);
 }
 
-.mo-quality-anchor .manor-quality button.active {
+.mo-controls-help .manor-quality button.active {
   background: var(--accent);
   color: var(--accent-ink);
   border-color: var(--accent);
   font-weight: 600;
-}
-
-@media (max-width: 900px) {
-  .mo-quality-anchor {
-    top: 56px;
-    right: 12px;
-  }
 }
 
 /* Bottom 3-Cluster HUD (ala simulasi rumah) */
@@ -2704,6 +2770,34 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
     min-width: 0;
     max-width: 100%;
   }
+}
+
+/* Viewport-bounded controls: preserve scene area on laptops and compact displays. */
+.mo-environment-controls { display: grid; gap: 10px; margin: 12px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.mo-environment-controls label { display: block; }
+.mo-environment-controls input[type="range"] { display: block; width: 100%; margin-top: 6px; }
+.mo-environment-controls output { float: right; font-variant-numeric: tabular-nums; }
+.mo-doc-list button.mo-doc-item { width: 100%; text-align: left; color: inherit; font: inherit; background: transparent; border: 1px solid var(--line); }
+.mo-lot-hud { bottom: max(8px, env(safe-area-inset-bottom)); max-height: min(36dvh, 240px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 2px; }
+.mo-hud-agent { min-width: 0; flex: 1 1 240px; }
+.mo-agent-summary { flex-wrap: wrap; }
+.mo-agent-actions { flex-wrap: wrap; }
+.mo-controls-help { max-height: calc(100% - 160px); }
+.manor-3d canvas { touch-action: none; }
+@media (max-width: 900px) {
+  .mo-lot-hud { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; gap: 6px; }
+  .mo-lot-hud .mo-hud-agent { grid-column: 1 / -1; min-height: 0; padding: 5px 8px; }
+  .mo-agent-empty-hint, .mo-agent-empty-tally { font-size: 10px; }
+  .mo-hud-camera { min-height: 0; padding: 5px; }
+  .mo-camera-row { flex-wrap: wrap; }
+  .mo-lot-hud .mo-hud-cluster { min-width: 0; max-width: 100%; }
+  .mo-lift-label { font-size: 10px; }
+}
+@media (max-width: 480px) {
+  .mo-lot-hud { max-height: 34dvh; }
+  .mo-hud-levels { padding: 5px; }
+  .mo-cam-btn kbd, .mo-wall-btn kbd, .mo-lift-count { display: none; }
+  .mo-controls-help { top: 148px; }
 }
 
 /* Radial Menu */

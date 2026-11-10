@@ -1,5 +1,5 @@
 import { constants } from 'node:fs'
-import { access, open, readdir, realpath, stat } from 'node:fs/promises'
+import { access, open, readdir, realpath, stat, type FileHandle } from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
 import path from 'node:path'
 import { redactLogLine } from './mission-control.js'
@@ -89,6 +89,39 @@ async function resolveInside(base: string, relative: string): Promise<string> {
   return target
 }
 
+/** Linux exposes open descriptors as anchored paths. Walk the already-resolved path one
+ * component at a time with O_NOFOLLOW so neither a leaf nor a parent swap can escape.
+ * Other platforms use pre/post-open identity checks (best effort, not openat2 confinement).
+ */
+async function openInside(base: string, target: string): Promise<FileHandle> {
+  const realBase = await realpath(base)
+  if (!insideAny(target, [realBase])) throw new FolderError('Path escapes the profile folder.', 403)
+  const flags = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
+  if (process.platform !== 'linux') {
+    const before = await stat(target)
+    const handle = await open(target, flags)
+    try {
+      const after = await handle.stat()
+      if (before.dev !== after.dev || before.ino !== after.ino || await realpath(target) !== target) throw new FolderError('File changed while opening. Try again.', 403)
+      return handle
+    } catch (error) { await handle.close(); throw error }
+  }
+  let handle = await open(realBase, flags | constants.O_DIRECTORY)
+  try {
+    if (await realpath(`/proc/self/fd/${handle.fd}`) !== realBase) throw new FolderError('Agent folder changed while opening.', 403)
+    const parts = path.relative(realBase, target).split(path.sep).filter(Boolean)
+    for (const [index, part] of parts.entries()) {
+      const next = await open(`/proc/self/fd/${handle.fd}/${part}`, flags | (index < parts.length - 1 ? constants.O_DIRECTORY : 0))
+      await handle.close()
+      handle = next
+    }
+    return handle
+  } catch (error) {
+    await handle.close()
+    throw error instanceof FolderError ? error : new FolderError('File or folder changed while opening. Try again.', 403)
+  }
+}
+
 function isHidden(name: string): boolean {
   return HIDDEN_DIRECTORIES.has(name)
 }
@@ -119,53 +152,57 @@ export function isSensitive(name: string): boolean {
  */
 export async function listFolder(folder: Pick<AgentFolder, 'profile' | 'directory'>, relativeInput: unknown, excluded: string[] = []): Promise<FolderListing> {
   const relative = safeRelativePath(relativeInput)
-  const directory = await resolveInside(folder.directory, relative)
-  if (insideAny(directory, excluded)) throw new FolderError('File or folder not found.', 404)
-  const label = relative ? `"${relative}"` : 'the agent folder'
-  let dirents
+  const resolved = await resolveInside(folder.directory, relative)
+  if (insideAny(resolved, excluded)) throw new FolderError('File or folder not found.', 404)
+  const handle = await openInside(folder.directory, resolved)
   try {
-    if (!(await stat(directory)).isDirectory()) throw new FolderError('Not a folder.', 400)
-    dirents = await readdir(directory, { withFileTypes: true })
-  } catch (error) {
-    throw error instanceof FolderError ? error : fsError(error, label, directory)
-  }
-  let hiddenCount = 0
-  const typed: { name: string; full: string; type: 'dir' | 'file'; unreadable?: boolean }[] = []
-  for (const dirent of dirents) {
-    if (isHidden(dirent.name)) { hiddenCount += 1; continue }
-    const full = path.join(directory, dirent.name)
-    let type: 'dir' | 'file' | undefined = dirent.isDirectory() ? 'dir' : dirent.isFile() ? 'file' : undefined
-    let unreadable = false
-    if (dirent.isSymbolicLink()) {
-      try {
-        const target = await stat(full)
-        type = target.isDirectory() ? 'dir' : target.isFile() ? 'file' : undefined
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code
-        if (code !== 'EACCES' && code !== 'EPERM') continue // broken symlink
-        type = 'file'
-        unreadable = true
-      }
-    }
-    if (!type) continue // sockets, pipes, devices
-    if (type === 'dir' && excluded.length > 0) {
-      const real = await realpath(full).catch(() => undefined)
-      if (real && insideAny(real, excluded)) { hiddenCount += 1; continue }
-    }
-    typed.push({ name: dirent.name, full, type, ...(unreadable ? { unreadable } : {}) })
-  }
-  typed.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'dir' ? -1 : 1))
-  const shown = await Promise.all(typed.slice(0, LIST_LIMIT).map(async (item): Promise<FolderEntry> => {
-    const base = { name: item.name, path: relative ? `${relative}/${item.name}` : item.name, type: item.type, sensitive: item.type === 'file' && isSensitive(item.name) }
-    if (item.unreadable) return { ...base, size: 0, modified: '', unreadable: true }
+    const directory = process.platform === 'linux' ? `/proc/self/fd/${handle.fd}` : resolved
+    const label = relative ? `"${relative}"` : 'the agent folder'
+    let dirents
     try {
-      const info = await stat(item.full)
-      return { ...base, size: item.type === 'file' ? info.size : 0, modified: info.mtime.toISOString() }
-    } catch {
-      return { ...base, size: 0, modified: '', unreadable: true }
+      if (!(await handle.stat()).isDirectory()) throw new FolderError('Not a folder.', 400)
+      dirents = await readdir(directory, { withFileTypes: true })
+    } catch (error) {
+      throw error instanceof FolderError ? error : fsError(error, label, directory)
     }
-  }))
-  return { profile: folder.profile, path: relative, entries: shown, truncated: typed.length > LIST_LIMIT, hiddenCount }
+    let hiddenCount = 0
+    const typed: { name: string; full: string; type: 'dir' | 'file'; unreadable?: boolean }[] = []
+    for (const dirent of dirents) {
+      if (isHidden(dirent.name)) { hiddenCount += 1; continue }
+      const full = path.join(directory, dirent.name)
+      let type: 'dir' | 'file' | undefined = dirent.isDirectory() ? 'dir' : dirent.isFile() ? 'file' : undefined
+      let unreadable = false
+      if (dirent.isSymbolicLink()) {
+        try {
+          const target = await stat(full)
+          type = target.isDirectory() ? 'dir' : target.isFile() ? 'file' : undefined
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code
+          if (code !== 'EACCES' && code !== 'EPERM') continue // broken symlink
+          type = 'file'
+          unreadable = true
+        }
+      }
+      if (!type) continue // sockets, pipes, devices
+      if (type === 'dir' && excluded.length > 0) {
+        const real = await realpath(full).catch(() => undefined)
+        if (real && insideAny(real, excluded)) { hiddenCount += 1; continue }
+      }
+      typed.push({ name: dirent.name, full, type, ...(unreadable ? { unreadable } : {}) })
+    }
+    typed.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'dir' ? -1 : 1))
+    const shown = await Promise.all(typed.slice(0, LIST_LIMIT).map(async (item): Promise<FolderEntry> => {
+      const base = { name: item.name, path: relative ? `${relative}/${item.name}` : item.name, type: item.type, sensitive: item.type === 'file' && isSensitive(item.name) }
+      if (item.unreadable) return { ...base, size: 0, modified: '', unreadable: true }
+      try {
+        const info = await stat(item.full)
+        return { ...base, size: item.type === 'file' ? info.size : 0, modified: info.mtime.toISOString() }
+      } catch {
+        return { ...base, size: 0, modified: '', unreadable: true }
+      }
+    }))
+    return { profile: folder.profile, path: relative, entries: shown, truncated: typed.length > LIST_LIMIT, hiddenCount }
+  } finally { await handle.close() }
 }
 
 function looksBinary(buffer: Buffer): boolean {
@@ -189,8 +226,10 @@ export async function readFolderFile(folder: Pick<AgentFolder, 'profile' | 'dire
   const base = { profile: folder.profile, path: relative, size: info.size, modified: info.mtime.toISOString() }
   if (isSensitive(name) || isSensitive(path.basename(target))) return { ...base, kind: 'sensitive' }
   let handle
-  try { handle = await open(target, 'r') } catch (error) { throw fsError(error, `"${relative}"`, target) }
+  try { handle = await openInside(folder.directory, target) } catch (error) { throw error instanceof FolderError ? error : fsError(error, `"${relative}"`, target) }
   try {
+    const opened = await handle.stat()
+    if (!opened.isFile() || opened.dev !== info.dev || opened.ino !== info.ino) throw new FolderError('File changed while opening. Try again.', 403)
     const length = Math.min(info.size, PREVIEW_LIMIT)
     const buffer = Buffer.alloc(length)
     await handle.read(buffer, 0, length, 0)

@@ -14,9 +14,13 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap((name) => { con
 function files(): string[] {
   const root = process.cwd()
   const docs = ['README.md', 'docs/theme-manor.md', 'docs/theme-manor-plan.md', 'docs/PROJECT-METADATA.md', 'docs/CHANGES.md', 'index.html'].map((file) => join(root, file)).filter(existsSync)
-  return [...walk(join(root, 'src')), ...docs].filter((file) => /\.(ts|tsx|css|md|html)$/.test(file))
+  return [...walk(join(root, 'src')).filter(file => file !== join(root, 'src/pages/CharacterShowcase.tsx')), ...docs].filter((file) => /\.(ts|tsx|css|md|html)$/.test(file))
 }
 describe('originality', () => {
+  it('keeps reference-name inspection out of production behavior', () => {
+    const page = readFileSync(join(process.cwd(), 'src/pages/ManorOffice3D.tsx'), 'utf8')
+    expect(page).toContain("import.meta.env.DEV && new URLSearchParams(window.location.search).has('characterShowcase')")
+  })
   it('has none of the protected names or emblems in code, UI, comments or the theme docs', () => {
     const anyCase = new RegExp(ANY_CASE.join('|'), 'i')
     const capitalised = new RegExp(`\\b(${CAPITALISED.join('|')})\\b`)

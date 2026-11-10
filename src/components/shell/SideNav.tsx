@@ -21,17 +21,20 @@ interface NavItem {
   path: string
 }
 
-const OPERATIONS_ROUTES: NavItem[] = [
+const ENVIRONMENT_ROUTES: NavItem[] = [
   { page: 'Batcave', label: 'Batcave', icon: 'home', path: '#/batcave' },
+]
+
+const OPERATIONS_ROUTES: NavItem[] = [
   { page: 'Agents', label: 'Agents', icon: 'users', path: '#/agents' },
   { page: 'Missions', label: 'Missions', icon: 'target', path: '#/missions' },
   { page: 'Task Board', label: 'Task Board', icon: 'layout', path: '#/task-board' },
   { page: 'Calendar', label: 'Calendar', icon: 'calendar', path: '#/calendar' },
+  { page: 'Activity', label: 'Activity', icon: 'activity', path: '#/activity' },
 ]
 
 const SYSTEM_ROUTES: NavItem[] = [
   { page: 'Usage', label: 'Usage', icon: 'bar-chart', path: '#/usage' },
-  { page: 'Activity', label: 'Activity', icon: 'activity', path: '#/activity' },
   { page: 'Memory', label: 'Memory', icon: 'database', path: '#/memory' },
   { page: 'Folders', label: 'Folders', icon: 'folder', path: '#/folders' },
   { page: 'Logs', label: 'Logs', icon: 'terminal', path: '#/logs' },
@@ -51,6 +54,8 @@ export function SideNav({
 }: SideNavProps) {
   const drawerRef = useRef<HTMLElement>(null)
   const isOverlay = isMobile || !pinned
+  const closeDrawer = useRef(onCloseDrawer)
+  closeDrawer.current = onCloseDrawer
 
   // Escape key closes overlay drawer
   useEffect(() => {
@@ -58,12 +63,23 @@ export function SideNav({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onCloseDrawer?.()
+        closeDrawer.current?.()
       }
     }
+    const previous = document.activeElement as HTMLElement | null
+    const node = drawerRef.current
+    node?.querySelector<HTMLElement>('button, a')?.focus()
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      const focusable = Array.from(node?.querySelectorAll<HTMLElement>('a, button') ?? [])
+      const first = focusable[0], last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus() }
+      if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
+    }
+    window.addEventListener('keydown', trap)
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOverlay, drawerOpen, onCloseDrawer])
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keydown', trap); previous?.focus() }
+  }, [isOverlay, drawerOpen])
 
   const handleClick = (page: Page) => {
     onNavigate(page)
@@ -106,6 +122,7 @@ export function SideNav({
   const navContent = (
     <nav
       ref={drawerRef}
+      id="main-navigation"
       className={`mo-side-nav ${isOverlay ? 'mo-side-nav-drawer' : `mo-side-nav-${mode}`}`}
       aria-label="Main Navigation"
       role={isOverlay ? 'dialog' : undefined}
@@ -117,7 +134,7 @@ export function SideNav({
           {(mode === 'open' || isOverlay) && <span className="mo-brand-text">batcave</span>}
         </div>
         <div className="mo-nav-header-actions">
-          {onTogglePin && !isMobile && (
+          {onTogglePin && !isMobile && !isOverlay && (
             <button
               type="button"
               className="mo-icon-btn mo-nav-pin-btn"
@@ -143,6 +160,7 @@ export function SideNav({
       </div>
 
       <div className="mo-side-nav-scroll">
+        {renderGroup('Environments', ENVIRONMENT_ROUTES)}
         {renderGroup('Operations', OPERATIONS_ROUTES)}
         {renderGroup('System', SYSTEM_ROUTES)}
       </div>
@@ -192,7 +210,7 @@ export function SideNav({
   if (isOverlay) {
     if (!drawerOpen) return null
     return (
-      <div className="mo-side-nav-backdrop" onClick={onCloseDrawer}>
+      <div className="mo-side-nav-backdrop" onClick={onCloseDrawer} onPointerDown={event => event.stopPropagation()} onWheel={event => event.stopPropagation()}>
         <div onClick={(e) => e.stopPropagation()}>{navContent}</div>
       </div>
     )

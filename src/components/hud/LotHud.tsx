@@ -51,8 +51,6 @@ export function LotHud({
   onFocusZone,
   onNavigateMissions,
   onNavigateLogs,
-  isFullscreen = false,
-  onToggleFullscreen,
 }: LotHudProps) {
   const [focusOpen, setFocusOpen] = useState(false)
 
@@ -298,11 +296,11 @@ export function LotHud({
             type="button"
             className="mo-cam-btn mo-cam-btn-text"
             onClick={onResetCamera}
-            title="Reset camera position (R)"
+            title="Focus active area (Home)"
           >
             <Icon name="home" size={16} />
             <span>Reset</span>
-            <Kbd>R</Kbd>
+            <Kbd>Home</Kbd>
           </button>
           <button
             type="button"
@@ -340,7 +338,7 @@ export function LotHud({
                   }}
                   role="menuitem"
                 >
-                  Front Facade (Driveway & Gate)
+                  Pool-facing Exterior
                 </button>
                 <button
                   type="button"
@@ -362,25 +360,13 @@ export function LotHud({
                   }}
                   role="menuitem"
                 >
-                  Hangar Bay Deck
+                  Garage / Hangar Bay
                 </button>
               </div>
             )}
           </div>
 
-          {onToggleFullscreen && (
-            <button
-              type="button"
-              className={`mo-cam-btn mo-cam-btn-text ${isFullscreen ? 'active' : ''}`}
-              onClick={onToggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen (Z)' : 'Enter Fullscreen (Z)'}
-              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              <Icon name={isFullscreen ? 'minimize' : 'maximize'} size={16} />
-              <span>{isFullscreen ? 'Exit' : 'Full'}</span>
-              <Kbd>Z</Kbd>
-            </button>
-          )}
+
         </div>
       </div>
     </div>

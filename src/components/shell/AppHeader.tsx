@@ -9,6 +9,7 @@ export interface AppHeaderProps {
   onNavigateHome: () => void
   onRefresh?: () => void
   onToggleNav?: () => void
+  navOpen?: boolean
   isFullscreen?: boolean
   onToggleFullscreen?: () => void
 }
@@ -21,6 +22,7 @@ export function AppHeader({
   onNavigateHome,
   onRefresh,
   onToggleNav,
+  navOpen = false,
   isFullscreen = false,
   onToggleFullscreen,
 }: AppHeaderProps) {
@@ -30,7 +32,9 @@ export function AppHeader({
         {onToggleNav && (
           <button
             type="button"
-            className="mo-nav-toggle"
+            className={`mo-nav-toggle ${navOpen ? 'active' : ''}`}
+            aria-expanded={navOpen}
+            aria-controls="main-navigation"
             onClick={onToggleNav}
             aria-label="Toggle navigation menu"
             title="Toggle menu"
@@ -42,6 +46,7 @@ export function AppHeader({
           <span className="mo-brand-mark">◆</span>
           <span className="mo-brand-text">batcave</span>
         </button>
+        <span className="mo-page-crumb" aria-label="Current page">{currentPage}</span>
       </div>
 
       <div className="mo-topbar-center">

@@ -14,7 +14,7 @@ export function partsFor(item: LayoutItem): Part[] {
   return deckParts(item) ?? fleetParts(item) ?? lobbyParts(item) ?? manorParts(item) ?? []
 }
 /** All instances sharing one geometry and one material: one draw call. */
-export interface Batch { key: string; g: GeoKey; m: MatKey; matrices: THREE.Matrix4[]; colors?: THREE.Color[]; tinted?: boolean }
+export interface Batch { key: string; g: GeoKey; m: MatKey; matrices: THREE.Matrix4[]; colors?: THREE.Color[]; tinted?: boolean; itemIds?: string[] }
 const up = new THREE.Vector3(0, 1, 0)
 const euler = new THREE.Euler()
 function push(batches: Map<string, Batch>, part: Part, origin: THREE.Vector3, rotY: number, scale = 1): void {
@@ -41,7 +41,12 @@ export function buildBatches(items: LayoutItem[], keep: (item: LayoutItem) => bo
   for (const item of items) {
     if (!keep(item)) continue
     const origin = new THREE.Vector3(item.x, item.y, item.z)
-    for (const part of partsFor(item)) push(batches, part, origin, item.rotY)
+    for (const part of partsFor(item)) {
+      push(batches, part, origin, item.rotY)
+      const alias = ALIAS[part.m]
+      const batch = batches.get(`${part.g}|${alias?.[0] ?? part.m}`)!
+      ;(batch.itemIds ??= []).push(item.id)
+    }
   }
   return [...batches.values()]
 }

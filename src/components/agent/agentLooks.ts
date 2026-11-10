@@ -27,10 +27,10 @@ export interface AgentGearConfig {
 }
 type Entry = Omit<AgentGearConfig, 'profileId' | 'fallback'>
 const TABLE: Record<string, Entry> = {
-  bruce: { roleTitle: 'Tactical Commander', palette: { baseDark: '#23262b', accentGlow: '#ffaa00', secondaryAccent: '#d8f0ff' }, headMesh: 'command-helm', torsoMesh: 'heavy-plate', backMesh: 'long-coat', legGear: ['utility-belt'], body: 'human' },
+  bruce: { roleTitle: 'Tactical Commander', palette: { baseDark: '#23262b', accentGlow: '#ffaa00', secondaryAccent: '#d8f0ff' }, headMesh: 'command-helm', torsoMesh: 'heavy-plate', backMesh: 'long-coat', legGear: ['utility-belt'], body: 'human', silhouette: [1.12, 1, 1.08] },
   barbara: { roleTitle: 'Lead Developer', palette: { baseDark: '#1d2026', accentGlow: '#ffd000', secondaryAccent: '#4a1e12' }, headMesh: 'aero-visor', torsoMesh: 'data-harness', backMesh: 'flight-pack', handItem: 'gauntlets', body: 'human', silhouette: [0.88, 0.95, 0.85] },
   dick: { roleTitle: 'QA and Code Review', palette: { baseDark: '#14161c', accentGlow: '#00a8ff' }, headMesh: 'visor-band', torsoMesh: 'reviewer-vest', handItem: 'holo-checklist', body: 'human' },
-  jason: { roleTitle: 'DevOps and Deployment', palette: { baseDark: '#2a2d30', accentGlow: '#ff1a1a', secondaryAccent: '#4a4f3a' }, headMesh: 'hard-helm', torsoMesh: 'tactical-vest', legGear: ['tool-holsters', 'heavy-boots'], body: 'human' },
+  jason: { roleTitle: 'DevOps and Deployment', palette: { baseDark: '#2a2d30', accentGlow: '#ff1a1a', secondaryAccent: '#4a4f3a' }, headMesh: 'hard-helm', torsoMesh: 'tactical-vest', legGear: ['tool-holsters', 'heavy-boots'], body: 'human', silhouette: [1.08, 1, 1.06] },
   tim: { roleTitle: 'Research and Documentation', palette: { baseDark: '#1a1c22', accentGlow: '#00e676', secondaryAccent: '#5a1420' }, headMesh: 'scanner-goggles', torsoMesh: 'cross-harness', backMesh: 'antenna-mast', offHandItem: 'data-slab', body: 'human' },
   alfred: { roleTitle: 'Housekeeping and Scheduling', palette: { baseDark: '#2f3136', accentGlow: '#ffe0a3', secondaryAccent: '#cfd4da' }, headMesh: 'formal-earpiece', torsoMesh: 'kevlar-coat', handItem: 'cane', offHandItem: 'field-tablet', body: 'human' },
   default: { roleTitle: 'Tactical Combat Automaton', palette: { baseDark: '#141518', accentGlow: '#a855f7' }, headMesh: 'automaton-optic-cluster', torsoMesh: 'ballistic-chassis', backMesh: 'thruster-pack', legGear: ['articulated-limbs'], handItem: 'gauntlets', body: 'automaton' },
