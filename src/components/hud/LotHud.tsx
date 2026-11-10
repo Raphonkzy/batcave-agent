@@ -336,7 +336,7 @@ export function LotHud({
                   }}
                   role="menuitem"
                 >
-                  Tampak Luar (Atap)
+                  Tampak Depan (Fasad & Jalan Masuk)
                 </button>
                 <button
                   type="button"

@@ -58,20 +58,20 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
 
     const y = SURFACE_Y
 
-    // Perimeter pillars along front wall (Z = LOT_BOUNDS.minZ), leaving 7m opening for gate
+    // Perimeter pillars along front wall (Z = LOT_BOUNDS.gateZ), leaving 7m opening for gate
     for (let x = LOT_BOUNDS.minX; x <= LOT_BOUNDS.maxX; x += 4) {
       if (Math.abs(x) < 3.5) continue // Grand Gate opening at center
-      pList.push({ x, y: y + 0.6, z: LOT_BOUNDS.minZ })
+      pList.push({ x, y: y + 0.6, z: LOT_BOUNDS.gateZ })
     }
 
     // Gate pillars
-    pList.push({ x: -3.5, y: y + 1.1, z: LOT_BOUNDS.minZ })
-    pList.push({ x: 3.5, y: y + 1.1, z: LOT_BOUNDS.minZ })
-    lList.push([-3.5, y + 2.4, LOT_BOUNDS.minZ])
-    lList.push([3.5, y + 2.4, LOT_BOUNDS.minZ])
+    pList.push({ x: -3.5, y: y + 1.1, z: LOT_BOUNDS.gateZ })
+    pList.push({ x: 3.5, y: y + 1.1, z: LOT_BOUNDS.gateZ })
+    lList.push([-3.5, y + 2.4, LOT_BOUNDS.gateZ])
+    lList.push([3.5, y + 2.4, LOT_BOUNDS.gateZ])
 
     // Side boundary pillars (West wall: X = minX, East wall: X = maxX)
-    for (let z = LOT_BOUNDS.minZ + 4; z <= LOT_BOUNDS.maxZ; z += 6) {
+    for (let z = LOT_BOUNDS.gateZ + 4; z <= LOT_BOUNDS.maxZ; z += 6) {
       pList.push({ x: LOT_BOUNDS.minX, y: y + 0.6, z })
       if (z < layout.chasm.minZ) {
         pList.push({ x: LOT_BOUNDS.maxX, y: y + 0.6, z })
@@ -179,6 +179,13 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
       >
         <planeGeometry args={[2.0, 10.5]} />
       </mesh>
+      {/* Stone curbs bordering path */}
+      <mesh position={[-1.08, SURFACE_Y + 0.04, -14.75]} material={m.stone} receiveShadow>
+        <boxGeometry args={[0.16, 0.08, 10.5]} />
+      </mesh>
+      <mesh position={[1.08, SURFACE_Y + 0.04, -14.75]} material={m.stone} receiveShadow>
+        <boxGeometry args={[0.16, 0.08, 10.5]} />
+      </mesh>
 
       {/* 5. Formal Garden Roundabout (Z = -20 to -30) */}
       <mesh
@@ -207,6 +214,13 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
         receiveShadow
       >
         <planeGeometry args={[4.0, 16.0]} />
+      </mesh>
+      {/* Stone curbs bordering driveway */}
+      <mesh position={[-2.08, SURFACE_Y + 0.04, -38.0]} material={m.stone} receiveShadow>
+        <boxGeometry args={[0.16, 0.08, 16.0]} />
+      </mesh>
+      <mesh position={[2.08, SURFACE_Y + 0.04, -38.0]} material={m.stone} receiveShadow>
+        <boxGeometry args={[0.16, 0.08, 16.0]} />
       </mesh>
 
       {/* 7. Instanced Stone Pillars */}
@@ -243,7 +257,7 @@ export function ExteriorGrounds({ layout, profile, view }: ExteriorGroundsProps)
       ))}
 
       {/* 10. Front Gate Ironwork */}
-      <group position={[0, SURFACE_Y + 1.2, LOT_BOUNDS.minZ]}>
+      <group position={[0, SURFACE_Y + 1.2, LOT_BOUNDS.gateZ]}>
         <mesh position={[-1.7, 0, 0]} material={m.blackSteel}>
           <boxGeometry args={[3.0, 2.2, 0.08]} />
         </mesh>

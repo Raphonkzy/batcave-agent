@@ -61,12 +61,30 @@ function openingParts(layout: ManorLayoutData, zones: Zone[]): Part[] {
     const base = LEVEL_Y[wall.level]
     const offset = wall.side === 'north' ? 0.01 : 0.01
     for (let along = wall.from + 1.4; along <= wall.to - 1.2; along += 2.6) {
+      if (wall.side === 'north' && Math.abs(along) < 1.8) continue
       const tall = Math.min(wall.height - 1.2, 2.8)
       const p: Part['p'] = wall.axis === 'x' ? [along, base + 0.9 + tall / 2, wall.at + offset] : [wall.at + offset, base + 0.9 + tall / 2, along]
       const s: Part['s'] = wall.axis === 'x' ? [1.1, tall, 0.34] : [0.34, tall, 1.1]
       parts.push(box('glass', p, s), box('brass', [p[0], base + 0.9, p[2]], wall.axis === 'x' ? [1.2, 0.06, 0.36] : [0.36, 0.06, 1.2]), box('brass', [p[0], base + 0.9 + tall, p[2]], wall.axis === 'x' ? [1.2, 0.06, 0.36] : [0.36, 0.06, 1.2]))
     }
   }
+
+  // Grand Double Entrance Doors at Threshold D [0, LEVEL_Y.surface, -8.0]
+  const dBase = LEVEL_Y.surface
+  parts.push(
+    box('stone', [-1.45, dBase + 1.6, -8.0], [0.35, 3.2, 0.4]),
+    box('stone', [1.45, dBase + 1.6, -8.0], [0.35, 3.2, 0.4]),
+    box('stone', [0, dBase + 3.3, -8.0], [3.25, 0.35, 0.44]),
+    box('brass', [0, dBase + 3.52, -8.0], [3.4, 0.08, 0.48]),
+    box('glass', [0, dBase + 3.9, -8.0], [2.4, 0.65, 0.1]),
+    box('brass', [0, dBase + 3.9, -8.0], [2.5, 0.72, 0.05]),
+    box('mahogany', [-0.62, dBase + 1.5, -8.0], [1.18, 3.0, 0.14]),
+    box('mahogany', [0.62, dBase + 1.5, -8.0], [1.18, 3.0, 0.14]),
+    box('brass', [-0.12, dBase + 1.3, -8.09], [0.06, 0.4, 0.06]),
+    box('brass', [0.12, dBase + 1.3, -8.09], [0.06, 0.4, 0.06]),
+    box('brass', [-0.62, dBase + 0.15, -8.08], [1.14, 0.25, 0.02]),
+    box('brass', [0.62, dBase + 0.15, -8.08], [1.14, 0.25, 0.02])
+  )
   for (const zone of zones.filter((item) => item.kind === 'suite')) {
     const bed = layout.items.find((item) => item.zone === zone.id && item.type === 'bed')!
     const outerX = Math.abs(bed.x - zone.rect.minX) < Math.abs(bed.x - zone.rect.maxX) ? zone.rect.minX : zone.rect.maxX
