@@ -1,38 +1,67 @@
-import { execFile as execFileCallback } from 'node:child_process'
+import { execFile as execFileCallback, type ChildProcess } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { cacheStatsFor, processCounters } from './diagnostics.js'
 import { hermesRoot } from './folders.js'
+import { restoreSnapshot, saveSnapshot } from './snapshot-store.js'
 
 const execFile = promisify(execFileCallback)
 const CACHE_MS = 45_000
 const INSIGHTS_CACHE_MS = 120_000
-const COMMAND_TIMEOUT_MS = 35_000
+/** A stored snapshot may be served (while a refresh runs behind it) for this long past its TTL. */
+const STALE_WHILE_REVALIDATE_MS = 5 * 60_000
+/** A Hermes read is abandoned after this long. Generous: under load (a busy GPU, a cold disk) one read can pass 35 s. */
+const COMMAND_TIMEOUT_MS = 90_000
+/** The HUD error count covers this recent window, so old failures do not stay on screen. */
+const RECENT_FAILURE_MS = 5 * 60_000
 const COMMAND_LOG_LIMIT = 100
 const LOG_TAIL_LINES = 200
 
-const MAX_GLOBAL_CONCURRENCY = 1
+/**
+ * Hermes reads that may run at once. Each read is mostly Python start-up (8 to 10 s here), so four
+ * at a time finish four reads in about the time of one (measured: 38 s serial, 10 s at four; see
+ * scripts/verify/cli-concurrency.mjs). BATCAVE_CLI_CONCURRENCY overrides it (1 to 8).
+ */
+const MAX_GLOBAL_CONCURRENCY = Math.min(8, Math.max(1, Number(process.env.BATCAVE_CLI_CONCURRENCY) || 4))
 let activeProcessCount = 0
 const processWaitQueue: (() => void)[] = []
+/** Every CLI child that is running, so a shutdown can end them instead of orphaning them. */
+const runningChildren = new Set<ChildProcess>()
 
-async function acquireProcessSlot(): Promise<void> {
+/** Health checks go to the front of the queue; routine reads wait their turn. */
+async function acquireProcessSlot(priority = false): Promise<void> {
   if (activeProcessCount < MAX_GLOBAL_CONCURRENCY) {
     activeProcessCount++
     return
   }
   return new Promise((resolve) => {
-    processWaitQueue.push(() => {
+    const start = () => {
       activeProcessCount++
       resolve()
-    })
+    }
+    if (priority) processWaitQueue.unshift(start)
+    else processWaitQueue.push(start)
+    processCounters().queued = processWaitQueue.length
   })
 }
 
 function releaseProcessSlot(): void {
   activeProcessCount--
   const next = processWaitQueue.shift()
+  processCounters().queued = processWaitQueue.length
   if (next) next()
+}
+
+/** Ends every running Hermes/OpenCode child and drops the queue. Called once, at shutdown. */
+export function terminateChildProcesses(): number {
+  processWaitQueue.length = 0
+  processCounters().queued = 0
+  const count = runningChildren.size
+  for (const child of runningChildren) child.kill()
+  runningChildren.clear()
+  return count
 }
 
 export type Availability = 'available' | 'unavailable'
@@ -122,7 +151,7 @@ export interface UsageSnapshot {
 }
 export interface CountSource { availability: Availability; total: number }
 export interface CommandLogEntry { command: string; ok: boolean; durationMs: number; at: string; error?: string }
-export interface CommandHealth { total: number; failed: number; averageMs: number }
+export interface CommandHealth { total: number; failed: number; averageMs: number; /** Failed reads in the last 5 minutes. */ recentFailed: number }
 export interface CommandLogSnapshot { entries: CommandLogEntry[]; health: CommandHealth; fetchedAt: string }
 export interface DashboardSnapshot {
   runtime: RuntimeSnapshot
@@ -141,7 +170,14 @@ export interface LogFile { name: string; label: string; source: Source<LogLine[]
 export interface LogsSnapshot { files: LogFile[]; fetchedAt: string }
 
 type Run = (file: string, args: string[], options?: RunOptions) => Promise<string>
-interface RunOptions { /** stdout of a non-zero exit that is an expected empty state, not a failure. */ benign?: RegExp }
+interface RunOptions {
+  /** stdout of a non-zero exit that is an expected empty state, not a failure. */
+  benign?: RegExp
+  /** Jump the queue of waiting commands (used by the connection health check). */
+  priority?: boolean
+  /** An optional tool: "not installed" is an expected answer, not a failed read. */
+  optional?: boolean
+}
 
 /** Error thrown by the command runner. Carries stdout so a caller can recognise a benign non-zero exit. */
 export class CommandError extends Error {
@@ -477,32 +513,79 @@ function describeFailure(error: unknown): CommandError {
   return new CommandError('Read command was unavailable.', 'COMMAND_FAILED', stdout)
 }
 
+/** npm installs OpenCode on Windows as opencode.cmd, which execFile cannot start without a shell. */
+const WINDOWS_SHIMS: ReadonlySet<string> = new Set(process.platform === 'win32' ? ['opencode'] : [])
+
 async function systemRun(file: string, args: string[], options: RunOptions = {}): Promise<string> {
-  await acquireProcessSlot()
+  await acquireProcessSlot(options.priority)
   const started = Date.now()
   const command = [file, ...args].join(' ')
+  const counters = processCounters()
+  counters.spawned += 1
+  counters.active = activeProcessCount
+  let child: ChildProcess | undefined
+  const shim = WINDOWS_SHIMS.has(file)
   try {
-    const { stdout } = await execFile(file, args, {
+    const runOptions = {
       timeout: COMMAND_TIMEOUT_MS,
       maxBuffer: 16 * 1024 * 1024,
       env: { ...process.env, NO_COLOR: '1', TERM: 'dumb', COLUMNS: '200', PYTHONIOENCODING: 'utf-8' },
-    })
+    }
+    // A .cmd shim only runs through the shell, so it gets one command line (Node warns about
+    // passing an argument list with shell: true). Safe here: the shim's arguments are fixed
+    // strings in this module (`--version`), checked to be plain words, never user input.
+    if (shim && !args.every((arg) => /^[\w.-]+$/.test(arg))) throw new CommandError('Unsafe argument for a shell command.', 'COMMAND_FAILED', '')
+    const running = shim
+      ? execFile(`${file}.cmd ${args.join(' ')}`, [], { ...runOptions, shell: true })
+      : execFile(file, args, runOptions)
+    child = running.child
+    runningChildren.add(child)
+    const { stdout } = await running
     recordCommand({ command, ok: true, durationMs: Date.now() - started, at: new Date(started).toISOString() })
     return stdout
   } catch (error) {
-    const failure = describeFailure(error)
-    const benign = options.benign?.test(failure.stdout) ?? false
+    let failure = describeFailure(error)
+    // Through the shell a missing command exits with 1 (Windows) or 127 instead of ENOENT.
+    if (shim && /exited with code (1|127)\./.test(failure.message) && !failure.stdout.trim()) failure = new CommandError('Command not installed or not on PATH.', 'COMMAND_FAILED', '')
+    const missing = options.optional === true && /not installed/i.test(failure.message)
+    const benign = missing || (options.benign?.test(failure.stdout) ?? false)
+    if (!benign) counters.failed += 1
     recordCommand({ command, ok: benign, durationMs: Date.now() - started, at: new Date(started).toISOString(), ...(benign ? {} : { error: failure.message }) })
     throw failure
   } finally {
+    if (child) runningChildren.delete(child)
+    counters.totalMs += Date.now() - started
     releaseProcessSlot()
+    counters.active = activeProcessCount
+  }
+}
+
+/**
+ * Proves Hermes is reachable right now, for the AgentManager. Reads the small state files in the
+ * Hermes home first (no process); only when they are absent does it run `hermes profile list`,
+ * at the front of the command queue so a busy dashboard refresh cannot delay it.
+ */
+export async function verifyHermes(): Promise<{ ok: boolean; detail?: string }> {
+  try {
+    const profiles = profilesFromDisk(hermesRoot())
+    if (profiles) return { ok: true }
+  } catch {
+    // fall through to the CLI check
+  }
+  try {
+    parseProfiles(await systemRun('hermes', ['profile', 'list'], { priority: true }))
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, detail: describeFailure(error).message }
   }
 }
 
 function commandHealth(): CommandHealth {
   const failed = commandLog.filter((entry) => !entry.ok).length
   const averageMs = commandLog.length ? Math.round(commandLog.reduce((sum, entry) => sum + entry.durationMs, 0) / commandLog.length) : 0
-  return { total: commandLog.length, failed, averageMs }
+  const since = Date.now() - RECENT_FAILURE_MS
+  const recentFailed = commandLog.filter((entry) => !entry.ok && Date.parse(entry.at) >= since).length
+  return { total: commandLog.length, failed, averageMs, recentFailed }
 }
 
 export function getCommandLog(): CommandLogSnapshot {
@@ -584,11 +667,13 @@ export async function collectSnapshot(run: Run = systemRun): Promise<RuntimeSnap
     }
   }
 
+  // Every other source waits for this one (it names the profiles), so its commands go first.
+  const urgent: Run = run === systemRun ? (file, args, options) => systemRun(file, args, { ...options, priority: true }) : run
   const [profiles, openCode] = await Promise.all([
     diskProfiles
       ? Promise.resolve({ availability: 'available' as const, data: diskProfiles })
-      : read(run, 'hermes', ['profile', 'list'], parseProfiles, []),
-    read(run, 'opencode', ['--version'], (value) => value.trim().split('\n').pop()?.trim() || 'Unknown', 'Unknown'),
+      : read(urgent, 'hermes', ['profile', 'list'], parseProfiles, []),
+    read((file, args, options) => urgent(file, args, { ...options, optional: true }), 'opencode', ['--version'], (value) => value.trim().split('\n').pop()?.trim() || 'Unknown', 'Unknown'),
   ])
   return { profiles, openCode, fetchedAt: new Date().toISOString() }
 }
@@ -1129,46 +1214,102 @@ export function buildDashboard(parts: { runtime: RuntimeSnapshot; board: TaskBoa
 // ---------------------------------------------------------------------------
 // Cached accessors. Concurrent callers share one in-flight read per source.
 
-function cachedSource<T>(collect: () => Promise<T>, ttl = CACHE_MS) {
+/** A real lookup time plus an explicit bypass; never manufacture a future timestamp. */
+export type CacheRead = number | { now: number; forceRefresh: boolean }
+
+export interface CachedSourceOptions {
+  /** Name under which hit/miss/collection counters are reported in /api/diagnostics. */
+  name?: string
+  /**
+   * How long past its TTL a stored value may still be served immediately while one refresh runs in
+   * the background. 0 (the default) keeps the strict behaviour: an expired value is waited for.
+   * Manual refreshes (`forceRefresh`) never use a stored value.
+   */
+  staleWhileRevalidateMs?: number
+  /** Keep the last good value on disk under this name and start from it after a restart. */
+  persist?: string
+}
+
+/** After a failed background refresh, wait this long before starting another one. */
+const REVALIDATE_RETRY_MS = 5_000
+
+export function cachedSource<T>(collect: (read: CacheRead) => Promise<T>, ttl = CACHE_MS, options: CachedSourceOptions = {}) {
   let entry: { value: T; expires: number } | undefined
+  // A value kept from the previous run counts as just expired: served once while a read refreshes it.
+  const restored = options.persist ? restoreSnapshot<T>(options.persist) : undefined
+  if (restored) entry = { value: restored.value, expires: Date.now() - 1 }
   let inflight: Promise<T> | undefined
-  const get = (now = Date.now()): Promise<T> => {
-    if (entry && entry.expires > now) return Promise.resolve(entry.value)
-    inflight ??= collect().then((value) => {
+  let revalidateAfter = 0
+  const stats = options.name ? cacheStatsFor(options.name) : undefined
+  const staleWindow = options.staleWhileRevalidateMs ?? 0
+  const run = (read: CacheRead): Promise<T> => {
+    const started = Date.now()
+    if (stats) stats.collections += 1
+    return collect(read).then((value) => {
       entry = { value, expires: Date.now() + ttl }
+      if (options.persist) saveSnapshot(options.persist, value)
+      if (stats) { stats.lastCollectMs = Date.now() - started; stats.totalCollectMs += stats.lastCollectMs }
       return value
+    }, (error: unknown) => {
+      if (stats) stats.collectFailures += 1
+      revalidateAfter = Date.now() + REVALIDATE_RETRY_MS
+      throw error
     }).finally(() => { inflight = undefined })
+  }
+  const get = (read: CacheRead = Date.now()): Promise<T> => {
+    const now = typeof read === 'number' ? read : read.now
+    const forceRefresh = typeof read !== 'number' && read.forceRefresh
+    if (!forceRefresh && entry) {
+      if (entry.expires > now) {
+        if (stats) stats.hits += 1
+        return Promise.resolve(entry.value)
+      }
+      if (staleWindow > 0 && now - entry.expires < staleWindow) {
+        // Answer now with the last good snapshot (its own fetchedAt says how old it is) and
+        // refresh once behind it, so a page never waits for the Hermes CLI after an idle gap.
+        if (stats) stats.staleServed += 1
+        if (!inflight && Date.now() >= revalidateAfter) inflight = run(read)
+        inflight?.catch(() => undefined)
+        return Promise.resolve(entry.value)
+      }
+    }
+    if (inflight) { if (stats) stats.coalesced += 1 } else {
+      if (stats) stats.misses += 1
+      inflight = run(read)
+    }
     return inflight
   }
   return Object.assign(get, { clear: () => { entry = undefined } })
 }
 
-const runtimeSource = cachedSource(() => collectSnapshot())
-const taskBoardSource = cachedSource(() => collectTaskBoard())
-const calendarSource = cachedSource(() => collectCalendar())
-const activitySource = cachedSource(() => collectActivity())
-const knowledgeSource = cachedSource(() => collectKnowledge())
-const channelSource = cachedSource(() => collectChannels())
-const usageSources = new Map(USAGE_PERIODS.map((days) => [days, cachedSource(async () => collectUsage(days, (await getSnapshot()).profiles.data.map((profile) => profile.name)), INSIGHTS_CACHE_MS)]))
+const swr = (name: string) => ({ name, staleWhileRevalidateMs: STALE_WHILE_REVALIDATE_MS, persist: name })
+const runtimeSource = cachedSource(() => collectSnapshot(), CACHE_MS, swr('runtime'))
+const taskBoardSource = cachedSource(() => collectTaskBoard(), CACHE_MS, swr('tasks'))
+const calendarSource = cachedSource(() => collectCalendar(), CACHE_MS, swr('calendar'))
+const activitySource = cachedSource(() => collectActivity(), CACHE_MS, swr('activity'))
+const knowledgeSource = cachedSource(() => collectKnowledge(), CACHE_MS, swr('knowledge'))
+const channelSource = cachedSource(() => collectChannels(), CACHE_MS, swr('channels'))
+const usageSources = new Map(USAGE_PERIODS.map((days) => [days, cachedSource(async (read) => collectUsage(days, (await getSnapshot(read)).profiles.data.map((profile) => profile.name)), INSIGHTS_CACHE_MS, swr(`usage-${days}d`))]))
 
 /** Token usage of every agent over 1, 7 or 30 days (anything else reads as 7). */
-export function getUsage(days: number, now = Date.now()): Promise<UsageSnapshot> {
+export function getUsage(days: number, now: CacheRead = Date.now()): Promise<UsageSnapshot> {
   return (usageSources.get(days as typeof USAGE_PERIODS[number]) ?? usageSources.get(INSIGHT_DAYS)!)(now)
 }
-const logsSource = cachedSource(() => collectLogs(), 15_000)
-const agentActivitySource = cachedSource(async () => {
-  const runtime = await getSnapshot()
+// Logs change every few seconds and can be large: not worth keeping on disk.
+const logsSource = cachedSource(() => collectLogs(), 15_000, { name: 'logs', staleWhileRevalidateMs: STALE_WHILE_REVALIDATE_MS })
+const agentActivitySource = cachedSource(async (read) => {
+  const runtime = await getSnapshot(read)
   return collectAgentActivity(runtime.profiles.availability === 'available' ? runtime.profiles.data.map((profile) => profile.name) : [])
-}, 30_000)
+}, 30_000, swr('agent-activity'))
 
-export function getSnapshot(now = Date.now()): Promise<RuntimeSnapshot> { return runtimeSource(now) }
+export function getSnapshot(now: CacheRead = Date.now()): Promise<RuntimeSnapshot> { return runtimeSource(now) }
 export function clearSnapshotCache(): void { runtimeSource.clear() }
-export function getTaskBoard(now = Date.now()): Promise<TaskBoardSnapshot> { return taskBoardSource(now) }
-export function getCalendar(now = Date.now()): Promise<CalendarSnapshot> { return calendarSource(now) }
-export function getActivity(now = Date.now()): Promise<ActivitySnapshot> { return activitySource(now) }
-export function getKnowledge(now = Date.now()): Promise<KnowledgeSnapshot> { return knowledgeSource(now) }
-export function getChannels(now = Date.now()): Promise<ChannelSnapshot> { return channelSource(now) }
-export function getLogs(now = Date.now()): Promise<LogsSnapshot> { return logsSource(now) }
+export function getTaskBoard(now: CacheRead = Date.now()): Promise<TaskBoardSnapshot> { return taskBoardSource(now) }
+export function getCalendar(now: CacheRead = Date.now()): Promise<CalendarSnapshot> { return calendarSource(now) }
+export function getActivity(now: CacheRead = Date.now()): Promise<ActivitySnapshot> { return activitySource(now) }
+export function getKnowledge(now: CacheRead = Date.now()): Promise<KnowledgeSnapshot> { return knowledgeSource(now) }
+export function getChannels(now: CacheRead = Date.now()): Promise<ChannelSnapshot> { return channelSource(now) }
+export function getLogs(now: CacheRead = Date.now()): Promise<LogsSnapshot> { return logsSource(now) }
 
 /** Detail for a task on the current board; returns undefined for ids Hermes did not list. */
 /** Details of a task on the current board snapshot; `board` picks the board it lives on. */
@@ -1179,13 +1320,32 @@ export async function getTaskDetail(id: string, now = Date.now(), board?: string
   return collectTaskDetail(id, systemRun, board)
 }
 
-export async function getOffice(now = Date.now()): Promise<OfficeSnapshot> {
-  const [runtime, board, activity, agentActivity] = await Promise.all([getSnapshot(now), getTaskBoard(now), getActivity(now), agentActivitySource(now)])
+/** How long the crew view waits for the per-profile live probe before answering without it. */
+const LIVE_PROBE_BUDGET_MS = 3_000
+
+/**
+ * The live probe reads every profile's logs and is the slowest source on a cold start. Rather than
+ * hold the crew view for it, wait a short budget; if it is not ready, answer with an empty probe,
+ * which marks every agent's live state as not known (Unknown, never a guessed Idle). The probe
+ * keeps running and is cached, so the next poll has it.
+ */
+async function liveProbe(now: CacheRead): Promise<AgentActivitySnapshot> {
+  const pending = agentActivitySource(now)
+  let timer: NodeJS.Timeout | undefined
+  const fallback = new Promise<undefined>((resolve) => { timer = setTimeout(() => resolve(undefined), LIVE_PROBE_BUDGET_MS) })
+  const result = await Promise.race([pending, fallback]).catch(() => undefined)
+  clearTimeout(timer)
+  pending.catch(() => undefined)
+  return result ?? { agents: [], fetchedAt: new Date().toISOString() }
+}
+
+export async function getOffice(now: CacheRead = Date.now()): Promise<OfficeSnapshot> {
+  const [runtime, board, activity, agentActivity] = await Promise.all([getSnapshot(now), getTaskBoard(now), getActivity(now), liveProbe(now)])
   return buildOfficeSnapshot(runtime, board, activity, { agentActivity })
 }
 
-export async function getDashboard(now = Date.now()): Promise<DashboardSnapshot> {
-  const [runtime, board, calendar, activity, knowledge, channels, agentActivity] = await Promise.all([getSnapshot(now), getTaskBoard(now), getCalendar(now), getActivity(now), getKnowledge(now), getChannels(now), agentActivitySource(now)])
+export async function getDashboard(now: CacheRead = Date.now()): Promise<DashboardSnapshot> {
+  const [runtime, board, calendar, activity, knowledge, channels, agentActivity] = await Promise.all([getSnapshot(now), getTaskBoard(now), getCalendar(now), getActivity(now), getKnowledge(now), getChannels(now), liveProbe(now)])
   const office = buildOfficeSnapshot(runtime, board, activity, { agentActivity })
   return buildDashboard({ runtime, board, calendar, activity, knowledge, channels, office, commands: commandHealth() })
 }

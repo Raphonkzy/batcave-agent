@@ -51,6 +51,9 @@ export function redactLogs(logs: LogsSnapshot, privacy: Privacy): LogsSnapshot {
   return { ...logs, files: logs.files.map((file) => ({ ...file, source: { availability: 'unavailable', data: [], error: { code: 'LOCKED', message: '🔒 These are the logs of the locked default agent. Unlock it to read them.' } } })) }
 }
 
+/** Profile lock protects content, not accounting: names, totals, cost and model/tool/source
+ * breakdowns remain visible. Session-specific dates and sizes are private. Keep this policy
+ * in sync with ProfileLockSettings; never mutate the shared cached snapshot. */
 export function redactUsage(usage: UsageSnapshot, privacy: Privacy): UsageSnapshot {
   if (quiet(privacy)) return usage
   return { ...usage, agents: usage.agents.map((agent) => isHidden(privacy, agent.agent) && agent.usage ? { ...agent, usage: { ...agent.usage, topSession: undefined } } : agent) }

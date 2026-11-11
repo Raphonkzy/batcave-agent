@@ -9,6 +9,7 @@ export type ZoneKind = 'open' | 'room' | 'suite' | 'corridor' | 'outdoor'
 export type NamedZone =
   | 'commandAmphitheater' | 'operationsRoom' | 'suitVault' | 'armory' | 'serverBastion' | 'forensicsLab' | 'trainingRoom' | 'hangarBay' | 'basinCatwalk'
   | 'grandFoyer' | 'hearthLounge' | 'grandLibrary' | 'billiardsRoom' | 'diningHall' | 'butlerPantry' | 'gym' | 'grandBath'
+  | 'entranceHall' | 'entranceTerrace' | 'poolWalkway' | 'poolGardenLink' | 'privateLink' | 'masterBedroom' | 'guestBedroom'
   | 'eastCorridor' | 'upperLanding' | 'upperCorridor' | 'upperGallery' | 'upperEastLink' | 'upperEastCorridor' | 'terracePool'
 /** Suites are numbered from 0: suite n belongs to the agent in seat n + 1. */
 export type ZoneId = NamedZone | `suite-${number}`
@@ -29,6 +30,7 @@ export type ItemType =
   | 'treadmill' | 'dumbbellRack' | 'weightBench' | 'exerciseMat' | 'teakDeck'
   | 'soakingTub' | 'vanityCounter' | 'showerScreen' | 'bathWall' | 'consoleTable' | 'wallSconce' | 'runnerRug' | 'wallArt'
   | 'sunkenBath' | 'bathBench' | 'vanityRow' | 'toiletStall'
+  | 'kitchenCounter' | 'kitchenIsland' | 'refrigerator' | 'toilet' | 'wetFloor'
   | 'receptionDesk' | 'alabasterWall' | 'lobbyMedallion' | 'roundRug' | 'tubChair' | 'loungeTable' | 'luggageTrolley' | 'marbleUrn'
 export interface LayoutItem {
   id: string

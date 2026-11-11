@@ -14,7 +14,7 @@ const WALL_THICKNESS = 0.15
 /** Lie flat on the floor: no collisions with what stands on them. */
 // Flat (floor finishes) or wall-mounted-high (sconces) items: nothing stands on the floor under
 // them, so they neither block walking nor collide with furniture.
-export const FLAT_TYPES: ReadonlySet<ItemType> = new Set<ItemType>(['rug', 'turntablePad', 'interceptorBay', 'bikeDock', 'vtolPad', 'apcBay', 'subDock', 'serviceLane', 'autoDock', 'sparringMat', 'floorPlate', 'exerciseMat', 'teakDeck', 'runnerRug', 'wallSconce', 'lobbyMedallion', 'roundRug'])
+export const FLAT_TYPES: ReadonlySet<ItemType> = new Set<ItemType>(['rug', 'turntablePad', 'interceptorBay', 'bikeDock', 'vtolPad', 'apcBay', 'subDock', 'serviceLane', 'autoDock', 'sparringMat', 'floorPlate', 'exerciseMat', 'teakDeck', 'runnerRug', 'wallSconce', 'lobbyMedallion', 'roundRug', 'wetFloor'])
 /** Can be stood or sat on, so they do not block walking (routes avoid them where they can). */
 export const SOFT_TYPES: ReadonlySet<ItemType> = new Set<ItemType>(['chair', 'consoleChair', 'highChair', 'chesterfield', 'readingChair', 'leatherChair', 'armchair', 'tubChair', 'deskChair', 'weightBench', 'treadmill', 'bed', 'sunLounger'])
 const isSolid = (item: LayoutItem) => !FLAT_TYPES.has(item.type)
@@ -38,7 +38,9 @@ function sharedEdges(zones: Zone[]): Shared[] {
 }
 /** Suites only open onto their corridor; every other pair of neighbouring rooms gets a door. */
 function doorAllowed(a: Zone, b: Zone): boolean {
-  const suite = a.kind === 'suite' ? a : b.kind === 'suite' ? b : undefined
+  if (a.level === 'surface' && [a.id, b.id].includes('grandLibrary') && [a.id, b.id].includes('grandFoyer')) return false
+  const privateRoom = (zone: Zone) => zone.kind === 'suite' || zone.id === 'masterBedroom' || zone.id === 'guestBedroom'
+  const suite = privateRoom(a) ? a : privateRoom(b) ? b : undefined
   if (!suite) return true
   const other = suite === a ? b : a
   return other.kind === 'corridor' && other.id.endsWith('Corridor')
@@ -61,12 +63,13 @@ export function buildWalls(zones: Zone[], items: LayoutItem[]): { doors: Door[];
     const solids = items.filter((item) => item.level === level && isSolid(item))
     const shared = sharedEdges(onLevel)
     for (const edge of shared) {
-      if (edge.a.kind === 'open' && edge.b.kind === 'open') continue
+      if ((edge.a.kind === 'open' && edge.b.kind === 'open') || (edge.a.kind === 'outdoor' && edge.b.kind === 'outdoor')) continue
       const length = edge.to - edge.from
-      const width = Math.min(1.8, length - 0.2)
+      const publicAxis = level === 'surface' && [edge.a.id, edge.b.id].every((id) => ['grandFoyer', 'hearthLounge', 'entranceHall', 'entranceTerrace'].includes(id))
+      const width = Math.min(publicAxis ? 2.8 : 1.8, length - 0.2)
       let door: Door | undefined
       if (doorAllowed(edge.a, edge.b) && width >= 1.2) {
-        const mid = (edge.from + edge.to) / 2
+        const mid = publicAxis ? 0 : (edge.from + edge.to) / 2
         const reach = (length - width) / 2 - 0.1
         for (let offset = 0; offset <= reach + EPS && !door; offset += 0.25) for (const sign of offset === 0 ? [1] : [1, -1]) {
           const candidate: Door = { level, axis: edge.axis, at: edge.at, center: mid + sign * offset, width, between: [edge.a.id, edge.b.id] }
@@ -78,7 +81,9 @@ export function buildWalls(zones: Zone[], items: LayoutItem[]): { doors: Door[];
       // Outdoor zones have no walls of their own; a wall to a room is the room's.
       const height = Math.max(3.2, Math.min(edge.a.height || 3.5, edge.b.height || 3.5))
       const pieces = door ? [[edge.from, door.center - door.width / 2], [door.center + door.width / 2, edge.to]] : [[edge.from, edge.to]]
-      for (const [from, to] of pieces) if (to - from > EPS) walls.push({ level, axis: edge.axis, at: edge.at, from, to, exterior: false, height })
+      const room = edge.a.kind === 'outdoor' ? edge.b : edge.b.kind === 'outdoor' ? edge.a : undefined
+      const side = room ? edge.axis === 'x' ? edge.at === room.rect.minZ ? 'north' : 'south' : edge.at === room.rect.minX ? 'west' : 'east' : undefined
+      for (const [from, to] of pieces) if (to - from > EPS) walls.push({ level, axis: edge.axis, at: edge.at, from, to, exterior: !!room, ...(side ? { side } : {}), height: room?.height ?? height })
     }
     // Outside walls: the parts of each room's edges no neighbour shares.
     for (const zone of onLevel.filter((item) => item.kind !== 'outdoor' && item.level !== 'subterranean')) {
@@ -127,7 +132,14 @@ function eachCell(grid: Pick<FloorGrid, 'minX' | 'minZ' | 'cols' | 'rows'>, rect
 }
 /** Which floor cells are in use: near furniture, near a wall, or at the floor's edge (the outer wall). */
 export function usedCells(grid: FloorGrid, items: LayoutItem[], walls: WallSegment[], reserved: BoundingBox[] = []): boolean[] {
-  const used = grid.floor.map((isFloor) => !isFloor)
+  // Formal dancing space, the central salon aisle and entrance terraces are deliberately
+  // open, not 'unused'. Do not scatter filler rugs/teak over their designed floor finishes.
+  const openZones = grid.zones.filter((zone) => zone.level === 'surface' && (zone.kind === 'outdoor' || ['grandFoyer', 'hearthLounge', 'entranceHall'].includes(zone.id)))
+  const used = grid.floor.map((isFloor, index) => {
+    const x = grid.minX + (index % grid.cols + 0.5) * GRID_RES
+    const z = grid.minZ + (Math.floor(index / grid.cols) + 0.5) * GRID_RES
+    return !isFloor || openZones.some((zone) => x >= zone.rect.minX && x <= zone.rect.maxX && z >= zone.rect.minZ && z <= zone.rect.maxZ)
+  })
   for (const item of items) {
     if (item.level !== grid.level) continue
     eachCell(grid, footprintOf(item), USE_CLEARANCE, (index, x, z) => { if (distanceToItem(item, x, z) <= USE_CLEARANCE) used[index] = true })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LEVEL_CYCLE } from '../src/pages/ManorOffice3D.tsx'
+import { LEVEL_CYCLE } from '../src/pages/manorViews.ts'
 
 describe('Sims 3D HUD & Controls Verification (Section 7)', () => {
   it('cycles 3 levels properly in both directions without overflow', () => {

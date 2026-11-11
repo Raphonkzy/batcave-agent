@@ -3,41 +3,43 @@ import { agentLook } from '../agents.ts'
 import { officeStateBadge } from '../office-state.ts'
 import { usePolling } from '../polling.ts'
 import { useAgents } from '../hooks/useAgents.ts'
-import { formatCompact, formatDateTime, formatNumber } from '../format.ts'
+import { formatCompact, formatNumber } from '../format.ts'
 import type { Page } from '../routes.ts'
-import type { ActivitySnapshot, ChannelSnapshot, DashboardSnapshot, OfficeRoom, OfficeSnapshot, OfficeStation, UsageSnapshot } from '../types.ts'
-import { LoadingState, SourceStatus } from '../ui.tsx'
-import { CalendarOverlayView } from './Calendar.tsx'
+import type { DashboardSnapshot, OfficeRoom, OfficeSnapshot, OfficeStation, UsageSnapshot } from '../types.ts'
+import { LoadingState } from '../ui.tsx'
+import { SceneResourceStatus } from '../components/shell/SceneResourceStatus.tsx'
 import { AgentFolder } from './Folders.tsx'
 import { AgentMemoryView } from './Memory.tsx'
 import { Stats } from './Stats.tsx'
-import { TaskBoard } from './TaskBoard.tsx'
 import { formatCost } from '../usage.ts'
 import { RelockBar } from '../ProfileLock.tsx'
-import { TokenUsage } from './TokenUsage.tsx'
+import { Icon } from '../components/ui/Primitives.tsx'
+import { BatMark } from '../components/ui/BatMark.tsx'
 
 // The 3D Tactical Manor (three.js) is its own chunk. The 2D rooms are only the fallback for
 // browsers without WebGL.
 const ManorOffice3D = lazy(() => import('./ManorOffice3D.tsx'))
 
+let webglProbe: boolean | undefined
+/** Whether WebGL works here. Probed once per page load: each probe creates a real GPU context. */
 function webglAvailable(): boolean {
+  if (webglProbe !== undefined) return webglProbe
   try {
     const canvas = document.createElement('canvas')
-    return Boolean(canvas.getContext('webgl2') ?? canvas.getContext('webgl'))
+    webglProbe = Boolean(canvas.getContext('webgl2') ?? canvas.getContext('webgl'))
   } catch {
-    return false
+    webglProbe = false
   }
+  return webglProbe
 }
 
 
-type PanelTab = 'Crew' | 'Stats' | 'Activity'
-const PANEL_TABS: PanelTab[] = ['Crew', 'Stats', 'Activity']
-
-function storedPanel(): PanelTab | undefined {
+/** Whether the briefing panel was left open (older builds stored a tab name; any of those counts). */
+function storedBriefing(): boolean {
   try {
     const value = window.localStorage.getItem('mc.officePanel')
-    return PANEL_TABS.find((tab) => tab === value)
-  } catch { return undefined }
+    return value === 'open' || value === 'Crew' || value === 'Stats' || value === 'Activity'
+  } catch { return false }
 }
 
 class SceneBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
@@ -109,42 +111,40 @@ export function OfficeDetail({ station, onClose }: { station: OfficeStation; onC
   </div>
 }
 
-type OverlayKind = 'tasks' | 'calendar' | 'usage'
-const OVERLAYS: Record<OverlayKind, { title: string; page: Page }> = { tasks: { title: 'Task Board', page: 'Task Board' }, calendar: { title: 'Calendar', page: 'Calendar' }, usage: { title: 'Token usage', page: 'Usage' } }
-
-/** Task Board, the cron calendar or token usage shown over the office, without leaving it. */
-function OfficeOverlay({ kind, onClose, onNavigate }: { kind: OverlayKind; onClose: () => void; onNavigate?: (page: Page) => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => { closeRef.current?.focus() }, [kind])
-  const { title, page } = OVERLAYS[kind]
-  return <section className={`office-overlay overlay-${kind}`} role="dialog" aria-modal="false" aria-labelledby="office-overlay-title" onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); onClose() } }}>
-    <header className="office-overlay-head">
-      <h2 id="office-overlay-title">{title}</h2>
-      {onNavigate && <button type="button" className="refresh-button" onClick={() => onNavigate(page)}>Open full page ↗</button>}
-      <button type="button" ref={closeRef} className="icon-button" onClick={onClose} aria-label={`Close ${title}`}>✕</button>
-    </header>
-    <div className="office-overlay-body">{kind === 'tasks' ? <TaskBoard/> : kind === 'calendar' ? <CalendarOverlayView/> : <TokenUsage/>}</div>
-  </section>
+/** The lot name and the local clock, like the time display of a house-simulation game. */
+function LotPlate({ active }: { active: boolean }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    if (!active) return
+    setNow(new Date())
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [active])
+  return <div className="mo-lot-plate">
+    <BatMark size={30} className="mo-lot-mark"/>
+    <span className="mo-lot-name">Batcave</span>
+    <time className="mo-lot-clock" dateTime={now.toISOString()}>
+      <b>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</b>
+      <span>{now.toLocaleDateString([], { weekday: 'short' })}</span>
+    </time>
+  </div>
 }
 
 interface HudItem { label: string; value: string; tone?: 'warn' | 'bad'; page?: Page; title?: string }
 
-/** The few numbers worth seeing at a glance, over the office like a game HUD. */
+/** The few numbers worth seeing at a glance: crew, tasks, and errors only when there are some. */
 function hudItems(office: OfficeSnapshot | undefined, dashboard: DashboardSnapshot | null | undefined): HudItem[] {
   const summary = office?.summary ?? dashboard?.office
   const items: HudItem[] = []
-  if (summary) {
-    items.push({ label: 'Crew active', value: `${summary.active}/${summary.declared}`, title: `${summary.idle} idle · ${summary.offline} offline · ${summary.unknown} unknown` })
-    items.push({ label: 'Gateways', value: `${summary.gatewaysReachable}/${summary.gatewaysDeclared}`, title: 'Profiles whose Hermes gateway is running (CLI-only agents need none)', page: 'Agents' })
-  }
+  if (summary) items.push({ label: 'Crew', value: `${summary.active}/${summary.declared}`, title: `${summary.active} active · ${summary.idle} idle · ${summary.offline} offline · ${summary.unknown} unknown · gateways ${summary.gatewaysReachable}/${summary.gatewaysDeclared}`, page: 'Agents' })
   if (!dashboard) return items
-  const { tasks, calendar, commands } = dashboard
+  const { tasks, commands } = dashboard
   if (tasks.availability === 'available') {
     const open = Object.entries(tasks.byStatus).filter(([status]) => !['done', 'archived'].includes(status)).reduce((sum, [, count]) => sum + count, 0)
-    items.push({ label: 'Tasks', value: `${tasks.byStatus.running ?? 0} running · ${open} open`, page: 'Task Board' })
-  } else items.push({ label: 'Tasks', value: 'Not Available', tone: 'warn', page: 'Task Board' })
-  if (calendar.availability === 'available') items.push({ label: 'Next cron', value: calendar.nextRun ? formatDateTime(calendar.nextRun) : '—', page: 'Calendar' })
-  if (commands.failed > 0) items.push({ label: 'CLI errors', value: String(commands.failed), tone: 'bad', page: 'Logs' })
+    items.push({ label: 'Tasks', value: `${tasks.byStatus.running ?? 0}/${open}`, title: `${tasks.byStatus.running ?? 0} running · ${open} open`, page: 'Task Board' })
+  } else items.push({ label: 'Tasks', value: 'n/a', tone: 'warn', title: 'Task board not available', page: 'Task Board' })
+  const recent = commands.recentFailed ?? commands.failed
+  if (recent > 0) items.push({ label: 'Errors', value: String(recent), tone: 'bad', title: `${recent} Hermes reads failed in the last 5 minutes`, page: 'Logs' })
   return items
 }
 
@@ -154,109 +154,87 @@ export function Office({
   onNavigate,
   isFullscreen = false,
   onToggleFullscreen,
+  active = true,
 }: {
   dashboard?: DashboardSnapshot | null
   dashboardPending?: boolean
   onNavigate?: (page: Page) => void
   isFullscreen?: boolean
   onToggleFullscreen?: () => void
+  /**
+   * False while another page is shown. The shell keeps this page mounted so the 3D scene (its
+   * WebGL context, geometry and textures) survives navigation; while inactive it renders no
+   * frames, takes no shortcuts, and neither fetches nor polls.
+   */
+  active?: boolean
 } = {}) {
   // The crew comes through the data layer (live, or a dev-only mock crew with ?mockAgents=N).
-  const snapshot = useAgents()
-  const activitySnapshot = usePolling<ActivitySnapshot>('/api/activity', 15_000)
-  const channelsSnapshot = usePolling<ChannelSnapshot>('/api/channels', 30_000)
+  const snapshot = useAgents({ paused: !active })
   const office = snapshot.status === 'ready' ? snapshot.data : undefined
-  const activity = activitySnapshot.status === 'ready' ? activitySnapshot.data : undefined
-  const channels = channelsSnapshot.status === 'ready' ? channelsSnapshot.data : undefined
   const [selectedName, setSelectedName] = useState<OfficeStation['name'] | undefined>()
   const selectedTrigger = useRef<HTMLElement | null>(null)
   const [chosenRoom, setChosenRoom] = useState<OfficeRoom | undefined>()
   const [webgl] = useState(() => typeof document === 'undefined' || webglAvailable())
-  const [panel, setPanel] = useState<PanelTab | undefined>(() => typeof window === 'undefined' ? undefined : storedPanel())
-  const [overlay, setOverlay] = useState<OverlayKind | undefined>()
-  const choosePanel = (next: PanelTab | undefined) => {
-    setPanel(next)
-    try { window.localStorage.setItem('mc.officePanel', next ?? 'closed') } catch { /* storage may be blocked */ }
+  // One side panel only: the briefing (the operations overview). Every other detail is a full page.
+  const [briefing, setBriefing] = useState(() => typeof window !== 'undefined' && storedBriefing())
+  // Leaving the page closes its dialogs; the scene itself (camera, floor, selection) stays as it was.
+  useEffect(() => {
+    if (active) return
+    setSelectedName(undefined)
+  }, [active])
+  const toggleBriefing = (open = !briefing) => {
+    setBriefing(open)
+    try { window.localStorage.setItem('mc.officePanel', open ? 'open' : 'closed') } catch { /* storage may be blocked */ }
   }
   const show3d = webgl
+  const showcase = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('characterShowcase')
   const select3d = (station: OfficeStation, trigger: HTMLElement | null) => { selectedTrigger.current = trigger; setSelectedName(station.name) }
   const counts = Object.fromEntries(ROOMS.map((item) => [item, office?.stations.filter((station) => station.room === item).length ?? 0])) as Record<OfficeRoom, number>
   // Until the viewer picks a room, open wherever the crew currently is.
   const room: OfficeRoom = chosenRoom ?? (counts.Workspace === 0 && counts.Lounge > 0 ? 'Lounge' : 'Workspace')
   const stations = office?.stations.filter((station) => station.room === room) ?? []
   const selected = office?.stations.find((station) => station.name === selectedName)
-  const sessions = activity?.sessions
-  const channelSource = channels?.channels
   const closeDetail = () => {
     setSelectedName(undefined)
     selectedTrigger.current?.focus()
   }
-  if (snapshot.status === 'pending') return <LoadingState message="Reading Batcave state..."/>
   const hud = hudItems(office, dashboard)
   // Hot desking: one unlabeled desk per agent.
   const deskCount = office?.stations.length ?? 0
   const stationButton2d = (station: OfficeStation) => { const badge = officeStateBadge(station.state); const busy = ['Working', 'Reviewing', 'Collaborating'].includes(station.state); return <button className={`pixel-station ${station.roomPosition} state-${station.state.toLowerCase()}`} key={station.id} onClick={(event) => { selectedTrigger.current = event.currentTarget; setSelectedName(station.name) }} aria-label={`${station.name}. ${officeStateLabel(station)}${station.activity ? `: ${station.activity}` : ''}. Open station details.`} title={station.activity || officeStateLabel(station)}>{busy && station.activity && <span className="speech" aria-hidden="true">{station.activity}</span>}<span className="pixel-station-name">{station.privacy === 'locked' ? '🔒 ' : ''}{station.name}</span><span className={`badge ${badge.tone}`}>{officeStateLabel(station)}</span>{station.state === 'Unknown' && <span className="neutral-label">NEUTRAL PRESENCE</span>}<PixelCharacter agent={station.id}/></button> }
-  const stationButton = (station: OfficeStation) => { const badge = officeStateBadge(station.state); return <button type="button" className="crew-row" key={station.name} onClick={(event) => { selectedTrigger.current = event.currentTarget; setSelectedName(station.name) }} aria-label={`Details for ${station.name}: ${officeStateLabel(station)}`}><PixelCharacter agent={station.id}/><span><strong>{station.name}</strong><small>{station.activity || station.role}</small></span><span className={`badge ${badge.tone}`}>{station.state}</span></button> }
   return <section className={`office-stage view-${show3d ? '3d' : '2d'}`} aria-label="Visual Batcave">
     {/* Single layer stage overlay for top controls */}
-    <div className="mo-stage-overlay">
+    {!showcase && <div className="mo-stage-overlay">
       <div className="mo-stage-top-left">
-        <div className="office-hud" role="list" aria-label="Key statistics">
-          {hud.map((item) => {
-            const body = <><span>{item.label}</span><b>{item.value}</b></>
-            return (
-              <div role="listitem" key={item.label}>
-                {item.page && onNavigate ? (
-                  <button type="button" className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title ?? `Open ${item.page}`} onClick={() => onNavigate(item.page!)}>
-                    {body}
-                  </button>
-                ) : (
-                  <span className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title}>
-                    {body}
-                  </span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="mo-stage-top-right">
-        <div className="mo-stage-toolbar">
-          {(['tasks', 'calendar', 'usage'] as const).map((item) => (
-            <button
-              type="button"
-              key={item}
-              className={`panel-toggle${overlay === item ? ' active' : ''}`}
-              aria-pressed={overlay === item}
-              onClick={() => setOverlay(overlay === item ? undefined : item)}
-            >
-              {item === 'tasks' ? '▦ Tasks' : item === 'calendar' ? '◷ Calendar' : '◔ Tokens'}
-            </button>
-          ))}
-          <button
-            type="button"
-            className={`panel-toggle${panel ? ' active' : ''}`}
-            aria-expanded={Boolean(panel)}
-            aria-controls="office-panel"
-            onClick={() => choosePanel(panel ? undefined : 'Crew')}
-          >
-            ◧ Panel
+        <div className="mo-lot-bar">
+          <LotPlate active={active}/>
+          <span className="mo-bar-rule" aria-hidden="true"/>
+          <SceneResourceStatus request={snapshot}/>
+          {hud.length > 0 && <>
+            <span className="mo-bar-rule mo-bar-rule-stats" aria-hidden="true"/>
+            <div className="office-hud" role="list" aria-label="Key statistics">
+              {hud.map((item) => {
+                const body = <><span>{item.label}</span><b>{item.value}</b></>
+                return (
+                  <div role="listitem" key={item.label}>
+                    {item.page && onNavigate ? (
+                      <button type="button" className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title ?? `Open ${item.page}`} onClick={() => onNavigate(item.page!)}>{body}</button>
+                    ) : (
+                      <span className={`hud-chip${item.tone ? ` ${item.tone}` : ''}`} title={item.title}>{body}</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>}
+          <span className="mo-bar-rule" aria-hidden="true"/>
+          <button type="button" className={`mo-bar-btn${briefing ? ' active' : ''}`} aria-expanded={briefing} aria-controls="office-panel" onClick={() => toggleBriefing()}>
+            <Icon name="sidebar" size={16}/>
+            <span>Briefing</span>
           </button>
-          {onToggleFullscreen && (
-            <button
-              type="button"
-              className={`panel-toggle${isFullscreen ? ' active' : ''}`}
-              aria-pressed={isFullscreen}
-              onClick={onToggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              {isFullscreen ? '⛶ Window' : '⛶ Fullscreen'}
-            </button>
-          )}
         </div>
       </div>
-    </div>
+    </div>}
 
     <div className="office-canvas">
       {show3d ? (
@@ -267,6 +245,7 @@ export function Office({
               onSelect={select3d}
               isFullscreen={isFullscreen}
               onToggleFullscreen={onToggleFullscreen}
+              active={active}
             />
           </Suspense>
         </SceneBoundary>
@@ -285,26 +264,17 @@ export function Office({
           {room === 'Lounge' && stations.length === 0 && <p className="room-empty">No declared idle presence</p>}
           {room === 'Workspace' && stations.length === 0 && office && <p className="room-empty">Desks are empty · crew is resting</p>}
         </section></div></>}
-      {snapshot.status === 'failed' && <section className="empty-state office-failed"><h2>Not Available</h2><p>The Batcave source could not be reached.</p></section>}
     </div>
-    {show3d && <small className="office-3d-hint">Drag to rotate · right-drag, two fingers or Geser to pan · scroll to zoom · click an agent for details</small>}
-    {panel && <aside id="office-panel" className="office-panel" aria-label="Batcave panel" onKeyDown={(event) => { if (event.key === 'Escape' && !selected) { event.stopPropagation(); choosePanel(undefined) } }}>
-      <div className="office-panel-head"><div className="panel-tabs" role="tablist" aria-label="Panel">{PANEL_TABS.map((tab) => <button type="button" role="tab" key={tab} aria-selected={panel === tab} className={panel === tab ? 'active' : ''} onClick={() => choosePanel(tab)}>{tab}</button>)}</div><button type="button" className="icon-button" onClick={() => choosePanel(undefined)} aria-label="Close panel">✕</button></div>
-      <div className="office-panel-body" role="tabpanel" aria-label={panel}>
-        {panel === 'Crew' && <>
-          <SourceStatus source={office ? { availability: 'available', data: null } : undefined} fetchedAt={office?.fetchedAt} request={snapshot}/>
-          <section className="office-summary"><p className="eyebrow">CREW SNAPSHOT</p><strong>{office?.summary.active ?? 0} active work</strong><span>{office?.summary.idle ?? 0} Idle (managed)</span><span>{office?.summary.unknown ?? 0} Unknown / {office?.summary.offline ?? 0} Offline</span><hr/><span>Gateways running: {office ? `${office.summary.gatewaysReachable} of ${office.summary.gatewaysDeclared}` : 'Not Available'}</span></section>
-          <div className="crew-list">{office?.stations.map(stationButton)}</div>
-          <small className="muted">Stations show only attributable work. Select one for its evidence and freshness.</small>
-        </>}
-        {panel === 'Stats' && <Stats dashboard={dashboard ?? null} pending={dashboardPending} onNavigate={onNavigate}/>}
-        {panel === 'Activity' && <>
-          <section className="office-feed"><p className="eyebrow">LIVE ACTIVITY</p><h2>Unattributed sessions</h2>{sessions?.availability === 'unavailable' ? <p>Not Available</p> : !sessions ? <p>Loading read-only metadata...</p> : sessions.data.length === 0 ? <p>No session metadata available.</p> : sessions.data.slice(0, 5).map((session) => <article key={session.id ?? session.title}><strong>{session.title}</strong><span>{session.lastActive}</span></article>)}<small>Generic session metadata never changes crew state.</small></section>
-          <section className="office-feed"><p className="eyebrow">CHANNELS</p><h2>Messaging platforms</h2>{channelSource?.availability === 'unavailable' ? <p>Not Available</p> : !channelSource ? <p>Loading safe status...</p> : channelSource.data.length === 0 ? <p>No configured channels.</p> : channelSource.data.map((channel) => <article key={channel.name}><strong>{channel.name}</strong><span>{channel.status}</span></article>)}{channels?.activeSessions !== undefined && <small>{channels.activeSessions} active session{channels.activeSessions === 1 ? '' : 's'}</small>}</section>
-        </>}
+    {show3d && !showcase && <small className="office-3d-hint">Click to select · left-drag to rotate · right-drag to pan · wheel to zoom · R to reset</small>}
+    {!showcase && briefing && <aside id="office-panel" className="office-panel" aria-labelledby="office-panel-title" onKeyDown={(event) => { if (event.key === 'Escape' && !selected) { event.stopPropagation(); toggleBriefing(false) } }}>
+      <div className="office-panel-head">
+        <h2 id="office-panel-title" className="office-panel-title">Briefing</h2>
+        <button type="button" className="icon-button" onClick={() => toggleBriefing(false)} aria-label="Close briefing"><Icon name="close" size={16}/></button>
+      </div>
+      <div className="office-panel-body">
+        <Stats dashboard={dashboard ?? null} pending={dashboardPending} onNavigate={onNavigate}/>
       </div>
     </aside>}
-    {overlay && <OfficeOverlay kind={overlay} onClose={() => setOverlay(undefined)} onNavigate={onNavigate}/>}
     {selected && <OfficeDetail station={selected} onClose={closeDetail}/>}
   </section>
 }

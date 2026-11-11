@@ -1,0 +1,91 @@
+/* Design tokens: "Tactical" theme (ADR-008). The house-simulation layout of ADR-006 dressed as a
+   night-ops command HUD: near-black panels, steel hairlines, small radii and cut corners, and one
+   signal-amber accent. Contrast is checked against this file in tests/tokens-contrast.test.ts.
+
+   Type: Barlow Condensed (headings, labels, numbers; tall, narrow and engineered, like stencilled
+   equipment markings) over Barlow (body; the same family, so the two never clash). Both ship as
+   local files from npm (@fontsource), so nothing loads from a CDN. */
+
+:root {
+  color-scheme: dark;
+  --font-sans: 'Barlow', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  --font-display: 'Barlow Condensed', 'Barlow', 'Arial Narrow', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* The night behind the windows */
+  --sky-top: #040506;
+  --sky-bottom: #10141b;
+  --bg: #060709;
+
+  /* Surfaces */
+  --surface: #0e1014;
+  --surface-2: #14171c;
+  --surface-3: #1c2027;
+  --hud: rgba(9, 10, 13, 0.92);
+  --hud-solid: #0b0c10;
+  --line: #242932;
+  --line-strong: #353c47;
+  --glass-edge: rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --text: #e8eaee;
+  --text-2: #aeb4bf;
+  --text-3: #868d99;
+
+  /* One accent: signal amber */
+  --accent: #f2c230;
+  --accent-hover: #ffd75e;
+  --accent-deep: #8a6a0e;
+  --accent-soft: #221c0b;
+  --accent-ink: #0a0b0d;
+  --accent-glow: rgba(242, 194, 48, 0.3);
+
+  /* The bat mark */
+  --mark: #f2c230;
+
+  /* Agent states */
+  --st-working: #4ade80;
+  --st-collab: #60a5fa;
+  --st-reviewing: #a78bfa;
+  --st-deploying: #fb923c;
+  --st-triage: #f87171;
+  --st-idle: #868d99;
+  --st-offline: #5b6270;
+  --st-unknown: #737b88;
+
+  /* Meaning */
+  --good: #4ade80;
+  --good-soft: #0f2318;
+  --warn: #fbbf24;
+  --warn-soft: #261d07;
+  --bad: #f87171;
+  --bad-soft: #2a1113;
+  --info: #60a5fa;
+  --info-soft: #0f1d35;
+  --violet: #c4b5fd;
+  --violet-soft: #1d1830;
+
+  /* Shape: small radii; the accent elements get a cut corner instead */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 6px;
+  --r-pill: 3px;
+  --cut: 8px;
+  --chamfer: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.55), 0 14px 34px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.65);
+  --control-h: 32px;
+  --hud-gap: 14px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 140ms;
+
+  /* Names used by the carried-over 2D office stylesheet */
+  --text-muted: var(--text-3);
+  --text-dim: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms; }
+}

@@ -1,0 +1,66 @@
+{
+  "base": "http://127.0.0.1:3001",
+  "initialReadySeconds": 0.33,
+  "initialApiRequests": 7,
+  "navigations": 220,
+  "apiRequestsDuringNavigation": 147,
+  "apiRequestsPerNavigation": 0.668,
+  "loadingIndicatorShownOnNavigations": 0,
+  "loadingIndicatorByPage": {},
+  "navigationCommitMsMedian": 27.3,
+  "navigationCommitMsP95": 2098.5,
+  "memoryBefore": {
+    "jsHeapUsedMB": 13.04,
+    "domNodes": 407,
+    "jsEventListeners": 270
+  },
+  "memoryAfter": {
+    "jsHeapUsedMB": 14.37,
+    "domNodes": 409,
+    "jsEventListeners": 307
+  },
+  "memoryAfterNRounds": {
+    "0": {
+      "jsHeapUsedMB": 12.97,
+      "domNodes": 407,
+      "jsEventListeners": 270
+    },
+    "4": {
+      "jsHeapUsedMB": 14.3,
+      "domNodes": 409,
+      "jsEventListeners": 307
+    },
+    "9": {
+      "jsHeapUsedMB": 14.34,
+      "domNodes": 409,
+      "jsEventListeners": 307
+    },
+    "19": {
+      "jsHeapUsedMB": 14.56,
+      "domNodes": 409,
+      "jsEventListeners": 270
+    }
+  },
+  "webglContextsCreatedDuringNavigation": 0,
+  "eventSourcesOpened": 0,
+  "webSocketsOpened": 0,
+  "pageErrors": [],
+  "requestsByEndpointDuringNavigation": {
+    "/api/tasks": 14,
+    "/api/usage": 4,
+    "/api/calendar": 6,
+    "/api/memory": 6,
+    "/api/profile-lock": 6,
+    "/api/folders": 4,
+    "/api/logs": 21,
+    "/api/command-log": 21,
+    "/api/runtime": 4,
+    "/api/diagnostics": 11,
+    "/api/agent/status": 20,
+    "/api/dashboard": 13,
+    "/api/office": 15,
+    "/api/activity": 11,
+    "/api/channels": 6,
+    "/api/health": 3
+  }
+}

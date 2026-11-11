@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { accessRequest, type AccessStatus } from './access.ts'
+import { BatMark } from './components/ui/BatMark.tsx'
 
 export function LockScreen({
   status,
@@ -42,7 +43,7 @@ export function LockScreen({
     <main className="mo-lock-screen">
       <form className="mo-lock-container" onSubmit={submit} aria-labelledby="lock-title">
         <div className="mo-lock-brand">
-          <span className="mo-brand-mark">◆</span>
+          <BatMark size={40} />
           <span className="mo-brand-text">batcave</span>
         </div>
 
@@ -69,7 +70,7 @@ export function LockScreen({
             className="mo-btn mo-btn-ghost mo-btn-sm"
             onClick={() => setShow(!show)}
           >
-            {show ? 'HIDE' : 'SHOW'}
+            {show ? 'Hide' : 'Show'}
           </button>
         </div>
 

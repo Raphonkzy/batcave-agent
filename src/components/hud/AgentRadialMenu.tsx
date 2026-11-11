@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import { StatusDot } from '../ui/Primitives.tsx'
 
 export interface AgentRadialMenuProps {
@@ -17,6 +17,8 @@ export interface AgentRadialMenuProps {
   onLocate: () => void
   onMissions: () => void
   onLogs: () => void
+  /** Receives the root element, so the scene can keep it pinned to the walking agent. */
+  rootRef?: MutableRefObject<HTMLDivElement | null>
 }
 
 export function AgentRadialMenu({
@@ -29,8 +31,9 @@ export function AgentRadialMenu({
   onLocate,
   onMissions,
   onLogs,
+  rootRef,
 }: AgentRadialMenuProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,7 +69,7 @@ export function AgentRadialMenu({
 
   return (
     <div
-      ref={containerRef}
+      ref={(element) => { containerRef.current = element; if (rootRef) rootRef.current = element }}
       className="mo-radial-menu-root"
       style={{ left: x, top: y }}
       role="menu"

@@ -104,7 +104,7 @@ export function Logs() {
             onClick={() => setFollow(!follow)}
             title="Auto-scroll to latest output"
           >
-            {follow ? '✓ Follow Tail (5s)' : 'Follow Tail (Off)'}
+            {follow ? 'Following live (5 s)' : 'Follow live'}
           </button>
         </div>
       </div>

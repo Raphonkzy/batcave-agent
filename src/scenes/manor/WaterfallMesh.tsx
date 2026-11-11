@@ -1,8 +1,11 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { CAVE_CEILING, SURFACE_Y } from '../../utils/layout/dimensions.ts'
 import { glowSprite } from './textures.ts'
+import { box, shape, type Part } from './parts.ts'
+import { buildWorldBatches } from './batches.ts'
+import { Batches } from './Instanced.tsx'
 import { isDeckView, type ManorLayoutData, type ManorView, type QualityProfile } from './ZoneLayout.ts'
 // The waterfall from the pool's vanishing edge to the basin: a thick falling sheet with a
 // procedural noise shader whose texture scrolls down in useFrame, foam where it lands, and (high
@@ -32,11 +35,22 @@ void main() {
   gl_FragColor = vec4(colour, clamp(alpha, 0.0, 0.95));
 }`
 export function WaterfallMesh({ layout, profile, animate, view }: { layout: ManorLayoutData; profile: QualityProfile; animate: boolean; view: ManorView }) {
-  const pool = layout.items.find((item) => item.type === 'infinityPool')!
+  // Independent natural spring: moving the recreational pool must not move the deck waterfall.
+  const stream = { z: (layout.chasm.minZ + layout.chasm.maxZ) / 2, width: Math.min(4, layout.chasm.maxZ - layout.chasm.minZ - 1) }
   const x = layout.chasm.minX + 0.5
   // On the deck view the rock above is lifted away, so only the part inside the cave is drawn.
   const top = isDeckView(view) ? CAVE_CEILING : SURFACE_Y + 0.02
   const height = top - layout.chasm.waterY
+  const rocks = useMemo(() => {
+    const parts: Part[] = []
+    // Two irregular rock shoulders enclose the spring without covering the falling channel.
+    for (const side of [-1, 1]) for (let row = 0; row < 5; row++) {
+      const h = height / 5, cy = layout.chasm.waterY + h * (row + 0.5)
+      parts.push(shape('ico', 'wetRock', [x - 0.45, cy, stream.z + side * (stream.width / 2 + 0.55 + (row % 2) * 0.2)], [2.4, h * 1.65, 1.7], [row * 0.21, side * row * 0.4, 0]))
+    }
+    parts.push(box('wetRock', [x - 0.9, top - 0.28, stream.z], [1.6, 0.4, stream.width + 1.6]))
+    return buildWorldBatches(parts)
+  }, [height, layout.chasm.waterY, stream.width, stream.z, top, x])
   const material = useMemo(() => new THREE.ShaderMaterial({ vertexShader: vertex, fragmentShader: fragment, transparent: true, depthWrite: false, side: THREE.DoubleSide, uniforms: { uOffset: { value: 0 }, uDetail: { value: 1 } } }), [])
   const mist = useRef<THREE.Group>(null)
   const foam = useRef<THREE.Mesh>(null)
@@ -61,9 +75,12 @@ export function WaterfallMesh({ layout, profile, animate, view }: { layout: Mano
       ;(child as THREE.Sprite).material.opacity = 0.3 * Math.sin(t * Math.PI)
     })
   })
-  return <group>
-    <mesh position={[x, top - height / 2, pool.z]} material={material}><boxGeometry args={[0.7, height, pool.d - 0.2]}/></mesh>
-    <mesh ref={foam} position={[x, layout.chasm.waterY + 0.02, pool.z]} rotation={[-Math.PI / 2, 0, 0]} material={foamMaterial}><ringGeometry args={[0.5, 1.7, 28]}/></mesh>
-    {profile.mist && <group ref={mist}>{puffs.map((puff, index) => <sprite key={index} position={[x + 0.4 + puff.dx, layout.chasm.waterY + 0.5, pool.z + puff.dz]} scale={[1.8, 1.8, 1]} material={puff.material}/>)}</group>}
+  useEffect(() => () => { material.dispose(); foamMaterial.dispose(); puffs.forEach(puff => puff.material.dispose()) }, [material, foamMaterial, puffs])
+  return <group name="CommandDeckWaterfall">
+    <Batches batches={rocks} shadows={false}/>
+    <mesh position={[x, top - height / 2, stream.z]} material={material}><boxGeometry args={[0.7, height, stream.width]}/></mesh>
+    <mesh position={[x - 0.4, top - 0.02, stream.z]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1.5, stream.width]}/><meshStandardMaterial color="#83b7c0" roughness={0.08} metalness={0.2}/></mesh>
+    <mesh ref={foam} position={[x, layout.chasm.waterY + 0.02, stream.z]} rotation={[-Math.PI / 2, 0, 0]} material={foamMaterial}><ringGeometry args={[0.5, 1.7, 28]}/></mesh>
+    {profile.mist && <group ref={mist}>{puffs.map((puff, index) => <sprite key={index} position={[x + 0.4 + puff.dx, layout.chasm.waterY + 0.5, stream.z + puff.dz]} scale={[1.8, 1.8, 1]} material={puff.material}/>)}</group>}
   </group>
 }

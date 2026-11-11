@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Activity } from './pages/Activity.tsx'
 import { Agents } from './pages/Agents.tsx'
 import { Calendar } from './pages/Calendar.tsx'
@@ -17,101 +17,53 @@ import { API_VERSION } from './api-version.ts'
 import { APP_NAME, APP_TITLE } from './brand.ts'
 import { RefreshContext, usePolling } from './polling.ts'
 import { HOME, pageFromHash, pageSlug, type Page } from './routes.ts'
+import { modeOf, type Mode, type ModeId } from './navigation.ts'
 import type { DashboardSnapshot } from './types.ts'
-import { AppHeader } from './components/shell/AppHeader.tsx'
-import { SideNav } from './components/shell/SideNav.tsx'
+import { LotModes } from './components/shell/LotModes.tsx'
+import { GameWindow } from './components/shell/GameWindow.tsx'
 import { CommandPalette } from './components/shell/CommandPalette.tsx'
+import { AgentProvider } from './agent/AgentProvider.tsx'
+import { hasOpenDialog } from './open-dialog.ts'
+
+/** How long the 3D Batcave stays alive behind other pages before its GPU memory is released. */
+const OFFICE_KEEPALIVE_MS = 10 * 60_000
+
+/**
+ * The kept-alive Batcave page. While it is hidden nothing about it can change on screen, so the
+ * shell re-rendering (every navigation, every data refresh) must not re-render the whole 3D page.
+ */
+const KeptOffice = memo(Office, (previous, next) => previous?.active === false && next?.active === false)
+
+const TYPING = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
 
 function currentPage(): Page {
   return typeof window === 'undefined' ? HOME : pageFromHash(window.location.hash)
 }
 
-function getInitialSideNavMode(): 'open' | 'rail' {
-  if (typeof window === 'undefined') return 'open'
-  const saved = localStorage.getItem('batcave.sideNav')
-  if (saved === 'open' || saved === 'rail') return saved
-  return window.innerWidth >= 1100 ? 'open' : 'rail'
-}
-
-function getInitialPinned(): boolean {
-  if (typeof window === 'undefined') return true
-  const saved = localStorage.getItem('batcave.sideNavPinned')
-  return saved !== null ? saved === 'true' : true
-}
-
 function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; access: AccessStatus | undefined; onAccessChange: (status: AccessStatus) => void }) {
   const [page, setPage] = useState<Page>(currentPage)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [navMode, setNavMode] = useState<'open' | 'rail'>(getInitialSideNavMode)
-  const [pinned, setPinned] = useState(getInitialPinned)
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 760)
+  // Each mode reopens on the page it was left on, as a game menu remembers its last tab.
+  const lastPage = useRef<Partial<Record<ModeId, Page>>>({})
+  const mode = modeOf(page)
+  lastPage.current[mode.id] = page
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 760)
+  const toggleFullscreen = useCallback(() => {
+    try {
+      if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => {})
+      else void document.exitFullscreen?.().catch(() => {})
+    } catch {
+      // The browser may refuse; the button simply has no effect then.
     }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const toggleNavMode = () => {
-    setNavMode((prev) => {
-      const next = prev === 'open' ? 'rail' : 'open'
-      localStorage.setItem('batcave.sideNav', next)
-      return next
-    })
-  }
-
-  const togglePin = useCallback(() => {
-    setPinned((prev) => {
-      const next = !prev
-      localStorage.setItem('batcave.sideNavPinned', String(next))
-      if (!next) setDrawerOpen(false)
-      return next
-    })
-  }, [])
-
-  const toggleFullscreen = () => {
-    setIsFullscreen((prev) => {
-      const next = !prev
-      if (next) {
-        try {
-          if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-            void document.documentElement.requestFullscreen().catch(() => {})
-          }
-        } catch {
-          // Ignore browser restriction errors
-        }
-      } else {
-        try {
-          if (document.fullscreenElement && document.exitFullscreen) {
-            void document.exitFullscreen().catch(() => {})
-          }
-        } catch {
-          // Ignore browser restriction errors
-        }
-      }
-      return next
-    })
-  }
-
   useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement))
-    }
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
 
-  const handleToggleNav = () => {
-    if (!pinned || isMobile) {
-      setDrawerOpen((prev) => !prev)
-    } else {
-      togglePin()
-    }
-  }
   const dashboard = usePolling<DashboardSnapshot>('/api/dashboard', 15_000)
   const data = dashboard.status === 'ready' ? dashboard.data : null
   const health = usePolling<{ apiVersion?: number }>('/api/health', 60_000)
@@ -130,54 +82,49 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
     document.title = page === HOME ? APP_TITLE : `${page} · ${APP_NAME}`
   }, [page])
 
+  const navigate = useCallback((next: Page) => {
+    window.location.hash = `/${pageSlug(next)}`
+    setPage(next)
+  }, [])
+  const openMode = useCallback((target: Mode) => navigate(lastPage.current[target.id] ?? target.pages[0]), [navigate])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      // ⌘K / Ctrl+K opens Command Palette
+      // Ctrl+K / Cmd+K opens search from anywhere.
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        setPaletteOpen((prev) => !prev)
+        setPaletteOpen((open) => !open)
         return
       }
-      // ⌘B / Ctrl+B toggles sidebar pin
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
-        event.preventDefault()
-        togglePin()
-        return
-      }
-      // 'M' shortcut opens Command Palette as well (clean replacement for old menu)
-      if (event.key.toLowerCase() === 'm' && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        const target = event.target as HTMLElement | null
-        if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
-        if (document.querySelector('[role="dialog"]')) return
-        event.preventDefault()
-        setPaletteOpen((prev) => !prev)
-      }
+      // Escape closes the open window and returns to the live lot, unless something inside it
+      // (a dialog, a menu, a text field) is using the key.
+      if (event.key !== 'Escape' || event.defaultPrevented || page === HOME || paletteOpen) return
+      const target = event.target as HTMLElement | null
+      if (target && (target.isContentEditable || TYPING.has(target.tagName))) return
+      if (hasOpenDialog()) return
+      event.preventDefault()
+      navigate(HOME)
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [togglePin])
-
-  const navigate = (next: Page) => {
-    window.location.hash = `/${pageSlug(next)}`
-    setPage(next)
-    window.scrollTo?.({ top: 0 })
-  }
+  }, [page, paletteOpen, navigate])
 
   const profilesList = data?.runtime?.profiles?.data ?? []
-  const activeAgents = data?.office ? data.office.active : 0
-  const totalAgents = profilesList.length || (data?.office ? data.office.declared : 0)
+
+  // The Batcave page owns the 3D scene (a WebGL context plus its geometry and textures). It is
+  // mounted on the first visit and then kept behind the other pages, paused, so coming back is
+  // instant instead of rebuilding the scene. If nobody returns for a while, it is released.
+  const [officeKept, setOfficeKept] = useState(page === 'Batcave')
+  if (page === 'Batcave' && !officeKept) setOfficeKept(true)
+  useEffect(() => {
+    if (page === 'Batcave' || !officeKept) return
+    const timer = window.setTimeout(() => setOfficeKept(false), OFFICE_KEEPALIVE_MS)
+    return () => window.clearTimeout(timer)
+  }, [page, officeKept])
 
   const content =
-    page === 'Agents' ? (
+    page === 'Batcave' ? null : page === 'Agents' ? (
       <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'} />
-    ) : page === 'Batcave' ? (
-      <Office
-        dashboard={data}
-        dashboardPending={dashboard.status === 'pending'}
-        onNavigate={navigate}
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={toggleFullscreen}
-      />
     ) : page === 'Missions' ? (
       <Missions onNavigate={navigate} />
     ) : page === 'Usage' ? (
@@ -198,49 +145,47 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
       <Logs />
     )
 
-  const sideWidth = isMobile || !pinned || isFullscreen ? '0px' : navMode === 'rail' ? '64px' : '224px'
-
+  const live = page === 'Batcave'
   return (
-    <div
-      className={`mo-app-container ${page === 'Batcave' ? 'mo-page-home' : 'mo-page-sub'} ${
-        isFullscreen ? 'mo-fullscreen' : ''
-      } ${!pinned ? 'mo-unpinned' : ''}`}
-      style={{ '--side-w': sideWidth } as React.CSSProperties}
-    >
-      <AppHeader
+    <div className="lot-app" data-mode={mode.id}>
+      {/* The sky shows when the 3D lot has not been opened yet (or was released). */}
+      <div className="lot-sky" aria-hidden="true" />
+      {officeKept && (
+        <div className="lot-stage" inert={!live} aria-hidden={live ? undefined : true}>
+          <KeptOffice
+            dashboard={data}
+            dashboardPending={dashboard.status === 'pending'}
+            onNavigate={navigate}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            active={live}
+          />
+        </div>
+      )}
+
+      <LotModes
         currentPage={page}
-        activeCount={activeAgents}
-        totalCount={totalAgents}
-        onOpenPalette={() => setPaletteOpen(true)}
-        onNavigateHome={() => navigate(HOME)}
+        onOpenMode={openMode}
+        onNavigate={navigate}
+        onOpenSearch={() => setPaletteOpen(true)}
         onRefresh={onRefresh}
-        onToggleNav={handleToggleNav}
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
       />
 
-      <div className="mo-app-body">
-        <SideNav
-          currentPage={page}
-          onNavigate={navigate}
-          mode={navMode}
-          onToggleMode={toggleNavMode}
-          drawerOpen={drawerOpen}
-          onCloseDrawer={() => setDrawerOpen(false)}
-          isMobile={isMobile}
-          pinned={pinned}
-          onTogglePin={togglePin}
-        />
+      {versionNotice && (
+        <section className="lot-toast" role="alert">
+          <strong>Restart needed.</strong> {versionNotice}
+        </section>
+      )}
 
-        <main className="mo-main-content">
-          {versionNotice && (
-            <section className="notice version-notice" role="alert">
-              <strong>Restart needed.</strong> {versionNotice}
-            </section>
-          )}
-          <div className="mo-page-wrapper">{content}</div>
+      {content && (
+        <main className="lot-window-layer">
+          <GameWindow mode={mode} page={page} onNavigate={navigate} onClose={() => navigate(HOME)}>
+            {content}
+          </GameWindow>
         </main>
-      </div>
+      )}
 
       <CommandPalette
         open={paletteOpen}
@@ -269,5 +214,6 @@ export function App() {
 
   if (!checked) return <main className="lock-screen" aria-busy="true"/>
   if (access?.enabled && !access.unlocked) return <LockScreen status={access} onUnlocked={(status) => { setAccess(status); setTick((value) => value + 1) }}/>
-  return <RefreshContext.Provider value={tick}><Shell access={access} onAccessChange={setAccess} onRefresh={() => setTick((value) => value + 1)}/></RefreshContext.Provider>
+  // The connection provider sits above the page switch: it is mounted once and survives every navigation.
+  return <RefreshContext.Provider value={tick}><AgentProvider><Shell access={access} onAccessChange={setAccess} onRefresh={() => setTick((value) => value + 1)}/></AgentProvider></RefreshContext.Provider>
 }

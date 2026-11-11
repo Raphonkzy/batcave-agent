@@ -7,13 +7,6 @@ import { MonthView } from './CalendarMonthView.tsx'
 
 export { MonthView }
 
-export function CalendarOverlayView() {
-  const snapshot = usePolling<CalendarSnapshot>('/api/calendar', 30_000)
-  const jobs = snapshot.status === 'ready' ? snapshot.data.jobs : undefined
-  if (snapshot.status === 'pending') return <div className="text-muted">Loading cron jobs...</div>
-  return jobs?.availability === 'available' ? <MonthView jobs={jobs.data} /> : null
-}
-
 function relativeNextRun(dateStr?: string): string {
   if (!dateStr) return '—'
   const target = new Date(dateStr).getTime()

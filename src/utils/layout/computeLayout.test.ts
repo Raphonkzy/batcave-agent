@@ -174,8 +174,8 @@ describe('computeLayout: the surface manor (5.1 B)', () => {
     expect(td).toBeGreaterThanOrEqual(6)
     const [pool] = of(layout, 'infinityPool')
     expect([pool.w, pool.d, pool.h]).toEqual([8, 4, 1])
-    // The pool's eastern edge is the cliff edge above the chasm.
-    expect(footprintOf(pool).maxX).toBeCloseTo(layout.zones.terracePool.maxX, 9)
+    // The separate garden court keeps an east-side circulation strip clear of water.
+    expect(layout.zones.terracePool.maxX - footprintOf(pool).maxX).toBeGreaterThanOrEqual(3.1)
     const [fire] = of(layout, 'fireplace')
     expect([fire.w, fire.d, fire.h]).toEqual([3, 1.2, 3.5])
     expect(of(layout, 'highChair')).toHaveLength(n + 2)

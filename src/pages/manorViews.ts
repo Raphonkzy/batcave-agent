@@ -1,4 +1,5 @@
 import type { ManorView, Level, WallMode } from '../scenes/manor/ZoneLayout.ts'
+export const LEVEL_CYCLE: Level[] = ['upper', 'ground', 'deck']
 export const VIEW_KEY = 'batcave.manorView'
 export const UPPER_KEY = 'batcave.manorUpper'
 export const LEVEL_KEY = 'batcave.level'

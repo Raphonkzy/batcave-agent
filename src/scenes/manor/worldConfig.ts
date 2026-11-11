@@ -1,48 +1,24 @@
-/**
- * World Configuration for Batcave 3D (Tactical Manor Estate)
- * Defines entrance threshold D, facing vector F, lot bounds, gate position, and path geometry.
- */
+import { plan, SURFACE_Y } from '../../utils/layout/dimensions.ts'
+import type { ManorLayoutData, Vec3 } from '../../utils/layout/types.ts'
 
-export const WORLD_CONFIG = {
-  entrance: {
-    // Threshold D: Outer threshold of manor front doors at ground surface level (Y = 11)
-    threshold: [0, 11, -8.0] as [number, number, number],
-    // Facing vector F: Outward normal along XZ plane from entrance pointing towards exterior yard
-    facing: [0, 0, -1] as [number, number, number],
-  },
-  gate: {
-    position: [0, 11, -46.0] as [number, number, number],
-    width: 7.0,
-  },
-  lot: {
-    minX: -32,
-    maxX: 32,
-    minZ: -48,
-    maxZ: 32,
-    surfaceY: 11,
-  },
-  pathPolyline: [
-    [0, 11, -8.0],   // Ambang pintu D
-    [0, 11, -9.5],   // Ujung teras 2 anak tangga
-    [0, 11, -20.0],  // Jalan setapak batu (lebar 2.0m)
-    [0, 11, -25.0],  // Titik tengah bundaran taman formal
-    [0, 11, -30.0],  // Ujung bundaran
-    [0, 11, -46.0],  // Pintu gerbang utama
-  ] as [number, number, number][],
+/** +Y is up; +Z is the formal front. The pool occupies a separate west garden court. */
+export function estateConfig(layout?: ManorLayoutData) {
+  const p = plan(layout?.agentCount ?? 12)
+  const z = layout?.zones.entranceHall.maxZ ?? p.terraceZ
+  const pool = layout?.items.find((item) => item.type === 'infinityPool')
+  const poolEast = layout?.zones.terracePool.maxX ?? -p.ww - 8
+  const poolZ = pool?.z ?? z + 13
+  const gateZ = z + 24
+  return {
+    entrance: { threshold: [0, SURFACE_Y, z] as Vec3, facing: [0, 0, 1] as Vec3 },
+    gate: { position: [0, SURFACE_Y, gateZ] as Vec3, width: 7 },
+    lot: { minX: Math.min(-32, (layout?.bounds.minX ?? -p.half) - 4), maxX: Math.max(32, p.half + 4), minZ: -20, maxZ: gateZ + 2, surfaceY: SURFACE_Y },
+    pathWidth: 2.8,
+    pathPolyline: [[0, SURFACE_Y, z], [0, SURFACE_Y, z + 6], [0, SURFACE_Y, gateZ]] as Vec3[],
+    poolConnector: [[-6, SURFACE_Y, z + 3], [poolEast - 1.2, SURFACE_Y, z + 3], [poolEast - 1.2, SURFACE_Y, poolZ]] as Vec3[],
+  }
 }
-
-export function dot(a: [number, number, number], b: [number, number, number]): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-export function sub(a: [number, number, number], b: [number, number, number]): [number, number, number] {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
-}
-
-export function dist(a: [number, number, number], b: [number, number, number]): number {
-  const dx = a[0] - b[0]
-  const dy = a[1] - b[1]
-  const dz = a[2] - b[2]
-  return Math.sqrt(dx * dx + dy * dy + dz * dz)
-}
-
+export const WORLD_CONFIG = estateConfig()
+export function dot(a: Vec3, b: Vec3): number { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] }
+export function sub(a: Vec3, b: Vec3): Vec3 { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]] }
+export function dist(a: Vec3, b: Vec3): number { return Math.hypot(...sub(a, b)) }

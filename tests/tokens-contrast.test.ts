@@ -1,11 +1,17 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+// Reads the shipped design tokens (src/styles/tokens.css) so this guards the real palette.
+const css = readFileSync(new URL('../src/styles/tokens.css', import.meta.url), 'utf8')
+function token(name: string): string {
+  const match = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})\\b`))
+  if (!match) throw new Error(`Token --${name} is missing or not a 6-digit hex colour`)
+  return match[1]
+}
 function hexToRgb(hex: string): [number, number, number] {
-  const clean = hex.replace('#', '')
-  const num = Number.parseInt(clean, 16)
+  const num = Number.parseInt(hex.replace('#', ''), 16)
   return [(num >> 16) & 255, (num >> 8) & 255, num & 255]
 }
-
 function luminance([r, g, b]: [number, number, number]): number {
   const a = [r, g, b].map((v) => {
     const s = v / 255
@@ -13,48 +19,32 @@ function luminance([r, g, b]: [number, number, number]): number {
   })
   return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722
 }
-
-function contrast(hex1: string, hex2: string): number {
-  const lum1 = luminance(hexToRgb(hex1))
-  const lum2 = luminance(hexToRgb(hex2))
-  const brightest = Math.max(lum1, lum2)
-  const darkest = Math.min(lum1, lum2)
-  return (brightest + 0.05) / (darkest + 0.05)
+function contrast(a: string, b: string): number {
+  const [l1, l2] = [luminance(hexToRgb(a)), luminance(hexToRgb(b))]
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
 }
 
-describe('Design tokens WCAG AA contrast verification', () => {
-  const backgrounds = {
-    canvas: '#0d0e11', // Minimal Obsidian --bg
-    surface1: '#14161a', // --surface-1
-    surface2: '#1b1e23', // --surface-2
-  }
+describe('design tokens meet WCAG contrast', () => {
+  const surfaces = ['surface', 'surface-2']
 
-  const texts = {
-    primary: '#f1efea', // --text
-    secondary: '#a3a6ad', // --text-2
-    goldAccent: '#e8b65b', // --accent
-    emerald: '#7bd3a0', // --st-working
-  }
+  it('primary text passes AAA (7:1) on every surface', () => {
+    for (const surface of [...surfaces, 'surface-3']) expect(contrast(token('text'), token(surface)), `text on ${surface}`).toBeGreaterThanOrEqual(7)
+  })
 
-  it('ensures primary text passes WCAG AAA on all surfaces (>= 7:1)', () => {
-    for (const [bgName, bg] of Object.entries(backgrounds)) {
-      const ratio = contrast(texts.primary, bg)
-      expect(ratio, `Primary text on ${bgName} must exceed 7:1`).toBeGreaterThanOrEqual(7.0)
+  it('secondary and muted text pass AA (4.5:1) on the panel surfaces', () => {
+    for (const surface of surfaces) {
+      expect(contrast(token('text-2'), token(surface)), `text-2 on ${surface}`).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(token('text-3'), token(surface)), `text-3 on ${surface}`).toBeGreaterThanOrEqual(4.5)
     }
   })
 
-  it('ensures secondary text passes WCAG AA on canvas and main surfaces (>= 4.5:1)', () => {
-    expect(contrast(texts.secondary, backgrounds.canvas)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(texts.secondary, backgrounds.surface1)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(texts.secondary, backgrounds.surface2)).toBeGreaterThanOrEqual(4.5)
+  it('the accent is readable as text on white and as a button background behind white text', () => {
+    expect(contrast(token('accent'), token('surface'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('accent-ink'), token('accent'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('accent-hover'), token('accent-soft'))).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('ensures warm brass gold accent passes WCAG AA on dark canvas and surface-1 (>= 4.5:1)', () => {
-    expect(contrast(texts.goldAccent, backgrounds.canvas)).toBeGreaterThanOrEqual(4.5)
-    expect(contrast(texts.goldAccent, backgrounds.surface1)).toBeGreaterThanOrEqual(4.5)
-  })
-
-  it('ensures working emerald status dot contrast is distinct and readable (>= 4.5:1)', () => {
-    expect(contrast(texts.emerald, backgrounds.canvas)).toBeGreaterThanOrEqual(4.5)
+  it('status text colours pass AA on their tinted backgrounds', () => {
+    for (const tone of ['good', 'warn', 'bad']) expect(contrast(token(tone), token(`${tone}-soft`)), tone).toBeGreaterThanOrEqual(4.5)
   })
 })

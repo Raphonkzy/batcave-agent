@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  cachedSource,
   collectActivity,
   collectCalendar,
   collectKnowledge,
@@ -13,6 +14,84 @@ import {
   parseSessions,
   parseSkills,
 } from './mission-control.js'
+
+describe('snapshot cache freshness', () => {
+  it.each([15_000, 30_000, 45_000, 120_000])('bypasses a recent %i ms cache on manual refresh', async (ttl) => {
+    const collect = vi.fn(async () => ({ version: collect.mock.calls.length }))
+    const source = cachedSource(collect, ttl)
+    const now = Date.now()
+    const first = await source(now)
+    expect(await source(now + 1)).toBe(first)
+    const fresh = await source({ now: now + 1, forceRefresh: true })
+    expect(fresh).not.toBe(first)
+    expect(collect).toHaveBeenCalledTimes(2)
+    expect(await source(now + 2)).toBe(fresh)
+  })
+
+  it('coalesces concurrent forced reads and retries failed collections', async () => {
+    const collect = vi.fn(async () => 1)
+    const source = cachedSource(collect)
+    const read = { now: Date.now(), forceRefresh: true }
+    await source()
+    const a = source(read)
+    const b = source(read)
+    expect(a).toBe(b)
+    await a
+    expect(collect).toHaveBeenCalledTimes(2)
+    collect.mockRejectedValueOnce(new Error('offline'))
+    await expect(source(read)).rejects.toThrow('offline')
+    await expect(source(read)).resolves.toBe(1)
+  })
+})
+
+describe('stale-while-revalidate cache', () => {
+  const stale = { staleWhileRevalidateMs: 300_000 }
+
+  it('answers an expired value immediately and refreshes once behind it', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const collect = vi.fn(async () => { if (collect.mock.calls.length > 1) await gate; return collect.mock.calls.length })
+    const source = cachedSource(collect, 1_000, stale)
+    const start = Date.now()
+    expect(await source(start)).toBe(1)
+    // Expired, but inside the stale window: returns the stored value without waiting for the refresh.
+    expect(await source(start + 5_000)).toBe(1)
+    expect(await source(start + 5_001)).toBe(1)
+    expect(collect).toHaveBeenCalledTimes(2)
+    release()
+    await vi.waitFor(async () => expect(await source(Date.now())).toBe(2))
+    expect(collect).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits for a real collection once the stored value is older than the stale window', async () => {
+    const collect = vi.fn(async () => collect.mock.calls.length)
+    const source = cachedSource(collect, 1_000, { staleWhileRevalidateMs: 10_000 })
+    const start = Date.now()
+    await source(start)
+    expect(await source(start + 60_000)).toBe(2)
+  })
+
+  it('keeps serving the stored value when the background refresh fails, and backs off before retrying', async () => {
+    const collect = vi.fn(async () => 1)
+    const source = cachedSource(collect, 1_000, stale)
+    const start = Date.now()
+    await source(start)
+    collect.mockRejectedValue(new Error('offline'))
+    expect(await source(start + 5_000)).toBe(1)
+    await vi.waitFor(() => expect(collect).toHaveBeenCalledTimes(2))
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(await source(start + 5_001)).toBe(1)
+    expect(collect).toHaveBeenCalledTimes(2)
+  })
+
+  it('never serves a stored value to a manual refresh', async () => {
+    const collect = vi.fn(async () => collect.mock.calls.length)
+    const source = cachedSource(collect, 1_000, stale)
+    const start = Date.now()
+    await source(start)
+    expect(await source({ now: start + 5_000, forceRefresh: true })).toBe(2)
+  })
+})
 
 describe('Hermes output parsers', () => {
   it('extracts profile, model and gateway state from the profile table', () => {

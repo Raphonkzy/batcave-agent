@@ -27,8 +27,8 @@ export function SourceStatus({ source, fetchedAt, request }: { source?: Source<u
   const live = source?.availability === 'available' && !(request.status === 'ready' && request.stale)
   return <div className="source-status">
     <span className={live ? 'dot' : 'dot muted-dot'}/><span>{status}</span>
-    <span>{fetchedAt ? `REFRESHED ${formatTime(fetchedAt)}` : 'AWAITING REFRESH'}</span>
-    <button type="button" className="refresh-button" onClick={request.refresh} disabled={request.refreshing} aria-label="Refresh this source">{request.refreshing ? 'REFRESHING…' : '↻ REFRESH'}</button>
+    <span>{fetchedAt ? `Refreshed ${formatTime(fetchedAt)}` : 'Awaiting refresh'}</span>
+    <button type="button" className="refresh-button" onClick={request.refresh} disabled={request.refreshing} aria-label="Refresh this source">{request.refreshing ? 'Refreshing…' : 'Refresh'}</button>
   </div>
 }
 

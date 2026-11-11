@@ -117,6 +117,18 @@ function manorParts3(item: LayoutItem): Part[] | undefined {
       box('mahogany', [0, h / 2, 0], [w, h, d]), box('marble', [0, h + 0.02, 0], [w + 0.04, 0.04, d + 0.04]),
       box('blackSteel', [0, h / 2, d / 2 + 0.003], [0.01, h - 0.1, 0.01]), shape('sphere', 'glass', [-w / 4, h + 0.15, 0], [0.16, 0.24, 0.16]), box('silver', [w / 4, h + 0.05, 0], [0.4, 0.02, 0.3]),
     ]
+    case 'wetFloor': return [box('marble', [0, 0.008, 0], [w, 0.016, d])]
+    case 'toilet': return [box('porcelain', [0, 0.22, 0.08], [w, 0.44, d * 0.7]), box('porcelain', [0, 0.48, -d * 0.32], [w * 0.9, 0.48, d * 0.3]), cyl('porcelain', [0, 0.45, 0.1], [w, 0.06, d * 0.65])]
+    case 'refrigerator': return [box('chrome', [0, h / 2, 0], [w, h, d]), box('blackSteel', [0, h * 0.68, d / 2 + 0.005], [w - 0.04, 0.025, 0.02]), box('brass', [w * 0.32, h * 0.45, d / 2 + 0.04], [0.03, 0.5, 0.06])]
+    case 'kitchenIsland': return [box('mahogany', [0, h / 2, 0], [w, h - 0.06, d]), box('marble', [0, h - 0.03, 0], [w + 0.08, 0.06, d + 0.08]), box('silver', [-0.3, h + 0.015, 0], [0.5, 0.03, 0.34])]
+    case 'kitchenCounter': return [
+      box('darkWood', [0, 0.45, 0], [w, 0.9, d]), box('marble', [0, 0.925, 0], [w + 0.04, 0.05, d + 0.04]),
+      box('mahogany', [0, 1.9, -0.17], [w, 0.7, 0.32]),
+      box('blackSteel', [-w * 0.27, 0.96, 0], [0.9, 0.03, d * 0.8]),
+      ...[-0.22, 0.22].flatMap((x) => [-0.14, 0.14].map((z) => cyl('chrome', [-w * 0.27 + x, 0.985, z], [0.15, 0.02, 0.15]))),
+      box('chrome', [w * 0.25, 0.96, 0], [0.65, 0.025, d * 0.72]), box('darkGlass', [w * 0.25, 0.978, 0], [0.53, 0.01, d * 0.54]),
+      cyl('chrome', [w * 0.25, 1.11, -0.2], [0.04, 0.3, 0.04]), box('chrome', [w * 0.25, 1.25, -0.1], [0.04, 0.04, 0.22]),
+    ]
     case 'pantryCounter': return [
       box('darkWood', [0, 0.45, 0], [w, 0.9, d]), box('marble', [0, 0.925, 0], [w + 0.05, 0.05, d + 0.05]),
       box('mahogany', [0, 1.9, -(d / 2 - 0.17)], [w, 0.8, 0.34]), box('glass', [0, 1.9, -(d / 2 - 0.35)], [w - 0.1, 0.7, 0.01]),
@@ -135,7 +147,7 @@ function manorParts3(item: LayoutItem): Part[] | undefined {
       shape('sphere', 'silver', [-0.15, 0.92, 0], [0.22, 0.2, 0.22]), ...[0.15, 0.3].map((x) => cyl('porcelain', [x, 0.85, 0.05], [0.08, 0.07, 0.08])),
     ]
     case 'bed': return [
-      box('mahogany', [0, 0.25, 0], [w, 0.3, d]), box('linen', [0, 0.52, 0.03], [w - 0.1, 0.24, d - 0.15]),
+      box('mahogany', [0, 0.25, 0], [w, 0.3, d]), ...(item.role === 'master' ? [box('brass', [0, 1.52, -(d / 2 + 0.035)], [w + 0.12, 0.06, 0.12])] : []), box('linen', [0, 0.52, 0.03], [w - 0.1, 0.24, d - 0.15]),
       box('duvet', [0, 0.68, 0.32], [w - 0.06, 0.1, d * 0.62], undefined, DUVETS[(item.owner ?? 0) % DUVETS.length]),
       ...[-0.45, 0.45].map((x) => box('velvetCream', [x, 0.72, -(d / 2 - 0.35)], [0.75, 0.14, 0.34])),
       box('darkWood', [0, 0.95, -(d / 2 + 0.04)], [w + 0.1, 1.1, 0.1]), box('velvet', [0, 1.05, -(d / 2 - 0.02)], [w - 0.2, 0.75, 0.05]),

@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export interface InvariantResult {
   ok: boolean
@@ -56,11 +57,13 @@ export function checkInvariants(root = process.cwd()): InvariantResult {
         errors.push(`Required route '${route}' missing from src/routes.ts`)
       }
     }
-    for (const h of REQUIRED_HASHES) {
-      const slug = h.replace(/^#\/?/, '')
-      if (!routesContent.toLowerCase().includes(slug.toLowerCase().replace(/-/g, ' '))) {
-        // Just verify basic coverage
-      }
+    // Slugs are generated from navigation labels by pageSlug, not literal hash strings.
+    // Restrict coverage to the declared list: comments and aliases are not routes.
+    const declaration = routesContent.match(/export\s+const\s+navigation\s*=\s*\[([\s\S]*?)\]/)?.[1] ?? ''
+    const labels = [...declaration.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '').matchAll(/(['"])(.*?)\1/g)].map((match) => match[2])
+    const hashes = new Set(labels.map((label) => `#/${label.toLowerCase().replace(/\s+/g, '-')}`))
+    for (const hash of REQUIRED_HASHES) {
+      if (!hashes.has(hash)) errors.push(`Required hash '${hash}' missing from navigation in src/routes.ts`)
     }
   }
 
@@ -129,6 +132,8 @@ export function checkInvariants(root = process.cwd()): InvariantResult {
         errors.push(`Required camera preset '${preset}' missing from src/pages/manorViews.ts`)
       }
     }
+  } else {
+    errors.push('src/pages/manorViews.ts is missing!')
   }
 
   return {
@@ -138,7 +143,7 @@ export function checkInvariants(root = process.cwd()): InvariantResult {
   }
 }
 
-if (import.meta.url.endsWith(process.argv[1]) || process.argv[1]?.includes('guard-invariants')) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const result = checkInvariants()
   if (!result.ok) {
     console.error('INVARIANT GUARD VIOLATIONS DETECTED:')

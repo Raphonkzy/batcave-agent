@@ -38,7 +38,7 @@ export function ProfileUnlock({ agent, minutes = 15, compact = false }: { agent:
 
 /** Bar shown above an unlocked agent's private data, to lock it again. */
 export function RelockBar({ agent, minutes }: { agent: string; minutes: number }) {
-  return <div className="relock-bar"><span>🔓 {agent} is unlocked in this browser (up to {minutes} min).</span><button type="button" className="refresh-button" onClick={() => void profileLockRequest('lock', { agent })}>🔒 LOCK AGAIN</button></div>
+  return <div className="relock-bar"><span>🔓 {agent} is unlocked in this browser (up to {minutes} min).</span><button type="button" className="refresh-button" onClick={() => void profileLockRequest('lock', { agent })}>🔒 Lock again</button></div>
 }
 
 /**

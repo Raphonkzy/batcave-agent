@@ -1,7 +1,8 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { UPPER_Y, CORE_HALF } from '../../utils/layout/dimensions.ts'
+import { fullManorShell } from './enclosure.ts'
+import { roofPlan } from './roofPlan.ts'
 import type { ManorLayoutData, Level, WallMode, Quality } from './ZoneLayout.ts'
 import { manorMaterials } from './materials.ts'
 
@@ -26,7 +27,7 @@ interface RoofProps {
  */
 export function Roof({ layout, level, wallMode, quality, reducedMotion = false }: RoofProps) {
   const groupRef = useRef<THREE.Group>(null)
-  const isVisible = level === 'upper' && wallMode === 'wallsUp'
+  const isVisible = fullManorShell(level, wallMode)
   const animProgress = useRef(isVisible ? 1 : 0)
 
   const materials = useMemo(() => {
@@ -63,18 +64,9 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
     const trimGeos: THREE.BufferGeometry[] = []
     const chimneyGeos: THREE.BufferGeometry[] = []
 
-    const eave = 0.6 // 0.6m overhang
-    const baseY = UPPER_Y + 3.5 // top of 2nd floor walls (~18.0)
-    const roofHeight = 3.6 // 32 degree slope
-
-    // 1. Central Core Wing Roof (Foyer & Mezzanine)
-    const coreZ0 = layout.zones.grandFoyer.minZ - eave
-    const coreZ1 = layout.zones.hearthLounge.maxZ + eave
-    const coreX0 = -CORE_HALF - eave
-    const coreX1 = CORE_HALF + eave
-
-    // Core Hip Roof: 4 triangular/trapezoid faces or hip pyramid
-    const coreRidgeY = baseY + roofHeight
+    const sections = roofPlan(layout)
+    const roofHeight = 2.4
+    const baseY = Math.max(...sections.map(s=>s.y))
 
     // Hip Geometry generator
     function addHipRoof(x0: number, x1: number, z0: number, z1: number, yBase: number, yPeak: number) {
@@ -110,12 +102,33 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
       geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
       geo.computeVertexNormals()
       shingleGeos.push(geo)
+      // A second closed surface and fascia give the slate a physical edge, not a paper plane.
+      const underside = geo.clone().translate(0, -.12, 0)
+      const positions = underside.getAttribute('position')
+      for (let i=0;i<positions.count;i+=3) {
+        const a = new THREE.Vector3().fromBufferAttribute(positions,i)
+        const c = new THREE.Vector3().fromBufferAttribute(positions,i+2)
+        positions.setXYZ(i,c.x,c.y,c.z); positions.setXYZ(i+2,a.x,a.y,a.z)
+      }
+      underside.computeVertexNormals(); shingleGeos.push(underside)
+      // Slate courses follow each slope; merged into the existing trim draw call.
+      for (let t=.12;t<.96;t+=.12) {
+        const yy=yBase+(yPeak-yBase)*t+.012
+        for (const side of [-1,1]) {
+          const zz=side<0?z0+(rZ0-z0)*t:z1+(rZ1-z1)*t
+          const xx=side<0?x0+(rX0-x0)*t:x1+(rX1-x1)*t
+          const horizontal=new THREE.BoxGeometry(Math.max(.1,w*(1-t)+(rX1-rX0)*t),.025,.025)
+          horizontal.translate(midX,yy,zz);trimGeos.push(horizontal)
+          const vertical=new THREE.BoxGeometry(.025,.025,Math.max(.1,d*(1-t)+(rZ1-rZ0)*t))
+          vertical.translate(xx,yy,(z0+z1)/2);trimGeos.push(vertical)
+        }
+      }
 
       // Ridge Cap Trim
       const ridgeLen = Math.max(0.2, Math.hypot(rX1 - rX0, rZ1 - rZ0))
       const ridgeGeo = new THREE.BoxGeometry(0.3, 0.12, ridgeLen + 0.2)
-      ridgeGeo.translate((rX0 + rX1) / 2, yPeak + 0.05, (rZ0 + rZ1) / 2)
       if (!isLongZ) ridgeGeo.rotateY(Math.PI / 2)
+      ridgeGeo.translate((rX0 + rX1) / 2, yPeak + 0.05, (rZ0 + rZ1) / 2)
       trimGeos.push(ridgeGeo)
 
       // Eave Fascia Trim around perimeter
@@ -139,28 +152,10 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
       trimGeos.push(eE)
     }
 
-    // Add Central Core Roof
-    addHipRoof(coreX0, coreX1, coreZ0, coreZ1, baseY, coreRidgeY)
-
-    // 2. West Wing Roof (Dining / Suites / Gym)
-    const westRoom = layout.zones.diningHall || layout.zones.billiardsRoom
-    if (westRoom) {
-      const westX0 = layout.bounds.minX - eave
-      const westX1 = -CORE_HALF + 0.2
-      const westZ0 = layout.zones.billiardsRoom ? layout.zones.billiardsRoom.minZ - eave : coreZ0
-      const westZ1 = layout.zones.grandBath ? layout.zones.grandBath.maxZ + eave : coreZ1
-      addHipRoof(westX0, westX1, westZ0, westZ1, baseY, baseY + roofHeight * 0.9)
-    }
-
-    // 3. East Wing Roof (Grand Library & Upper Suites)
-    const library = layout.zones.grandLibrary
-    if (library) {
-      const eastX0 = CORE_HALF - 0.2
-      const eastX1 = library.maxX + eave
-      const eastZ0 = library.minZ - eave
-      const eastZ1 = library.maxZ + eave
-      // Grand Library is grand double height: ridge sits proud
-      addHipRoof(eastX0, eastX1, eastZ0, eastZ1, baseY + 0.4, baseY + roofHeight + 0.6)
+    // Every indoor footprint is covered, at its actual highest wall elevation.
+    for (const section of sections) {
+      const rise = Math.min(roofHeight, (section.maxX-section.minX)*0.3, (section.maxZ-section.minZ)*0.3)
+      addHipRoof(section.minX-0.18,section.maxX+0.18,section.minZ-0.18,section.maxZ+0.18,section.y,section.y+Math.max(0.25,rise))
     }
 
     // 4. Chimney over Hearth
@@ -169,6 +164,8 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
       const chimW = 1.2
       const chimD = 1.0
       const chimH = 2.4
+      const cap = new THREE.BoxGeometry(chimW+.24,.18,chimD+.24)
+      cap.translate(fire.x,baseY+roofHeight+.7,fire.z);chimneyGeos.push(cap)
       const chimGeo = new THREE.BoxGeometry(chimW, chimH, chimD)
       chimGeo.translate(fire.x, baseY + roofHeight - 0.5, fire.z)
       chimneyGeos.push(chimGeo)
@@ -186,6 +183,7 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
     // Merge buffers
     const merge = (geos: THREE.BufferGeometry[]): THREE.BufferGeometry => {
       if (geos.length === 0) return new THREE.BufferGeometry()
+      geos = geos.map(g => { if (!g.index) return g; const flat = g.toNonIndexed(); g.dispose(); return flat })
       let totalVerts = 0
       for (const g of geos) {
         totalVerts += g.attributes.position.count
@@ -203,6 +201,7 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
       const merged = new THREE.BufferGeometry()
       merged.setAttribute('position', new THREE.BufferAttribute(pos, 3))
       merged.setAttribute('normal', new THREE.BufferAttribute(norm, 3))
+      geos.forEach(g => g.dispose())
       return merged
     }
 
@@ -212,6 +211,9 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
       chimneyGeo: merge(chimneyGeos),
     }
   }, [layout])
+
+  useEffect(() => () => { shingleGeo.dispose(); trimGeo.dispose(); chimneyGeo.dispose() }, [shingleGeo, trimGeo, chimneyGeo])
+  useEffect(() => () => { Object.values(materials).forEach(m => m.dispose()) }, [materials])
 
   useFrame((_, delta) => {
     if (!groupRef.current) return
@@ -235,7 +237,7 @@ export function Roof({ layout, level, wallMode, quality, reducedMotion = false }
   const castShadow = quality === 'high'
 
   return (
-    <group ref={groupRef} visible={isVisible}>
+    <group name="ManorRoof" ref={groupRef} visible={isVisible}>
       <mesh geometry={shingleGeo} material={materials.slate} castShadow={castShadow} receiveShadow={false} />
       <mesh geometry={trimGeo} material={materials.trim} castShadow={castShadow} receiveShadow={false} />
       <mesh geometry={chimneyGeo} material={materials.chimney} castShadow={castShadow} receiveShadow={false} />

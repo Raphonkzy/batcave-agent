@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { usePolling } from './polling.ts'
 
 // Client side of the profile lock (see server/profile-lock.ts). The server withholds a locked
 // agent's private data; this only decides what to show and asks for the PIN.
@@ -22,21 +22,14 @@ export async function profileLockRequest(path: 'setup' | 'update' | 'disable' | 
   }
 }
 
-/** The profile lock status, refreshed on changes and every 30 s (unlocks expire). */
+/**
+ * The profile lock status, shared by every view that asks (one request and one 30 s timer, not
+ * one per view). Unlocks expire, hence the poll; a PIN change refreshes it through the app-wide
+ * refresh that PROFILES_CHANGED triggers. On a failed refresh the last known status stays.
+ */
 export function useProfileLock(): ProfileLockStatus | undefined {
-  const [status, setStatus] = useState<ProfileLockStatus | undefined>()
-  useEffect(() => {
-    let active = true
-    const load = () => void fetch('/api/profile-lock', { credentials: 'same-origin' })
-      .then((response) => (response.ok ? response.json() as Promise<ProfileLockStatus> : undefined))
-      .then((next) => { if (active && next && Array.isArray(next.agents)) setStatus(next) })
-      .catch(() => undefined)
-    load()
-    const timer = window.setInterval(load, 30_000)
-    window.addEventListener(PROFILES_CHANGED, load)
-    return () => { active = false; window.clearInterval(timer); window.removeEventListener(PROFILES_CHANGED, load) }
-  }, [])
-  return status
+  const poll = usePolling<ProfileLockStatus>('/api/profile-lock', 30_000)
+  return poll.status === 'ready' && Array.isArray(poll.data.agents) ? poll.data : undefined
 }
 
 /** 'locked' (PIN needed), 'unlocked' (opened in this browser) or 'open' (not locked). */

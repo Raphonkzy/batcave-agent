@@ -42,6 +42,9 @@ function apc(): Part[] {
       cyl('chrome', [side * 1.95, 0.95, z], [0.09, 0.7, 0.09]),
       box('gunmetal', [side * 1.5, 1.2, z], [0.6, 0.1, 0.16], [0, 0, side * 0.5]),
     ])),
+    // Canted side armor with inset service seams; no additional garage footprint.
+    ...[-1,1].flatMap(side=>[-1.7,0,1.7].map(z=>box('carbon',[side*1.28,1.55,z],[0.12,0.7,1.35],[0,0,side*0.18]))),
+    box('blackSteel',[0,2.58,0.7],[1.2,0.14,1.3]),
     // Communications dome on a hexagonal base, and an antenna.
     shape('hex', 'gunmetal', [0, 2.58, -0.9], [1.1, 0.3, 1.1]),
     shape('hex', 'gunmetal', [0, 2.8, -0.9], [0.6, 0.2, 0.6], undefined, '#15171a'),
@@ -60,6 +63,7 @@ function vtol(): Part[] {
     box('blackSteel', [0, 1.55, -3.0], [1.3, 0.55, 1.2], [0.2, 0, 0], HULL),
     ...[-1, 1].map((side) => box('blackSteel', [side * 0.6, 2.35, -2.9], [0.08, 1.1, 0.9], undefined, HULL)),
     box('carbon', [0, 2.0, -3.0], [2.6, 0.07, 0.7]),
+    ...[-1,1].map(side=>box('blackSteel',[side*0.64,2.3,-2.6],[0.08,0.8,1.1],[0,side*0.25,side*-0.3])),
     box('ledCyan', [0, 1.55, 0], [1.96, 0.04, 4.4]),
     // Stubby high-mount wings carrying two ducted fan nacelles.
     box('carbon', [0, 2.15, 0.2], [6.0, 0.16, 1.7]),

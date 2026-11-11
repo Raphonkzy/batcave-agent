@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { accessRequest, downloadCode, generateCode, type AccessStatus } from '../access.ts'
 import { formatDateTime } from '../format.ts'
 import { ProfileLockSettings } from './ProfileLockSettings.tsx'
+import { AgentConnectionPanel } from './AgentConnectionPanel.tsx'
 import { Pill } from '../components/ui/Primitives.tsx'
 
 type Mode = 'idle' | 'set' | 'off'
@@ -42,7 +43,7 @@ function CodeField({
           onClick={() => setShow(!show)}
           aria-pressed={show}
         >
-          {show ? 'HIDE' : 'SHOW'}
+          {show ? 'Hide' : 'Show'}
         </button>
       </div>
     </div>
@@ -144,7 +145,7 @@ function CodeSetup({
             className="mo-btn mo-btn-ghost mo-btn-sm"
             onClick={() => changeCode(() => setGenerated(generateCode()))}
           >
-            ↻ RANDOMIZE
+            New code
           </button>
         </div>
       ) : (
@@ -173,7 +174,7 @@ function CodeSetup({
           onClick={() => downloadCode(code)}
           disabled={Boolean(customProblem) || !code}
         >
-          ⬇ Download .TXT
+          Download .txt
         </button>
         <button
           type="button"
@@ -181,7 +182,7 @@ function CodeSetup({
           onClick={() => void copy()}
           disabled={Boolean(customProblem) || !code}
         >
-          {copied ? '✓ COPIED' : 'COPY'}
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
 
@@ -358,7 +359,7 @@ export function Settings({
                         className="mo-btn mo-btn-ghost mo-btn-sm"
                         onClick={() => void lock()}
                       >
-                        LOCK THIS BROWSER
+                        Lock this browser
                       </button>
                     </>
                   ) : (
@@ -398,6 +399,11 @@ export function Settings({
         {/* Section 2: Profile Lock PIN */}
         <section className="mo-settings-section">
           <ProfileLockSettings />
+        </section>
+
+        {/* Section 3: the shared Hermes connection */}
+        <section className="mo-settings-section">
+          <AgentConnectionPanel />
         </section>
       </div>
     </div>

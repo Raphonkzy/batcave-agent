@@ -21,15 +21,16 @@ export function ProfileLockSettings() {
   return <section className="card settings-card" aria-labelledby="profile-lock-title">
     <div className="settings-head"><div><p className="eyebrow">PRIVACY</p><h2 id="profile-lock-title">Profile lock</h2></div>{status && <span className={`badge ${status.enabled ? 'good' : 'muted'}`}>{status.enabled ? `On · ${status.agents.length} locked` : 'Off'}</span>}</div>
     <p className="muted">Like app lock on a phone: pick agents and set one 6-digit PIN. Locked agents still work and walk around the office, but their memory, files, Kanban tasks, cron job names, live activity and (for <code>default</code>) sessions and logs stay private until the PIN opens that agent in this browser for {status?.unlockMinutes ?? 15} minutes. The server withholds the data, not just the page.</p>
+    <p className="small-note">Usage accounting is not private: agent names, token totals, costs, and model, tool and source breakdowns remain visible while locked. Top-session details are withheld until that agent is unlocked.</p>
     {!status ? <p className="muted">Loading…</p> : <>
       {status.enabled && <p className="small-note">Locked: {status.agents.length ? status.agents.map((agent) => `${agent}${status.unlocked.includes(agent) ? ' (unlocked here)' : ''}`).join(', ') : 'no agents yet'}.</p>}
       {message && mode === 'idle' && <p className="form-success" role="status">{message}</p>}
       {mode === 'idle' && <div className="access-actions">
         {status.enabled ? <>
           <button type="button" className="primary-button" onClick={start('agents')}>Choose agents</button>
-          <button type="button" className="refresh-button" onClick={start('pin')}>CHANGE PIN</button>
-          <button type="button" className="refresh-button" onClick={start('off')}>TURN OFF</button>
-          {status.unlocked.length > 0 && <button type="button" className="refresh-button" onClick={() => void profileLockRequest('lock').then(() => setMessage('Every agent is locked again in this browser.'))}>🔒 LOCK ALL AGAIN</button>}
+          <button type="button" className="refresh-button" onClick={start('pin')}>Change PIN</button>
+          <button type="button" className="refresh-button" onClick={start('off')}>Turn off</button>
+          {status.unlocked.length > 0 && <button type="button" className="refresh-button" onClick={() => void profileLockRequest('lock').then(() => setMessage('Every agent is locked again in this browser.'))}>🔒 Lock all again</button>}
         </> : <button type="button" className="primary-button" onClick={start('setup')}>Set up profile lock</button>}
       </div>}
       {mode === 'setup' && <LockForm kind="setup" agents={agents} status={status} onDone={finish('Profile lock is on.')} onCancel={() => setMode('idle')}/>}
@@ -84,7 +85,7 @@ function LockForm({ kind, agents, status, onDone, onCancel }: { kind: 'setup' | 
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="access-actions">
       <button type="submit" className={`primary-button${kind === 'off' ? ' danger' : ''}`} disabled={busy}>{busy ? 'Saving…' : kind === 'setup' ? 'Turn on profile lock' : kind === 'agents' ? 'Save locked agents' : kind === 'pin' ? 'Save new PIN' : 'Turn off profile lock'}</button>
-      <button type="button" className="refresh-button" onClick={onCancel}>CANCEL</button>
+      <button type="button" className="refresh-button" onClick={onCancel}>Cancel</button>
     </div>
   </form>
 }

@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { OfficeStation } from '../../types.ts'
 import type { Level, WallMode } from '../../scenes/manor/ZoneLayout.ts'
-import { StatusDot, Kbd, Icon } from '../ui/Primitives.tsx'
+import { agentGear } from '../agent/agentLooks.ts'
+import { Icon } from '../ui/Primitives.tsx'
+import { BatMark } from '../ui/BatMark.tsx'
+import { CrewPortrait } from './CrewPortrait.tsx'
+
+export interface AgentAction { id: string; label: string; onSelect: () => void; pressed?: boolean }
 
 export interface LotHudProps {
   stations: OfficeStation[]
@@ -22,22 +27,68 @@ export interface LotHudProps {
   onFocusZone?: (zone: 'hangar' | 'lobby' | 'exterior') => void
   onNavigateMissions: () => void
   onNavigateLogs: () => void
-  isFullscreen?: boolean
-  onToggleFullscreen?: () => void
+  /** Scene commands for the selected agent (move, stop, resume), listed in its menu. */
+  agentActions?: AgentAction[]
+  /** Quality, lighting and help, shown in the view menu. */
+  viewMenu?: ReactNode
 }
 
-const LEVEL_CONFIG: { id: Level; label: string }[] = [
-  { id: 'upper', label: 'Upper Level' },
-  { id: 'ground', label: 'Grand Manor' },
-  { id: 'deck', label: 'Command Deck' },
+/** Top to bottom, as the floors are stacked. */
+const LEVELS: { id: Level; label: string; short: string }[] = [
+  { id: 'upper', label: 'Upper Level', short: '2' },
+  { id: 'ground', label: 'Grand Manor', short: '1' },
+  { id: 'deck', label: 'Command Deck', short: 'B' },
 ]
+
+const WALLS: { id: WallMode; label: string; icon: string }[] = [
+  { id: 'wallsUp', label: 'Walls up', icon: 'walls-up' },
+  { id: 'cutaway', label: 'Walls cutaway', icon: 'walls-cut' },
+  { id: 'wallsDown', label: 'Walls down', icon: 'walls-down' },
+]
+
+const ZONES: { id: 'exterior' | 'lobby' | 'hangar'; label: string }[] = [
+  { id: 'exterior', label: 'Estate grounds' },
+  { id: 'lobby', label: 'Manor lobby' },
+  { id: 'hangar', label: 'Hangar bay' },
+]
+
+const BUSY = new Set(['Working', 'Reviewing', 'Collaborating'])
+
+/** Each agent's colours come from its gear, so the card matches the character in the scene. */
+function gearStyle(station: OfficeStation): CSSProperties {
+  const { palette } = agentGear(station.id)
+  return { '--suit': palette.baseDark, '--glow': palette.accentGlow } as CSSProperties
+}
+
+function RoundButton({ icon, label, onClick, pressed, hint, ...rest }: { icon: string; label: string; onClick: () => void; pressed?: boolean; hint?: string } & Record<`aria-${string}`, string | boolean | undefined>) {
+  return (
+    <button type="button" className={`mo-round-btn${pressed ? ' active' : ''}`} onClick={onClick} aria-label={label} aria-pressed={pressed} title={hint ? `${label} (${hint})` : label} {...rest}>
+      <Icon name={icon} size={16} />
+    </button>
+  )
+}
+
+/** One open menu at a time, closed by a click elsewhere or Escape. */
+function usePopover() {
+  const [open, setOpen] = useState<string | null>(null)
+  const root = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (event: PointerEvent) => { if (!(event.target as Element | null)?.closest?.('.mo-popover-anchor')) setOpen(null) }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(null) } }
+    window.addEventListener('pointerdown', onPointer)
+    window.addEventListener('keydown', onKey, true)
+    root.current?.querySelector<HTMLElement>(`[data-popover="${open}"] [role="menuitem"], [data-popover="${open}"] button`)?.focus()
+    return () => { window.removeEventListener('pointerdown', onPointer); window.removeEventListener('keydown', onKey, true) }
+  }, [open])
+  return { open, root, toggle: (id: string) => setOpen((current) => (current === id ? null : id)), close: () => setOpen(null) }
+}
 
 export function LotHud({
   stations,
   selectedStation,
   currentLevel,
   wallMode,
-  onSelectLevel,
   onCycleLevel,
   onSetWallMode,
   onSnapRotate,
@@ -51,336 +102,127 @@ export function LotHud({
   onFocusZone,
   onNavigateMissions,
   onNavigateLogs,
-  isFullscreen = false,
-  onToggleFullscreen,
+  agentActions = [],
+  viewMenu,
 }: LotHudProps) {
-  const [focusOpen, setFocusOpen] = useState(false)
-
-  // Agent counts per level
-  const counts: Record<Level, number> = {
-    deck: stations.filter((s) => s.room === 'Workspace' || !s.room).length,
-    ground: stations.filter((s) => s.room === 'Lounge').length,
-    upper: 0,
-  }
-
-  const activeCount = stations.filter((s) => s.state !== 'Idle').length
+  const popover = usePopover()
+  const busy = stations.filter((s) => BUSY.has(s.state)).length
+  const levelIndex = Math.max(0, LEVELS.findIndex((item) => item.id === currentLevel))
+  const level = LEVELS[levelIndex]
+  const wallIndex = Math.max(0, WALLS.findIndex((item) => item.id === wallMode))
+  const wall = WALLS[wallIndex]
+  const nextWall = WALLS[(wallIndex + 1) % WALLS.length]
+  const selectedGear = selectedStation ? agentGear(selectedStation.id) : undefined
+  const pick = (action: () => void) => () => { popover.close(); action() }
 
   return (
-    <div className="mo-lot-hud" role="region" aria-label="3D Manor Controls">
-      {/* 1. Left Cluster: Roster + Selected Agent Panel */}
-      <div className="mo-hud-cluster mo-hud-agent">
-        {/* Roster strip at top */}
-        <div className="mo-hud-roster" role="list" aria-label="Agent Roster">
-          {stations.map((station) => {
-            const isSel = selectedStation?.id === station.id
-            return (
-              <button
-                key={station.id}
-                type="button"
-                className={`mo-roster-pill ${isSel ? 'active' : ''}`}
-                onClick={() => onSelectStation(station)}
-                title={`${station.name} (${station.state})`}
-                aria-label={`Select agent ${station.name}`}
-              >
-                <span className="mo-roster-avatar">{station.name.charAt(0).toUpperCase()}</span>
-                <StatusDot status={station.state} size={6} />
-              </button>
-            )
-          })}
+    <div className="mo-lot-hud" role="region" aria-label="3D Manor Controls" ref={popover.root}>
+      {/* Bottom left: the crew card. Portrait, status, three actions, and the whole crew below. */}
+      <section className="mo-crew-card" aria-label="Crew" style={selectedStation ? gearStyle(selectedStation) : undefined}>
+        <div className="mo-crew-main">
+          <div className="mo-crew-portrait" data-state={selectedStation?.state.toLowerCase()}>
+            {stations.length > 0 && <CrewPortrait profile={selectedStation?.id} />}
+            {!selectedStation && <BatMark size={40} className="mo-crew-placeholder" />}
+          </div>
+          <div className="mo-crew-info">
+            {selectedStation ? (
+              <>
+                <div className="mo-crew-name-row">
+                  <button type="button" className="mo-crew-name" onClick={onInspectAgent} title="Open details">{selectedStation.name}</button>
+                  {selectedStation.privacy === 'locked' && <Icon name="lock" size={16} className="mo-crew-lock" />}
+                </div>
+                <div className="mo-crew-status" data-state={selectedStation.state.toLowerCase()}>
+                  <span className="mo-crew-state">{selectedStation.state}</span>
+                  <span className="mo-crew-role">{selectedGear?.roleTitle ?? selectedStation.role}</span>
+                </div>
+                <div className="mo-crew-task" title={selectedStation.activity || selectedStation.currentTask}>{selectedStation.activity || selectedStation.currentTask}</div>
+              </>
+            ) : (
+              <>
+                <div className="mo-crew-name-row"><span className="mo-crew-name">The crew</span></div>
+                <div className="mo-crew-task">{stations.length ? `${busy} on a mission · ${stations.length - busy} standing by` : 'Waiting for the crew…'}</div>
+                <div className="mo-crew-hint">Pick a member below or in the scene</div>
+              </>
+            )}
+          </div>
+          {selectedStation && (
+            <div className="mo-crew-actions" role="toolbar" aria-label={`${selectedStation.name} actions`}>
+              <RoundButton icon="target" label="Locate" onClick={onFocusAgent} hint="F" />
+              <RoundButton icon="eye" label={isFollowing ? 'Following' : 'Follow'} onClick={onFollowAgent} pressed={isFollowing} />
+              <div className="mo-popover-anchor">
+                <RoundButton icon="more" label="More actions" onClick={() => popover.toggle('agent')} aria-haspopup="menu" aria-expanded={popover.open === 'agent'} />
+                {popover.open === 'agent' && (
+                  <div className="mo-popover mo-popover-up" role="menu" aria-label={`${selectedStation.name} menu`} data-popover="agent">
+                    <button type="button" role="menuitem" className="mo-popover-item" onClick={pick(onInspectAgent)}><Icon name="info" size={16} />Details</button>
+                    <button type="button" role="menuitem" className="mo-popover-item" onClick={pick(onNavigateMissions)}><Icon name="clipboard" size={16} />Missions</button>
+                    <button type="button" role="menuitem" className="mo-popover-item" onClick={pick(onNavigateLogs)}><Icon name="terminal" size={16} />Logs</button>
+                    {agentActions.length > 0 && <hr className="mo-popover-rule" />}
+                    {agentActions.map((action) => (
+                      <button key={action.id} type="button" role="menuitem" className={`mo-popover-item${action.pressed ? ' active' : ''}`} aria-pressed={action.pressed} onClick={pick(action.onSelect)}>{action.label}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Selected Agent Summary */}
-        {selectedStation ? (
-          <div className="mo-agent-summary">
-            <div className="mo-agent-avatar">
-              {selectedStation.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="mo-agent-details">
-              <div className="mo-agent-row">
-                <span className="mo-agent-name">{selectedStation.name}</span>
-                <StatusDot status={selectedStation.state} size={8} />
-                <span className="mo-agent-state">{selectedStation.state}</span>
-                {selectedStation.privacy === 'locked' && (
-                  <span className="mo-pill mo-pill-muted">🔒 Locked</span>
-                )}
-              </div>
-              <div className="mo-agent-sub">
-                <span className="text-muted">{selectedStation.role || 'Agent'}</span>
-                <span>·</span>
-                <span className="text-muted">{selectedStation.room || 'Station'}</span>
-                {selectedStation.currentTask && (
-                  <>
-                    <span>·</span>
-                    <span className="mo-agent-task font-mono" title={selectedStation.currentTask}>
-                      {selectedStation.currentTask}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="mo-agent-actions">
-              <button
-                type="button"
-                className="mo-hud-btn"
-                onClick={onInspectAgent}
-                title="View agent details"
-              >
-                Inspect
-              </button>
-              <button
-                type="button"
-                className={`mo-hud-btn ${isFollowing ? 'active' : ''}`}
-                onClick={onFollowAgent}
-                title="Follow agent in 3D scene (Esc to release)"
-              >
-                {isFollowing ? 'Following' : 'Follow'}
-              </button>
-              <button
-                type="button"
-                className="mo-hud-btn"
-                onClick={onFocusAgent}
-                title="Focus camera on agent (F)"
-              >
-                Locate
-              </button>
-              <button
-                type="button"
-                className="mo-hud-btn"
-                onClick={onNavigateMissions}
-                title="Open filtered missions"
-              >
-                Missions
-              </button>
-              <button
-                type="button"
-                className="mo-hud-btn"
-                onClick={onNavigateLogs}
-                title="Open filtered logs"
-              >
-                Logs
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mo-agent-empty">
-            <span className="mo-agent-empty-hint">Select an agent from scene or roster</span>
-            <span className="mo-agent-empty-tally font-mono">
-              {activeCount} active · {stations.length - activeCount} idle
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* 2. Center Cluster: Level Elevator Panel & Wall Dock */}
-      <div className="mo-hud-cluster mo-hud-levels">
-        {/* Elevator Lift Panel (3 Buttons Vertikal) */}
-        <div className="mo-lift-panel">
-          <div className="mo-lift-buttons">
-            {LEVEL_CONFIG.map((lvl) => {
-              const isActive = currentLevel === lvl.id
+        {stations.length > 0 && (
+          <div className="mo-hud-roster" role="list" aria-label="Agent Roster">
+            {stations.map((station) => {
+              const active = selectedStation?.id === station.id
               return (
-                <button
-                  key={lvl.id}
-                  type="button"
-                  className={`mo-lift-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => onSelectLevel(lvl.id)}
-                  title={`Switch to ${lvl.label}`}
-                >
-                  <span className="mo-lift-label">{lvl.label}</span>
-                  <span className="mo-lift-count font-mono">{counts[lvl.id] ?? 0}</span>
-                </button>
+                <div role="listitem" key={station.id}>
+                  <button
+                    type="button"
+                    className={`mo-roster-pill${active ? ' active' : ''}`}
+                    style={gearStyle(station)}
+                    data-state={station.state.toLowerCase()}
+                    onClick={() => onSelectStation(station)}
+                    title={`${station.name} · ${station.state}`}
+                    aria-label={`Select agent ${station.name}`}
+                    aria-pressed={active}
+                  >
+                    {station.name.charAt(0).toUpperCase()}
+                  </button>
+                </div>
               )
             })}
           </div>
+        )}
+      </section>
 
-          <div className="mo-lift-arrows">
-            <button
-              type="button"
-              className="mo-lift-arrow-btn"
-              onClick={() => onCycleLevel(-1)}
-              title="Move level up ([ / PageUp])"
-              aria-label="Move one level up"
-            >
-              <Icon name="chevron-up" size={16} />
-            </button>
-            <button
-              type="button"
-              className="mo-lift-arrow-btn"
-              onClick={() => onCycleLevel(1)}
-              title="Move level down (] / PageDown)"
-              aria-label="Move one level down"
-            >
-              <Icon name="chevron-down" size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Wall Mode Segmented Control */}
-        <div className="mo-wall-control" role="group" aria-label="Wall Mode">
-          <button
-            type="button"
-            className={`mo-wall-btn ${wallMode === 'wallsUp' ? 'active' : ''}`}
-            onClick={() => onSetWallMode('wallsUp')}
-            title="Full Walls & Roof (Key 1)"
-          >
-            <span className="mo-wall-icon">▣</span>
-            <span className="mo-wall-text">Up</span>
-            <Kbd>1</Kbd>
-          </button>
-          <button
-            type="button"
-            className={`mo-wall-btn ${wallMode === 'cutaway' ? 'active' : ''}`}
-            onClick={() => onSetWallMode('cutaway')}
-            title="Camera Cutaway Walls (Key 2)"
-          >
-            <span className="mo-wall-icon">◐</span>
-            <span className="mo-wall-text">Cut</span>
-            <Kbd>2</Kbd>
-          </button>
-          <button
-            type="button"
-            className={`mo-wall-btn ${wallMode === 'wallsDown' ? 'active' : ''}`}
-            onClick={() => onSetWallMode('wallsDown')}
-            title="Low Open Walls (Key 3)"
-          >
-            <span className="mo-wall-icon">▭</span>
-            <span className="mo-wall-text">Down</span>
-            <Kbd>3</Kbd>
-          </button>
-        </div>
-      </div>
-
-      {/* 3. Right Cluster: Camera Controls */}
-      <div className="mo-hud-cluster mo-hud-camera">
-        <div className="mo-camera-row">
-          <button
-            type="button"
-            className="mo-cam-btn"
-            onClick={() => onSnapRotate(-1)}
-            title="Rotate left 90° (Q)"
-            aria-label="Rotate left 90 degrees"
-          >
-            <Icon name="rotate-left" size={16} />
-            <Kbd>Q</Kbd>
-          </button>
-          <button
-            type="button"
-            className="mo-cam-btn"
-            onClick={() => onSnapRotate(1)}
-            title="Rotate right 90° (E)"
-            aria-label="Rotate right 90 degrees"
-          >
-            <Icon name="rotate-right" size={16} />
-            <Kbd>E</Kbd>
-          </button>
-          <button
-            type="button"
-            className="mo-cam-btn"
-            onClick={() => onZoom(-1)}
-            title="Zoom out (-)"
-            aria-label="Zoom out"
-          >
-            <Icon name="minus" size={16} />
-          </button>
-          <button
-            type="button"
-            className="mo-cam-btn"
-            onClick={() => onZoom(1)}
-            title="Zoom in (+)"
-            aria-label="Zoom in"
-          >
-            <Icon name="plus" size={16} />
-          </button>
-        </div>
-
-        <div className="mo-camera-row">
-          <button
-            type="button"
-            className="mo-cam-btn mo-cam-btn-text"
-            onClick={onResetCamera}
-            title="Reset camera position (R)"
-          >
-            <Icon name="home" size={16} />
-            <span>Reset</span>
-            <Kbd>R</Kbd>
-          </button>
-          <button
-            type="button"
-            className="mo-cam-btn mo-cam-btn-text"
-            onClick={onFocusAgent}
-            title="Focus on selected agent (F)"
-          >
-            <Icon name="target" size={16} />
-            <span>Focus</span>
-            <Kbd>F</Kbd>
-          </button>
-
-          {/* Popover Fokus Zona (5.4) */}
-          <div className="mo-focus-popover-wrapper">
-            <button
-              type="button"
-              className="mo-cam-btn mo-cam-btn-text"
-              onClick={() => setFocusOpen(!focusOpen)}
-              title="Focus Zone Presets"
-              aria-haspopup="true"
-              aria-expanded={focusOpen}
-            >
-              <span>Zone</span>
-              <Icon name="chevron-down" size={16} />
-            </button>
-
-            {focusOpen && (
-              <div className="mo-focus-popover" role="menu">
-                <button
-                  type="button"
-                  className="mo-popover-item"
-                  onClick={() => {
-                    setFocusOpen(false)
-                    onFocusZone?.('exterior')
-                  }}
-                  role="menuitem"
-                >
-                  Front Facade (Driveway & Gate)
-                </button>
-                <button
-                  type="button"
-                  className="mo-popover-item"
-                  onClick={() => {
-                    setFocusOpen(false)
-                    onFocusZone?.('lobby')
-                  }}
-                  role="menuitem"
-                >
-                  Grand Manor Lobby
-                </button>
-                <button
-                  type="button"
-                  className="mo-popover-item"
-                  onClick={() => {
-                    setFocusOpen(false)
-                    onFocusZone?.('hangar')
-                  }}
-                  role="menuitem"
-                >
-                  Hangar Bay Deck
-                </button>
+      {/* Bottom right: one dock for the camera, walls, floors and view settings. */}
+      <div className="mo-view-dock">
+        <span className="mo-floor-name" aria-live="polite">{level.label}</span>
+        <div className="mo-dock" role="toolbar" aria-label="View">
+          <RoundButton icon="rotate-left" label="Rotate left 90 degrees" onClick={() => onSnapRotate(-1)} hint="Q" />
+          <RoundButton icon="rotate-right" label="Rotate right 90 degrees" onClick={() => onSnapRotate(1)} hint="E" />
+          <RoundButton icon="minus" label="Zoom out" onClick={() => onZoom(-1)} />
+          <RoundButton icon="plus" label="Zoom in" onClick={() => onZoom(1)} />
+          <RoundButton icon="home" label="Reset camera" onClick={onResetCamera} hint="R" />
+          <span className="mo-dock-rule" aria-hidden="true" />
+          <span role="group" aria-label="Wall Mode" className="mo-dock-group">
+            <RoundButton icon={wall.icon} label={`${wall.label}. Switch to ${nextWall.label.toLowerCase()}`} onClick={() => onSetWallMode(nextWall.id)} hint="1, 2, 3" />
+          </span>
+          <span className="mo-dock-rule" aria-hidden="true" />
+          <span role="group" aria-label="Floors" className="mo-dock-group mo-floor-control">
+            <button type="button" className="mo-floor-step" onClick={() => onCycleLevel(-1)} disabled={levelIndex === 0} aria-label="Move one level up" title="Up a floor ([ or PageUp)"><Icon name="chevron-up" size={16} /></button>
+            <span className="mo-floor-badge" title={level.label}>{level.short}</span>
+            <button type="button" className="mo-floor-step" onClick={() => onCycleLevel(1)} disabled={levelIndex === LEVELS.length - 1} aria-label="Move one level down" title="Down a floor (] or PageDown)"><Icon name="chevron-down" size={16} /></button>
+          </span>
+          <span className="mo-dock-rule" aria-hidden="true" />
+          <div className="mo-popover-anchor">
+            <RoundButton icon="settings" label="View, areas and help" onClick={() => popover.toggle('view')} pressed={popover.open === 'view'} aria-haspopup="dialog" aria-expanded={popover.open === 'view'} />
+            {popover.open === 'view' && (
+              <div className="mo-popover mo-popover-up mo-popover-end mo-view-menu" data-popover="view" aria-label="View settings">
+                <div className="mo-popover-label">Go to</div>
+                {ZONES.map((zone) => (
+                  <button key={zone.id} type="button" role="menuitem" className="mo-popover-item" onClick={pick(() => onFocusZone?.(zone.id))}>{zone.label}</button>
+                ))}
+                {viewMenu && <><hr className="mo-popover-rule" />{viewMenu}</>}
               </div>
             )}
           </div>
-
-          {onToggleFullscreen && (
-            <button
-              type="button"
-              className={`mo-cam-btn mo-cam-btn-text ${isFullscreen ? 'active' : ''}`}
-              onClick={onToggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen (Z)' : 'Enter Fullscreen (Z)'}
-              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              <Icon name={isFullscreen ? 'minimize' : 'maximize'} size={16} />
-              <span>{isFullscreen ? 'Exit' : 'Full'}</span>
-              <Kbd>Z</Kbd>
-            </button>
-          )}
         </div>
       </div>
     </div>

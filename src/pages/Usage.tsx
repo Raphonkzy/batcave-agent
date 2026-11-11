@@ -12,7 +12,8 @@ export function Usage() {
   const totals = data?.totals
 
   const topModel = data?.models && data.models.length > 0 ? data.models[0].model : 'None'
-  const topAgent = data?.agents.find((a) => (a.usage?.totalTokens ?? 0) > 0)
+  const agents = [...(data?.agents ?? [])].sort((a, b) => (b.usage?.totalTokens ?? 0) - (a.usage?.totalTokens ?? 0))
+  const topAgent = agents.find((a) => (a.usage?.totalTokens ?? 0) > 0)
   const modelTotal = (data?.models ?? []).reduce((sum, m) => sum + m.tokens, 0)
 
   return (
@@ -51,7 +52,7 @@ export function Usage() {
         <div className="mo-stat-card">
           <Stat
             label="ESTIMATED COST"
-            value={totals ? formatCost(totals.costUsd) : '$0.00'}
+            value={totals ? formatCost(totals.costUsd) : '—'}
             sub={totals ? `${formatNumber(totals.sessions)} conversation sessions` : ''}
           />
         </div>
@@ -64,30 +65,29 @@ export function Usage() {
         </div>
       </div>
 
-      {/* 2. Full-Width Line Chart (SVG Procedural) */}
+      {/* Hermes reports period aggregates, not a time series. */}
       <div className="mo-chart-container">
         <div className="mo-chart-header">
-          <span className="mo-chart-title">TOKEN CONSUMPTION TREND</span>
-          <span className="mo-chart-badge">ACTIVE</span>
+          <span className="mo-chart-title">TOKEN CONSUMPTION BY AGENT</span>
+          <span className="mo-chart-badge">LAST {days === 1 ? '24 HOURS' : `${days} DAYS`}</span>
         </div>
-        <svg className="mo-line-chart-svg" viewBox="0 0 1000 200" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#e8b65b" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#e8b65b" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M0,160 Q150,140 300,110 T600,60 T850,90 T1000,40 L1000,200 L0,200 Z"
-            fill="url(#chartGradient)"
-          />
-          <path
-            d="M0,160 Q150,140 300,110 T600,60 T850,90 T1000,40"
-            fill="none"
-            stroke="#e8b65b"
-            strokeWidth="2.5"
-          />
-        </svg>
+        {usage.status === 'pending' && <p role="status">Reading hermes insights for every agent…</p>}
+        {usage.status === 'failed' && <p role="alert">Not Available — {usage.message}</p>}
+        {usage.status === 'ready' && usage.stale && <p role="status">Refresh failed — showing last successful snapshot.</p>}
+        <div className="mo-model-table" role="list" aria-label="Tokens by agent">
+          {agents.map((agent) => {
+            const tokens = agent.usage?.totalTokens
+            const pct = totals && totals.totalTokens > 0 && tokens !== undefined ? (tokens / totals.totalTokens) * 100 : 0
+            return <div key={agent.agent} className="mo-model-row" role="listitem" title={tokens === undefined ? agent.error : `${agent.agent}: ${formatNumber(tokens)} tokens`}>
+              <span className="mo-model-name font-mono">{agent.agent}</span>
+              <span className="mo-model-tokens font-mono">{tokens === undefined ? 'Not Available' : formatCompact(tokens)}</span>
+              <div className="mo-model-bar-track"><div className="mo-model-bar-fill" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}/></div>
+              <span className="mo-model-pct">{tokens === undefined ? '—' : `${Math.round(pct)}%`}</span>
+            </div>
+          })}
+        </div>
+        {data && agents.length === 0 && <p className="mo-empty-state">No agent data available for this time range.</p>}
+        {data && agents.length > 0 && agents.every((agent) => agent.usage?.totalTokens === 0) && <p className="mo-empty-state">No sessions in this period.</p>}
       </div>
 
       {/* 3. Breakdown per Model with Thin Inline Bars */}
@@ -101,7 +101,7 @@ export function Usage() {
                 <span className="mo-model-name font-mono">{model.model}</span>
                 <span className="mo-model-tokens font-mono">{formatCompact(model.tokens)}</span>
                 <div className="mo-model-bar-track">
-                  <div className="mo-model-bar-fill" style={{ width: `${Math.max(2, pct)}%` }} />
+                  <div className="mo-model-bar-fill" style={{ width: `${Math.max(0, pct)}%` }} />
                 </div>
                 <span className="mo-model-pct">{pct}%</span>
               </div>

@@ -346,7 +346,7 @@ describe('Dashboard aggregation', () => {
       knowledge: { skills: { availability: 'available', data: [{ name: 'maps', category: 'travel', source: 'builtin', trust: 'builtin', status: 'enabled' }] }, fetchedAt: at },
       channels: { channels: { availability: 'available', data: [{ name: 'Telegram', status: 'Configured' }] }, activeSessions: 2, fetchedAt: at },
       office: buildOfficeSnapshot(runtime, board, activity, { now: at }),
-      commands: { total: 0, failed: 0, averageMs: 0 },
+      commands: { total: 0, failed: 0, averageMs: 0, recentFailed: 0 },
     })
     expect(dashboard.tasks).toEqual({ availability: 'available', total: 3, byStatus: { todo: 2, done: 1 }, assigned: 1 })
     expect(dashboard.calendar).toEqual({ availability: 'available', total: 2, active: 1, paused: 1, nextRun: '2026-09-28' })

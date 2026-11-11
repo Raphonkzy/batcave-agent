@@ -4,46 +4,36 @@ import * as THREE from 'three'
 import { CAVE_CEILING } from '../../utils/layout/dimensions.ts'
 import { buildWorldBatches } from './batches.ts'
 import { Batches } from './Instanced.tsx'
-import { manorMaterials } from './materials.ts'
-import { cyl, shape, type Part } from './parts.ts'
+import { box } from './parts.ts'
 import { isDeckView, isManorView, type ManorLayoutData, type ManorView } from './ZoneLayout.ts'
-/** Height of the agent anchors above their feet (as in the crew). */
-const ANCHOR_HEIGHT = 2.05
-// The glass elevator: a tube from the deck (y 0) to the foyer (y 11) with steel rings, and a cab
-// that rides with whoever is inside the tube and otherwise waits where it last stopped.
-const TUBE_TOP_ABOVE_MANOR = 2.6
-function tubeParts(layout: ManorLayoutData, from: number, to: number): Part[] {
-  const { x, z, radius } = layout.elevator
-  const parts: Part[] = [cyl('glass', [x, (from + to) / 2, z], [radius * 2, to - from, radius * 2])]
-  for (let y = Math.ceil(from); y <= to; y += 2) parts.push(shape('torus', 'gunmetal', [x, y, z], [radius * 2 + 0.06, 1, radius * 2 + 0.06]))
-  for (const level of [layout.elevator.bottom, layout.elevator.top]) if (level >= from - 0.01 && level <= to) parts.push(cyl('gunmetal', [x, level + 0.075, z], [radius * 2 + 0.3, 0.15, radius * 2 + 0.3]), shape('torus', 'ledCyan', [x, level + 0.16, z], [radius * 2 + 0.1, 1, radius * 2 + 0.1]))
-  return parts
-}
-export function VerticalShaft({ layout, view, anchors }: { layout: ManorLayoutData; view: ManorView; anchors?: MutableRefObject<Map<string, THREE.Object3D>> }) {
-  const { x, z, radius, bottom, top } = layout.elevator
-  const [from, to] = isDeckView(view) ? [bottom, CAVE_CEILING] : isManorView(view) ? [top, top + TUBE_TOP_ABOVE_MANOR] : [bottom, top + TUBE_TOP_ABOVE_MANOR]
-  const batches = useMemo(() => buildWorldBatches(tubeParts(layout, from, to)), [layout, from, to])
-  const cab = useRef<THREE.Group>(null)
-  const m = manorMaterials()
-  const point = useMemo(() => new THREE.Vector3(), [])
-  useFrame((_, delta) => {
-    const group = cab.current
-    if (!group) return
-    let target = group.position.y
-    for (const anchor of anchors?.current.values() ?? []) {
+const ANCHOR_HEIGHT=2.05
+
+import { elevatorShaftParts } from './elevatorGeometry.ts'
+export function VerticalShaft({layout,view,anchors}:{layout:ManorLayoutData;view:ManorView;anchors?:MutableRefObject<Map<string,THREE.Object3D>>}){
+  const {x,z,radius,bottom,top}=layout.elevator,r=radius*.72
+  const [from,to]=isDeckView(view)?[bottom,CAVE_CEILING]:isManorView(view)?[top,top+2.8]:[bottom,top+2.8]
+  const shaft=useMemo(()=>buildWorldBatches(elevatorShaftParts(layout,from,to)),[layout,from,to])
+  const car=useMemo(()=>buildWorldBatches([
+    box('marbleBlack',[0,.06,0],[r*2-.14,.12,r*2-.14]),box('blackSteel',[0,2.42,0],[r*2-.14,.12,r*2-.14]),box('lampWarm',[0,2.35,0],[r*1.4,.025,r*1.4]),
+    ...[-1,1].flatMap(s=>[box('blackSteel',[s*(r-.1),1.25,-r+.1],[.06,2.3,.06]),box('brass',[s*(r-.1),1.1,0],[.035,.04,r*1.7])]),
+    box('glass',[0,1.2,-r+.08],[r*2-.2,2.2,.04]),
+  ]),[r])
+  const cab=useRef<THREE.Group>(null),left=useRef<THREE.Mesh>(null),right=useRef<THREE.Mesh>(null)
+  const point=useMemo(()=>new THREE.Vector3(),[]),state=useRef({y:isManorView(view)?top:bottom,door:1})
+  useFrame((_,delta)=>{
+    if(!cab.current)return
+    let target=state.current.y
+    for(const anchor of anchors?.current.values()??[]){
       anchor.getWorldPosition(point)
-      if (Math.hypot(point.x - x, point.z - z) < radius && point.y - ANCHOR_HEIGHT > bottom - 0.5 && point.y - ANCHOR_HEIGHT < top + 0.5) { target = point.y - ANCHOR_HEIGHT; break }
+      if(Math.hypot(point.x-x,point.z-z)<radius && point.y-ANCHOR_HEIGHT>=bottom-.1 && point.y-ANCHOR_HEIGHT<=top+.1){target=point.y-ANCHOR_HEIGHT;break}
     }
-    group.position.y += (target - group.position.y) * Math.min(1, delta * 6)
-    group.visible = group.position.y >= from - 0.1 && group.position.y <= to
+    const moving=Math.abs(target-state.current.y)>.035
+    state.current.y=THREE.MathUtils.damp(state.current.y,target,12,Math.min(delta,.1))
+    const atFloor=Math.min(Math.abs(state.current.y-bottom),Math.abs(state.current.y-top))<.12
+    state.current.door=THREE.MathUtils.damp(state.current.door,atFloor&&!moving?1:0,6,Math.min(delta,.1))
+    cab.current.position.y=state.current.y;cab.current.visible=state.current.y>=from-.15&&state.current.y<=to
+    if(left.current)left.current.position.x=-r*.42-state.current.door*r*.65
+    if(right.current)right.current.position.x=r*.42+state.current.door*r*.65
   })
-  return <group>
-    <Batches batches={batches} shadows={false}/>
-    <group ref={cab} position={[x, bottom, z]}>
-      <mesh material={m.gunmetal} position={[0, 0.06, 0]}><cylinderGeometry args={[radius - 0.08, radius - 0.08, 0.12, 24]}/></mesh>
-      <mesh material={m.gunmetal} position={[0, 2.5, 0]}><cylinderGeometry args={[radius - 0.08, radius - 0.08, 0.1, 24]}/></mesh>
-      <mesh material={m.ledCyan} position={[0, 2.43, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[radius - 0.2, 0.03, 4, 32]}/></mesh>
-      {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((angle) => <mesh key={angle} material={m.chrome} position={[Math.cos(angle) * (radius - 0.12), 1.25, Math.sin(angle) * (radius - 0.12)]} scale={[0.05, 2.4, 0.05]}><boxGeometry/></mesh>)}
-    </group>
-  </group>
+  return <group name="ArchitecturalElevator"><Batches batches={shaft} shadows={false}/><group ref={cab} position={[x,state.current.y,z]}><Batches batches={car} shadows={false}/>{[-1,1].map(s=><mesh key={s} ref={s<0?left:right} position={[s*r*.42,1.2,r-.08]}><boxGeometry args={[r*.82,2.2,.045]}/><meshStandardMaterial color="#807052" metalness={.75} roughness={.32}/></mesh>)}</group></group>
 }

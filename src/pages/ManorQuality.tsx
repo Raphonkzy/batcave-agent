@@ -40,13 +40,15 @@ export function FrameReporter({ onSample }: { onSample: (fps: number) => void })
   const frameDeltas = useRef<number[]>([])
 
   useFrame(() => {
-    frames.current += 1
     const now = performance.now()
     const delta = now - lastFrame.current
     lastFrame.current = now
-    if (frameDeltas.current.length < 300) {
-      frameDeltas.current.push(delta)
-    }
+    // A gap this long means rendering was paused (the page was hidden), not that frames were slow:
+    // start the one-second window over instead of reporting a false low frame rate.
+    if (delta > 3000) { frames.current = 0; since.current = now; return }
+    frames.current += 1
+    frameDeltas.current.push(delta)
+    if (frameDeltas.current.length > 300) frameDeltas.current.shift()
 
     if (now - since.current < 1000) return
     const fps = (frames.current * 1000) / (now - since.current)

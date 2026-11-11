@@ -114,7 +114,17 @@ function visible(grid: PathGrid, res: number, a: [number, number], b: [number, n
   }
   return true
 }
-/** Waypoints over one floor, ending exactly at `to`. */
+/** Strict reachability for user commands: never use routine movement's direct fallback. */
+export function canCommandMove(layout: ManorLayoutData, from: Vec3, to: Vec3): boolean {
+  const level = levelOf(from[1])
+  if (level !== levelOf(to[1])) return false
+  const grid = gridFor(layout, level)
+  if (!isWalkable(layout, grid, to[0], to[2])) return false
+  const start = nearestFree(grid, layout.paths.resolution, from[0], from[2])
+  const goal = cellOf(grid, layout.paths.resolution, to[0], to[2])
+  return !!start && !!aStar(grid, start, goal)
+}
+/** Waypoints over one floor, ending exactly at to. */
 function routeOnFloor(layout: ManorLayoutData, grid: PathGrid, from: [number, number], to: [number, number]): [number, number][] {
   const res = layout.paths.resolution
   if (Math.hypot(to[0] - from[0], to[1] - from[1]) < 0.3) return [to]

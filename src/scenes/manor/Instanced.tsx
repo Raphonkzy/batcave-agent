@@ -23,7 +23,7 @@ export function BatchMesh({ batch, shadows = true }: { batch: Batch; shadows?: S
     mesh.computeBoundingBox()
   }, [batch])
   const cast = shadows === 'main' ? MAIN_CASTERS.has(batch.m) : shadows && !NO_SHADOW.has(batch.m)
-  return <instancedMesh ref={ref} args={[geometryFor(batch.g), material, batch.matrices.length]} castShadow={cast} receiveShadow={shadows !== false && !NO_SHADOW.has(batch.m)}/>
+  return <instancedMesh ref={ref} userData={{ itemIds: batch.itemIds, baseColors: batch.colors }} args={[geometryFor(batch.g), material, batch.matrices.length]} castShadow={cast} receiveShadow={shadows !== false && !NO_SHADOW.has(batch.m)}/>
 }
 export function Batches({ batches, shadows = true }: { batches: Batch[]; shadows?: Shadows }) {
   return <>{batches.map((batch) => <BatchMesh key={`${batch.key}:${batch.matrices.length}`} batch={batch} shadows={shadows}/>)}</>

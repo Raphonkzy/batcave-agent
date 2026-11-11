@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { usePolling, type Polled } from '../polling.ts'
+import { usePolling, type Polled, type PollingOptions } from '../polling.ts'
 import type { OfficeSnapshot } from '../types.ts'
 import { CYCLE_STEP_MS, cycleCount, mockOffice, parseMockRequest } from './mockAgents.ts'
 // The front-end data layer for the crew: the live `/api/office` snapshot, or, in development
@@ -18,8 +18,8 @@ function useMockCount(): number | null {
   if (!request) return null
   return request.kind === 'cycle' ? cycleCount(step) : request.count
 }
-export function useAgents(): Polled<OfficeSnapshot> {
-  const live = usePolling<OfficeSnapshot>('/api/office', 10_000)
+export function useAgents(options?: PollingOptions): Polled<OfficeSnapshot> {
+  const live = usePolling<OfficeSnapshot>('/api/office', 10_000, options)
   const mock = useMockCount()
   if (import.meta.env.DEV && mock !== null) return { status: 'ready', data: mockOffice(mock), refreshing: false, refresh: live.refresh }
   return live
