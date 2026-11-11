@@ -54,12 +54,15 @@ export function checkHarusBerbeda(root = process.cwd()): HarusBerbedaResult {
     errors.push(`Old shell selectors still present in App.tsx: ${oldSelectorsFound.join(', ')}`)
   }
 
-  // 2. Check font tokens: Gilroy / Plus Jakarta Sans & Minimal Obsidian palette in styles.css
-  if (!stylesContent.includes('--bg: #0d0e11') && !stylesContent.includes('--bg:#0d0e11')) {
-    errors.push('Minimal Obsidian token --bg: #0d0e11 is missing from styles.css')
+  // 2. Check the current theme (ADR-008, "Tactical"): the entry stylesheet loads the token file, which
+  // declares the type families and the palette. Earlier palettes (Minimal Obsidian, Lot, Cave) were replaced on purpose.
+  const tokensPath = path.join(root, 'src/styles/tokens.css')
+  const tokensContent = fs.existsSync(tokensPath) ? fs.readFileSync(tokensPath, 'utf8') : ''
+  if (!stylesContent.includes("@import './styles/tokens.css'")) {
+    errors.push('styles.css does not import ./styles/tokens.css')
   }
-  if (!stylesContent.includes('--accent: #e8b65b') && !stylesContent.includes('--accent:#e8b65b')) {
-    errors.push('Minimal Obsidian token --accent: #e8b65b is missing from styles.css')
+  for (const required of ["--font-display: 'Barlow Condensed'", '--surface: #0e1014', '--accent: #f2c230']) {
+    if (!tokensContent.includes(required)) errors.push(`Tactical theme token "${required}" is missing from src/styles/tokens.css`)
   }
 
   return {

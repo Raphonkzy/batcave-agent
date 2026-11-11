@@ -72,8 +72,10 @@ export interface CrewProps {
   onSelect: (index: number) => void
   /** Double-click on a character (the camera focuses it). */
   onFocus?: (index: number) => void
+  /** The character under the pointer, or null when it leaves. */
+  onHover?: (index: number | null) => void
 }
-export function Crew({ layout, stations, placements, visible, animate, shadows, anchors, onSelect, onFocus }: CrewProps) {
+export function Crew({ layout, stations, placements, visible, animate, shadows, anchors, onSelect, onFocus, onHover }: CrewProps) {
   const signature = stations.map((station) => `${station.id}:${station.state === 'Offline' ? 'off' : 'on'}`).join('|')
   // Rebuilt only when the crew or someone's online status changes; poses update every frame.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,15 +178,18 @@ export function Crew({ layout, stations, placements, visible, animate, shadows, 
       anchor.position.set(motion.position.x, motion.position.y + (lying ? (placement.height ?? 0.6) + 0.6 : ANCHOR_HEIGHT + bodyY), motion.position.z)
       anchor.visible = shown
     }
-    hitbox.current?.setMatrixAt(index, shown ? new THREE.Matrix4().compose(new THREE.Vector3(motion.position.x, motion.position.y + 0.9 + bodyY, motion.position.z), temp.q, new THREE.Vector3(0.7, 1.9, 0.7)) : ZERO)
+    // Invisible pick volume, a little larger than the body so a small, distant character is easy to click.
+    hitbox.current?.setMatrixAt(index, shown ? new THREE.Matrix4().compose(new THREE.Vector3(motion.position.x, motion.position.y + 1 + bodyY, motion.position.z), temp.q, new THREE.Vector3(1.1, 2.2, 1.1)) : ZERO)
     ring.current?.setMatrixAt(index, shown && station.state === 'Unknown' ? new THREE.Matrix4().makeTranslation(motion.position.x, motion.position.y + 0.03, motion.position.z) : ZERO)
   }
   return <group ref={group}>
     {batches.map((batch) => <CrewMesh key={`${batch.key}:${batch.slots.length}`} batch={batch} bones={bones} shadows={shadows}/>)}
-    <instancedMesh key={`hit${stations.length}`} ref={hitbox} args={[geometryFor('box'), hitMaterial, Math.max(1, stations.length)]} frustumCulled={false}
+    {/* userData.crew: furniture under a character yields the click to it (InteractionLayer). */}
+    <instancedMesh key={`hit${stations.length}`} ref={hitbox} args={[geometryFor('box'), hitMaterial, Math.max(1, stations.length)]} frustumCulled={false} userData={{ crew: true }}
       onClick={(event) => { if (event.button !== 0 || event.delta > 4) return; event.stopPropagation(); if (event.instanceId !== undefined && event.instanceId < stations.length) onSelect(event.instanceId) }}
       onDoubleClick={(event) => { if (event.button !== 0 || event.delta > 4) return; event.stopPropagation(); if (event.instanceId !== undefined && event.instanceId < stations.length) onFocus?.(event.instanceId) }}
-      onPointerOver={() => { document.body.style.cursor = 'pointer' }} onPointerOut={() => { document.body.style.cursor = '' }}/>
+      onPointerMove={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; onHover?.(event.instanceId !== undefined && event.instanceId < stations.length ? event.instanceId : null) }}
+      onPointerOut={() => { document.body.style.cursor = ''; onHover?.(null) }}/>
     <instancedMesh key={`ring${stations.length}`} ref={ring} args={[ringGeometry, ringMaterial, Math.max(1, stations.length)]} frustumCulled={false}/>
   </group>
 }

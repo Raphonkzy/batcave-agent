@@ -16,7 +16,6 @@ import { VerticalShaft } from './manor/VerticalShaft.tsx'
 import { WaterfallMesh } from './manor/WaterfallMesh.tsx'
 import { fullManorShell } from './manor/enclosure.ts'
 import { Roof } from './manor/Roof.tsx'
-import { Plumbob } from './manor/Plumbob.tsx'
 import { lightRig, QUALITY, terraceSun, type ManorLayoutData, type ManorView, type Level, type WallMode, type Quality, type QualityProfile } from './manor/ZoneLayout.ts'
 // Root of the Tactical Manor theme (`themeId: "manor"`): the subterranean command deck and the
 // surface manor above it, joined by the cliff, the waterfall and the glass elevator. All geometry
@@ -100,8 +99,6 @@ export interface ThemeManorProps {
   /** True while agents brief at the war table (its projection turns amber). */
   briefing?: boolean
   anchors?: MutableRefObject<Map<string, THREE.Object3D>>
-  selectedAnchor?: THREE.Object3D | null
-  selectedStatus?: string
   hour?: number
   sunAzimuth?: number
   sunIntensity?: number
@@ -120,8 +117,6 @@ export default function ThemeManor({
   focus,
   briefing = false,
   anchors,
-  selectedAnchor,
-  selectedStatus,
   hour,
   sunAzimuth = 0,
   sunIntensity = 1,
@@ -166,9 +161,6 @@ export default function ThemeManor({
     </>}
     <WaterfallMesh layout={layout} profile={profile} animate={animate} view={view}/>
     <VerticalShaft layout={layout} view={view} anchors={anchors}/>
-    {selectedAnchor && selectedStatus && (
-      <Plumbob anchor={selectedAnchor} status={selectedStatus} reducedMotion={!animate} />
-    )}
     {children}
   </>
 }

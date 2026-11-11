@@ -27,10 +27,16 @@ import { AgentRadialMenu } from '../components/hud/AgentRadialMenu.tsx'
 import { GateActions } from '../components/hud/GateActions.tsx'
 import { estateConfig } from '../scenes/manor/worldConfig.ts'
 import { EnvironmentControls, useEnvironment } from './EnvironmentControls.tsx'
+import { hasOpenDialog } from '../open-dialog.ts'
+import { BatMark } from '../components/ui/BatMark.tsx'
+import { ScreenFollower } from '../components/agent/ScreenFollower.tsx'
 
+/** Ticks every `interval` ms; an interval of 0 stops it (the page is hidden) and resumes with a fresh time. */
 function useClock(interval: number) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
+    if (interval <= 0) return
+    setNow(Date.now())
     const timer = window.setInterval(() => setNow(Date.now()), interval)
     return () => window.clearInterval(timer)
   }, [interval])
@@ -57,13 +63,15 @@ const shownIn = (level: Level) => (position: THREE.Vector3) => {
 function ManorWorld({
   stations,
   onSelect,
-  isFullscreen = false,
   onToggleFullscreen,
+  active = true,
 }: {
   stations: OfficeStation[]
   onSelect: (station: OfficeStation, trigger: HTMLElement | null) => void
   isFullscreen?: boolean
   onToggleFullscreen?: () => void
+  /** False while the page is kept alive behind another one: no frames, no shortcuts, no clock. */
+  active?: boolean
 }) {
   const base = useMemo(() => computeLayout(stations.length), [stations.length])
   const [edits, setEdits] = useState<Record<string, LayoutItem>>({})
@@ -92,6 +100,9 @@ function ManorWorld({
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [isFollowing, setIsFollowing] = useState(false)
   const [radialMenu, setRadialMenu] = useState<{ station: OfficeStation; x: number; y: number } | null>(null)
+  const radialRef = useRef<HTMLDivElement | null>(null)
+  // The character under the pointer: its name tag shows; the others stay hidden.
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [zoneFocus, setZoneFocus] = useState<'hangar' | 'lobby' | 'exterior' | null>(null)
   const [keyTarget, setKeyTarget] = useState<HTMLElement | null>(null)
   const { quality, choice, setChoice, report } = useQuality()
@@ -101,7 +112,7 @@ function ManorWorld({
   const hudContainerRef = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
   const environment = useEnvironment()
-  const now = useClock(2000)
+  const now = useClock(active ? 2000 : 0)
 
   // Measure HUD height for safe-area framing
   useEffect(() => {
@@ -233,13 +244,23 @@ function ManorWorld({
     if (focusCamera && anchor) camera.current?.focus(anchor.position, CHARACTER_RADIUS)
   }
 
+  // Leaving the page drops transient pop-ups and half-finished placements; the camera, floor and selection stay.
+  useEffect(() => {
+    if (active) return
+    setRadialMenu(null)
+    setPreview(null)
+    setCommanding(false)
+  }, [active])
+
   // Keyboard shortcut handler
   useEffect(() => {
+    // These shortcuts belong to the scene; on any other page they must not move it or swallow keys.
+    if (!active) return
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
-      if (document.querySelector('[role="dialog"]')) return
+      if (hasOpenDialog()) return
       if (e.key !== 'Escape' && target?.closest('button, a, [role="menu"]')) return
 
       if (preview) {
@@ -296,7 +317,7 @@ function ManorWorld({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleCycleLevel, handleSetWallMode, selectedAgentId, onToggleFullscreen, preview, selectedObject, layout, gateSelected, gatePosition])
+  }, [active, handleCycleLevel, handleSetWallMode, selectedAgentId, onToggleFullscreen, preview, selectedObject, layout, gateSelected, gatePosition])
 
   const placements: Placement[] = stations.map((station) =>
     commands[station.id] ? { position:commands[station.id], facing:0, seated:false, kind:'command', label:'Moving to destination' } :
@@ -328,6 +349,7 @@ function ManorWorld({
     >
       <Canvas
         shadows
+        frameloop={active ? 'always' : 'never'}
         dpr={[1, quality === 'high' ? 1.75 : quality === 'medium' ? 1.25 : 1]}
         camera={initialCamera.current}
         gl={{ antialias: quality !== 'low' }}
@@ -354,8 +376,6 @@ function ManorWorld({
           suit={suit}
           focus={preset.target}
           anchors={anchors}
-          selectedAnchor={selectedAnchor}
-          selectedStatus={selectedStation?.state}
           briefing={briefing}
           gate={{ open: gateOpen, selected: gateSelected, interactive: !preview && !commanding, reducedMotion: reduced,
             onSelect: () => { setSelectedObject('estate-entrance-gate'); setSelectedAgentId(null); setRadialMenu(null); setIsFollowing(false); camera.current?.follow(null) },
@@ -380,6 +400,7 @@ function ManorWorld({
               const anchor = station && anchors.current.get(`agent-${station.id}`)
               if (anchor) camera.current?.focus(anchor.position, CHARACTER_RADIUS)
             }}
+            onHover={(index) => setHoveredId(index === null ? null : stations[index]?.id ?? null)}
           />
           {level === 'deck' && (
             <ScreenGlow slots={slots} kinds={kinds} rate={FEED_RATE[profile.screens]} animate={!reduced} />
@@ -398,6 +419,7 @@ function ManorWorld({
             setCommands(c=>({...c,[selectedAgentId]:p}));setCommanding(false);setFeedback('Movement command issued')
           }}/>
         <LabelProjector anchors={anchors} labels={labels} />
+        <ScreenFollower anchors={anchors} anchorKey={radialMenu ? `agent-${radialMenu.station.id}` : null} target={radialRef} />
         <ManorCamera ref={camera} preset={preset} obstacles={obstacles} panMode={false} keyTarget={keyTarget} smooth={!reduced} enabled={!preview && !commanding} followTarget={isFollowing && selectedAnchor ? selectedAnchor.position : null} onFollowEnd={() => setIsFollowing(false)} />
         <FrameReporter onSample={report} />
       </Canvas>
@@ -413,13 +435,16 @@ function ManorWorld({
             else labels.current.delete(`agent-${station.id}`)
           }
           const isSelected = selectedAgentId === station.id
+          const isHovered = hoveredId === station.id
 
           return (
             <button
               key={station.id}
               ref={register}
               type="button"
-              className={`agent-tag-3d state-${station.state.toLowerCase()} ${isSelected ? 'selected' : ''}`}
+              className={`agent-tag-3d state-${station.state.toLowerCase()}${isSelected ? ' selected' : ''}${isHovered ? ' hovered' : ''}${radialMenu?.station.id === station.id ? ' menu-open' : ''}`}
+              onPointerEnter={() => setHoveredId(station.id)}
+              onPointerLeave={() => setHoveredId((id) => (id === station.id ? null : id))}
               onClick={(event) => {
                 event.stopPropagation()
                 const rect = event.currentTarget.getBoundingClientRect()
@@ -432,7 +457,7 @@ function ManorWorld({
               }}
               aria-label={`${station.name}. ${station.state}.${station.privacy === 'locked' ? ' Locked.' : ''}${resting ? ` ${resting}.` : ''} Open agent actions.`}
             >
-              {isSelected && <span className="mo-diamond-marker" />}
+              {isSelected && <BatMark size={22} className="mo-tag-mark" />}
               {resting && (
                 <span
                   className={`speech speech-3d speech-idle${placements[index].pose === 'lie' ? ' speech-sleep' : ''}`}
@@ -474,17 +499,8 @@ function ManorWorld({
         </div>
         <small>Scene-session changes only; runtime agents are unaffected.</small>
       </section>}
-      {selectedStation && <div className="mo-command-strip">
-        <button className="mo-hud-btn" aria-pressed={commanding} onClick={()=>{setCommanding(c=>!c);setRadialMenu(null)}}>{commanding?'Choose ground destination':'Move character'}</button>
-        {commands[selectedStation.id] && <button className="mo-hud-btn" onClick={()=>{
-          const a=anchors.current.get('agent-'+selectedStation.id)
-          if(a)setCommands(c=>({...c,[selectedStation.id]:[a.position.x,a.position.y-2.05,a.position.z]}))
-          setCommanding(false)
-        }}>Stop here</button>}
-        <button className="mo-hud-btn" onClick={()=>{setCommands(c=>{const next={...c};delete next[selectedStation.id];return next});setCommanding(false)}}>Resume routine</button>
-      </div>}
       {feedback && <output className="mo-scene-feedback" aria-live="polite">{feedback}</output>}
-      <details className="mo-controls-help"><summary>Controls & help</summary><p>Left click: select · left drag: rotate · right/middle drag: pan · wheel: zoom</p><p>Q/E: rotate · R/Home: reset view · F: focus selection · 1/2/3: walls · Esc: cancel</p><p>Select objects to inspect. Loose furnishings support Move; R rotates, G toggles 0.5 m snapping. Select a character, then Move character and click open floor. Dragging interrupts camera flights/follow.</p>{level !== 'deck' && <p><button className="mo-hud-btn" onClick={() => { setSelectedObject('estate-entrance-gate'); setSelectedAgentId(null); setRadialMenu(null); setIsFollowing(false); camera.current?.follow(null) }}>Inspect estate gate</button></p>}<QualityPicker quality={quality} choice={choice} onChoose={setChoice}/><EnvironmentControls settings={environment.settings} onChange={environment.update}/></details>
+      {commanding && <button type="button" className="mo-scene-cancel mo-hud-btn" onClick={() => { setCommanding(false); setFeedback('') }}>Cancel move</button>}
 
       {/* Radial Menu on Agent Click (5 Read-Only Actions) */}
       {radialMenu && (
@@ -498,6 +514,7 @@ function ManorWorld({
           }}
           x={radialMenu.x}
           y={radialMenu.y}
+          rootRef={radialRef}
           onClose={() => setRadialMenu(null)}
           onInspect={() => {
             onSelect(radialMenu.station, null)
@@ -555,8 +572,33 @@ function ManorWorld({
           onNavigateLogs={() => {
             window.location.hash = selectedStation ? `#/logs?agent=${encodeURIComponent(selectedStation.id)}` : '#/logs'
           }}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={onToggleFullscreen}
+          agentActions={selectedStation ? [
+            { id: 'move', label: commanding ? 'Choose a destination…' : 'Move character', pressed: commanding, onSelect: () => {
+              setRadialMenu(null)
+              setCommanding((on) => !on)
+              setFeedback(commanding ? '' : 'Click open floor to send the character there')
+            } },
+            ...(commands[selectedStation.id] ? [{ id: 'stop', label: 'Stop here', onSelect: () => {
+              const a = anchors.current.get('agent-' + selectedStation.id)
+              if (a) setCommands((c) => ({ ...c, [selectedStation.id]: [a.position.x, a.position.y - 2.05, a.position.z] }))
+              setCommanding(false)
+            } }] : []),
+            { id: 'resume', label: 'Resume routine', onSelect: () => {
+              setCommands((c) => { const next = { ...c }; delete next[selectedStation.id]; return next })
+              setCommanding(false)
+            } },
+          ] : []}
+          viewMenu={<div className="mo-view-settings">
+            <QualityPicker quality={quality} choice={choice} onChoose={setChoice}/>
+            <EnvironmentControls settings={environment.settings} onChange={environment.update}/>
+            {level !== 'deck' && <button type="button" className="mo-hud-btn" onClick={() => { setSelectedObject('estate-entrance-gate'); setSelectedAgentId(null); setRadialMenu(null); setIsFollowing(false); camera.current?.follow(null) }}>Inspect estate gate</button>}
+            <details className="mo-controls-help">
+              <summary>Controls</summary>
+              <p>Left click: select · left drag: rotate · right or middle drag: pan · wheel: zoom</p>
+              <p>Q/E: rotate · R/Home: reset view · F: focus selection · 1/2/3: walls · [ and ]: floors · Esc: cancel</p>
+              <p>Select objects to inspect. Loose furnishings can be moved: R rotates, G toggles 0.5 m snapping. Dragging interrupts camera flights and follow.</p>
+            </details>
+          </div>}
         />
       </div>
     </div>

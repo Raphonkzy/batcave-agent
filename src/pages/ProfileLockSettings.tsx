@@ -28,9 +28,9 @@ export function ProfileLockSettings() {
       {mode === 'idle' && <div className="access-actions">
         {status.enabled ? <>
           <button type="button" className="primary-button" onClick={start('agents')}>Choose agents</button>
-          <button type="button" className="refresh-button" onClick={start('pin')}>CHANGE PIN</button>
-          <button type="button" className="refresh-button" onClick={start('off')}>TURN OFF</button>
-          {status.unlocked.length > 0 && <button type="button" className="refresh-button" onClick={() => void profileLockRequest('lock').then(() => setMessage('Every agent is locked again in this browser.'))}>🔒 LOCK ALL AGAIN</button>}
+          <button type="button" className="refresh-button" onClick={start('pin')}>Change PIN</button>
+          <button type="button" className="refresh-button" onClick={start('off')}>Turn off</button>
+          {status.unlocked.length > 0 && <button type="button" className="refresh-button" onClick={() => void profileLockRequest('lock').then(() => setMessage('Every agent is locked again in this browser.'))}>🔒 Lock all again</button>}
         </> : <button type="button" className="primary-button" onClick={start('setup')}>Set up profile lock</button>}
       </div>}
       {mode === 'setup' && <LockForm kind="setup" agents={agents} status={status} onDone={finish('Profile lock is on.')} onCancel={() => setMode('idle')}/>}
@@ -85,7 +85,7 @@ function LockForm({ kind, agents, status, onDone, onCancel }: { kind: 'setup' | 
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="access-actions">
       <button type="submit" className={`primary-button${kind === 'off' ? ' danger' : ''}`} disabled={busy}>{busy ? 'Saving…' : kind === 'setup' ? 'Turn on profile lock' : kind === 'agents' ? 'Save locked agents' : kind === 'pin' ? 'Save new PIN' : 'Turn off profile lock'}</button>
-      <button type="button" className="refresh-button" onClick={onCancel}>CANCEL</button>
+      <button type="button" className="refresh-button" onClick={onCancel}>Cancel</button>
     </div>
   </form>
 }

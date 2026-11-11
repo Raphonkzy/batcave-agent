@@ -1,5 +1,10 @@
-const storage = new Map<string, string>()
+import { afterEach } from 'vitest'
+import { resetDataStore } from './src/data-store.ts'
 
+// The shared data store lives in module state; start every test from an empty one.
+afterEach(() => { resetDataStore() })
+
+const storage = new Map<string, string>()
 if (typeof globalThis.localStorage === 'undefined') {
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,

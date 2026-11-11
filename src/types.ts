@@ -69,7 +69,7 @@ export interface UsageSnapshot {
   fetchedAt: string
 }
 export interface CountSource { availability: Availability; total: number }
-export interface CommandHealth { total: number; failed: number; averageMs: number }
+export interface CommandHealth { total: number; failed: number; averageMs: number; /** Failed reads in the last 5 minutes (older servers omit it). */ recentFailed?: number }
 export interface DashboardSnapshot {
   runtime: RuntimeSnapshot
   tasks: CountSource & { byStatus: Record<string, number>; assigned: number }

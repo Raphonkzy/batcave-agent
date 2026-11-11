@@ -6,6 +6,8 @@ import { interactive, placementError } from './simulation.ts'
 import { ObjectHighlight } from './ObjectHighlight.tsx'
 import { Batches } from './Instanced.tsx'
 import { buildBatches } from './batches.ts'
+/** True when a crew member is anywhere along the pointer ray: characters take precedence over furniture. */
+const crewHit=(e:ThreeEvent<PointerEvent|MouseEvent>)=>e.intersections.some(hit=>hit.object.userData?.crew===true)
 export function InteractionLayer({layout,level,selected,preview,onSelect,onFocus,onPreview,onGround,destination,commanding}: {
  layout: ManorLayoutData; level: 'deck'|'ground'|'upper'; selected: LayoutItem|null; preview: LayoutItem|null;
  onSelect:(item:LayoutItem)=>void; onFocus?:(item:LayoutItem)=>void; onPreview:(point:Vec3)=>void; onGround:(point:Vec3)=>void; destination:Vec3|null; commanding:boolean
@@ -25,9 +27,9 @@ export function InteractionLayer({layout,level,selected,preview,onSelect,onFocus
  const point=(e:ThreeEvent<PointerEvent|MouseEvent>):Vec3=>[e.point.x,y,e.point.z]
  return <group>
   {!preview && !commanding && <instancedMesh ref={hit} key={items.length} args={[undefined,undefined,Math.max(1,items.length)]}
-   onPointerMove={e=>{e.stopPropagation();setHover(e.instanceId===undefined?null:items[e.instanceId]?.id ?? null)}} onPointerOut={()=>setHover(null)}
-   onClick={e=>{if(e.button!==0||e.delta>4)return;e.stopPropagation();if(e.instanceId!==undefined&&items[e.instanceId])onSelect(items[e.instanceId])}}
-   onDoubleClick={e=>{if(e.button!==0||e.delta>4)return;e.stopPropagation();if(e.instanceId!==undefined&&items[e.instanceId])onFocus?.(items[e.instanceId])}}>
+   onPointerMove={e=>{if(crewHit(e)){setHover(null);return}e.stopPropagation();setHover(e.instanceId===undefined?null:items[e.instanceId]?.id ?? null)}} onPointerOut={()=>setHover(null)}
+   onClick={e=>{if(e.button!==0||e.delta>4||crewHit(e))return;e.stopPropagation();if(e.instanceId!==undefined&&items[e.instanceId])onSelect(items[e.instanceId])}}
+   onDoubleClick={e=>{if(e.button!==0||e.delta>4||crewHit(e))return;e.stopPropagation();if(e.instanceId!==undefined&&items[e.instanceId])onFocus?.(items[e.instanceId])}}>
    <boxGeometry/><meshBasicMaterial colorWrite={false} depthWrite={false}/>
   </instancedMesh>}
   {!preview && <ObjectHighlight id={highlighted?.id} selected={!!selected} revision={layout}/>}
