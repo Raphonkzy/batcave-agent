@@ -8,7 +8,10 @@ import { redactActivity, redactCalendar, redactDashboard, redactLogs, redactMemo
 import { installProfileLock, isHidden, type Privacy } from './profile-lock.js'
 import { API_VERSION } from './api-version.js'
 import { collectMemory } from './memory.js'
-import { getActivity, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getTaskBoard, getTaskDetail, getUsage, type CacheRead } from './mission-control.js'
+import { getActivity, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getTaskBoard, getTaskDetail, getUsage, terminateChildProcesses, verifyHermes, type CacheRead } from './mission-control.js'
+import { AgentManager } from './agent-manager.js'
+import { diagnosticsSnapshot, logEvent, recordRequest } from './diagnostics.js'
+import { flushSnapshots } from './snapshot-store.js'
 
 const HOST = '127.0.0.1'
 // BATCAVE_PORT is the primary port, with legacy aliases RUANG_PORT / MISSION_CONTROL_PORT still honoured.
@@ -19,8 +22,17 @@ const distDirectory = [new URL('../dist', import.meta.url), new URL('../../dist'
 
 const app = express()
 app.disable('x-powered-by')
-app.use('/api', (_request, response, next) => {
+
+// The one owner of the Hermes connection state. Every route reads it; none starts its own.
+const agentManager = new AgentManager({ verify: verifyHermes })
+
+app.use('/api', (request, response, next) => {
   response.set('Cache-Control', 'no-store')
+  // Request count and duration per route pattern (never per URL, so no ids or queries are kept),
+  // and a note that a browser is using the API so the connection monitor stays awake.
+  const started = process.hrtime.bigint()
+  response.on('finish', () => recordRequest(`${request.method} ${request.route?.path ?? '(unmatched)'}`, Number(process.hrtime.bigint() - started) / 1e6, response.statusCode))
+  agentManager.touch()
   next()
 })
 
@@ -29,6 +41,10 @@ app.get('/api/health', (_request, response) => { response.json({ ok: true, apiVe
 
 // Optional access code (off by default): locks every other /api route until it is entered.
 installAccess(app)
+
+// Connection state and counters. In-memory only: reading them never starts or restarts Hermes.
+app.get('/api/agent/status', (_request, response) => { response.json(agentManager.status()) })
+app.get('/api/diagnostics', (_request, response) => { response.json({ agent: agentManager.status(), ...diagnosticsSnapshot() }) })
 // Optional profile lock (off by default): a PIN withholds the private data of chosen agents.
 const privacyOf = installProfileLock(app)
 
@@ -125,4 +141,38 @@ app.use((error: unknown, _request: Request, response: Response, _next: NextFunct
   response.status(500).json({ error: 'Internal error' })
 })
 
-app.listen(PORT, HOST, () => console.log(`Batcave listening on http://${HOST}:${PORT}${existsSync(distDirectory) ? ' (serving built UI)' : ' (API only; run the Vite dev server for the UI)'}`))
+const server = app.listen(PORT, HOST, () => {
+  console.log(`Batcave listening on http://${HOST}:${PORT}${existsSync(distDirectory) ? ' (serving built UI)' : ' (API only; run the Vite dev server for the UI)'}`)
+  // Verify Hermes once, now, so the first page load finds a known state instead of starting the work.
+  void agentManager.initialize()
+  // Start the slow Hermes reads (tens of seconds on some machines) before the first page asks for
+  // them. Requests that arrive meanwhile join these reads. BATCAVE_PREWARM=0 turns this off.
+  if (process.env.BATCAVE_PREWARM !== '0') {
+    const warmStarted = Date.now()
+    void getDashboard(Date.now()).then(
+      () => logEvent('Server', 'Initial data ready', { durationMs: Date.now() - warmStarted }),
+      () => logEvent('Server', 'Initial data read failed'),
+    )
+  }
+})
+// Browsers poll every 10 to 60 s. Node's default keep-alive (5 s) would close the socket between
+// polls and force a new connection each time; keep it open a little longer than the slowest poll gap.
+server.keepAliveTimeout = 65_000
+server.headersTimeout = 66_000
+
+let shuttingDown = false
+function shutdown(signal: string) {
+  if (shuttingDown) return
+  shuttingDown = true
+  logEvent('Server', 'Shutting down', { signal })
+  agentManager.stop()
+  flushSnapshots()
+  const ended = terminateChildProcesses()
+  if (ended > 0) logEvent('Server', 'Ended running Hermes commands', { count: ended })
+  server.close(() => process.exit(0))
+  server.closeIdleConnections?.()
+  // Do not wait on a browser that keeps a connection open.
+  setTimeout(() => { server.closeAllConnections?.(); process.exit(0) }, 3_000).unref()
+}
+process.once('SIGINT', () => shutdown('SIGINT'))
+process.once('SIGTERM', () => shutdown('SIGTERM'))

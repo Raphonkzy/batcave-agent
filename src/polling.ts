@@ -1,41 +1,29 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { loadSnapshot, mergeRefresh, type RequestState } from './request-state.ts'
+import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from 'react'
+import { readPath, refreshOnTick, retain, subscribeToPath, type Polled } from './data-store.ts'
 
-/** Incremented by the header refresh control; every poller refetches when it changes. */
+export type { Polled } from './data-store.ts'
+
+/** Incremented by the header refresh control; every mounted poller refetches once when it changes. */
 export const RefreshContext = createContext(0)
 
-export type Polled<T> = RequestState<T> & { refreshing: boolean; refresh: () => void }
+export interface PollingOptions {
+  /** Keep showing what is known but neither fetch nor poll (a hidden, kept-alive page). */
+  paused?: boolean
+}
 
-export function usePolling<T>(path: string, intervalMs = 15_000): Polled<T> {
-  const [result, setResult] = useState<{ path: string; state: RequestState<T> }>({ path, state: { status: 'pending' } })
-  const state: RequestState<T> = result.path === path ? result.state : { status: 'pending' }
-  const [refreshing, setRefreshing] = useState(false)
+/**
+ * Reads an API path through the shared data store (see data-store.ts). Components that read the
+ * same path share one copy of the data, one in-flight request and one timer; the data stays
+ * available after the component unmounts. `intervalMs` 0 reads once and re-reads on a manual
+ * refresh or when a later mount finds the data older than a minute.
+ */
+export function usePolling<T>(path: string, intervalMs = 15_000, options: PollingOptions = {}): Polled<T> {
+  const paused = options.paused ?? false
   const tick = useContext(RefreshContext)
-  const generation = useRef(0)
-  const controller = useRef<AbortController | undefined>(undefined)
-
-  const load = useCallback(async (fresh = false) => {
-    const id = ++generation.current
-    controller.current?.abort()
-    const request = new AbortController()
-    controller.current = request
-    setRefreshing(true)
-    const next = await loadSnapshot<T>(fresh ? `${path}${path.includes('?') ? '&' : '?'}fresh=1` : path, fetch, request.signal)
-    if (request.signal.aborted || id !== generation.current) return
-    setResult((previous) => ({ path, state: mergeRefresh(previous.path === path ? previous.state : { status: 'pending' }, next) }))
-    setRefreshing(false)
-  }, [path])
-
-  useEffect(() => {
-    void load(tick > 0)
-    return () => { controller.current?.abort() }
-  }, [load, tick])
-
-  useEffect(() => {
-    if (intervalMs <= 0) return
-    const timer = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) void load() }, intervalMs)
-    return () => clearInterval(timer)
-  }, [load, intervalMs])
-
-  return { ...state, refreshing, refresh: () => { void load(true) } } as Polled<T>
+  const subscribe = useCallback((listener: () => void) => subscribeToPath(path, listener), [path])
+  const snapshot = useCallback(() => readPath<T>(path), [path])
+  const view = useSyncExternalStore(subscribe, snapshot, snapshot)
+  useEffect(() => (paused ? undefined : retain(path, intervalMs, tick)), [path, intervalMs, paused]) // eslint-disable-line react-hooks/exhaustive-deps -- `tick` is applied by the effect below, so a refresh never restarts the reader
+  useEffect(() => { if (!paused) refreshOnTick(path, tick) }, [path, tick, paused])
+  return view
 }
