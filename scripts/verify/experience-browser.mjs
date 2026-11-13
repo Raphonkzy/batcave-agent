@@ -1,9 +1,11 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 // Optional rendered regression: PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node scripts/verify/experience-browser.mjs
 // Uses the existing dev-only mock crew and intercepts APIs; never mutates backend data.
 import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
-const out = process.env.CAPTURE_DIR || '/tmp/batcave-experience'
+const out = process.env.CAPTURE_DIR || join(tmpdir(),'batcave-experience')
 await mkdir(out, { recursive: true })
 const browser = await chromium.launch({headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']})
 const page = await browser.newPage({viewport:{width:1000,height:800}})

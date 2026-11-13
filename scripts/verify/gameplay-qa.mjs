@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 // Rendered gameplay QA against the Vite dev server. No backend writes.
 import assert from 'node:assert/strict'
 import {mkdir} from 'node:fs/promises'
@@ -5,7 +7,7 @@ const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright')
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']})
 const page=await browser.newPage({viewport:{width:1000,height:800},deviceScaleFactor:0.5})
 const errors=[],findings=[];page.on('pageerror',e=>errors.push(e.message))
-const out='/tmp/batcave-gameplay-qa';await mkdir(out,{recursive:true})
+const out=join(tmpdir(),'batcave-gameplay-qa');await mkdir(out,{recursive:true})
 await page.route('**/api/**',r=>{const p=new URL(r.request().url()).pathname;return r.fulfill({status:['/api/access','/api/health'].includes(p)?200:503,contentType:'application/json',body:JSON.stringify(p==='/api/access'?{enabled:false,unlocked:true}:p==='/api/health'?{apiVersion:1}:{error:'QA backend unavailable'})})})
 await page.addInitScript(()=>{localStorage.clear();localStorage.setItem('batcave.quality','low')})
 const pause=ms=>page.waitForTimeout(ms),title=t=>page.getByTitle(t,{exact:true})

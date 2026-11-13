@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import assert from 'node:assert/strict'
 import {mkdir} from 'node:fs/promises'
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright')
@@ -11,7 +13,7 @@ try{
  await page.evaluate(async()=>{const s=await(await fetch('/src/scenes/manor/ManorCamera.tsx')).text(),u=s.match(/from "([^" ]*@react-three_fiber[^" ]*)"/)[1],f=await import(u);window.scene=f._roots.get(document.querySelector('canvas')).store.getState()})
  const burger=page.getByRole('button',{name:'Toggle navigation menu'}),drawer=page.getByRole('dialog',{name:'Main Navigation'})
  assert.equal(await burger.getAttribute('aria-expanded'),'false')
- await mkdir('/tmp/batcave-critical-sidebar',{recursive:true})
+ await mkdir(join(tmpdir(),'batcave-critical-sidebar'),{recursive:true})
  for(const size of [{width:1920,height:1080},{width:1600,height:900},{width:1366,height:768},{width:1280,height:720},{width:800,height:650}]){
   await page.setViewportSize(size);await burger.click();await page.waitForTimeout(250)
   const audit=await page.evaluate(()=>{

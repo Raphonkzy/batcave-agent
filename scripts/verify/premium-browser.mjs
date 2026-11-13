@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 // Rendered input/layout/architecture audit. Intercepts APIs without writing backend data.
 import assert from 'node:assert/strict'
 import {mkdir} from 'node:fs/promises'
@@ -47,6 +49,6 @@ try{
    samples++;if(!new T.Raycaster(origin,dir,0,2.5).intersectObjects(meshes).length)miss.push(w.level+':'+w.side+':'+along)
   }return {samples,miss}
  });console.log('WALLS',wallAudit);assert.deepEqual(wallAudit.miss,[])
- await mkdir('/tmp/batcave-premium',{recursive:true});if(process.env.CAPTURES)await page.screenshot({path:'/tmp/batcave-premium/manor.png',timeout:60000})
+ await mkdir(join(tmpdir(),'batcave-premium'),{recursive:true});if(process.env.CAPTURES)await page.screenshot({path:join(tmpdir(),'batcave-premium','manor.png'),timeout:60000})
  console.log('RENDER_STATS',await page.evaluate(()=>window.__batcaveRenderStats));assert.deepEqual(errors,[]);console.log('PASS no runtime errors')
 }finally{await browser.close()}

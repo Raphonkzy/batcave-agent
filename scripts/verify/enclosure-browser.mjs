@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import assert from 'node:assert/strict'
 import {mkdir,writeFile} from 'node:fs/promises'
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright')
@@ -7,7 +9,7 @@ page.setDefaultTimeout(60000)
 const errors=[];page.on('pageerror',e=>errors.push(e.message))
 await page.route('**/api/**',r=>{const p=new URL(r.request().url()).pathname;return r.fulfill({status:['/api/access','/api/health'].includes(p)?200:503,contentType:'application/json',body:JSON.stringify(p==='/api/access'?{enabled:false,unlocked:true}:p==='/api/health'?{apiVersion:1}:{error:'isolated QA'})})})
 await page.addInitScript(()=>{localStorage.clear();localStorage.setItem('batcave.quality','low');localStorage.setItem('batcave.level','upper');localStorage.setItem('batcave.wallMode','wallsUp')})
-const out=process.env.CAPTURE_DIR||'/tmp/batcave-enclosure';await mkdir(out,{recursive:true})
+const out=process.env.CAPTURE_DIR||join(tmpdir(),'batcave-enclosure');await mkdir(out,{recursive:true})
 try{
  await page.goto('http://127.0.0.1:5173/?mockAgents=6&noAutoQuality');await page.waitForSelector('canvas');await page.waitForTimeout(3000)
  await page.evaluate(async()=>{const s=await(await fetch('/src/scenes/manor/ManorCamera.tsx')).text(),u=s.match(/from "([^" ]*@react-three_fiber[^" ]*)"/)[1],f=await import(u);window.scene=f._roots.get(document.querySelector('canvas')).store.getState()})

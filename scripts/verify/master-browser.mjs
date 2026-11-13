@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import assert from 'node:assert/strict'
 import {mkdir, writeFile} from 'node:fs/promises'
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
@@ -8,7 +10,7 @@ const errors=[],results={layouts:[],transitions:[],lighting:[],performance:[]}
 page.on('pageerror',e=>errors.push(e.message))
 await page.route('**/api/**',r=>{const p=new URL(r.request().url()).pathname;return r.fulfill({status:['/api/access','/api/health'].includes(p)?200:503,contentType:'application/json',body:JSON.stringify(p==='/api/access'?{enabled:false,unlocked:true}:p==='/api/health'?{apiVersion:1}:{error:'QA isolated offline source'})})})
 await page.addInitScript(()=>{localStorage.clear();localStorage.setItem('batcave.quality','low');localStorage.setItem('batcave.environment',JSON.stringify({realtime:false,hour:12,azimuth:0,intensity:1}))})
-const out=process.env.CAPTURE_DIR || '/tmp/batcave-master-qa';await mkdir(out,{recursive:true})
+const out=process.env.CAPTURE_DIR || join(tmpdir(),'batcave-master-qa');await mkdir(out,{recursive:true})
 const wait=ms=>page.waitForTimeout(ms)
 const snap=()=>page.evaluate(()=>({p:scene.camera.position.toArray(),q:scene.camera.quaternion.toArray(),zoom:scene.camera.zoom}))
 const difference=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]))
