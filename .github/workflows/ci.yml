@@ -11,7 +11,14 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,9 +29,21 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run guard
       - name: Package installs and starts
         run: |
           npm pack
           npm install --global --prefix "$RUNNER_TEMP/mc" ./batcave-agent-*.tgz
-          "$RUNNER_TEMP/mc/bin/batcave" --version
-          bash -n install.sh
+          if [ "$RUNNER_OS" = Windows ]; then
+            node "$RUNNER_TEMP/mc/node_modules/batcave-agent/bin/batcave.js" --version
+          else
+            "$RUNNER_TEMP/mc/bin/batcave" --version
+            bash -n install.sh
+          fi
+      - name: Installer script parses
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/install.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors; exit 1 }

@@ -1,6 +1,6 @@
 # Publishes a release when a version tag is pushed, for example:
 #   npm version 0.2.1 && git push origin main --follow-tags
-# The installer (install.sh) downloads the attached batcave-agent.tgz.
+# The installers (install.sh, install.ps1) download the attached batcave-agent.tgz.
 # Publishing to npm as well is optional: add an NPM_TOKEN repository secret to enable it.
 name: Release
 

@@ -17,9 +17,10 @@ PAGES = [
   'settings'
 ]
 
-out_dir = '/home/raphonkzy-lab/development/batcave-agent/docs/batcave-redesign/BASELINE/screens'
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+out_dir = os.path.join(ROOT, 'docs', 'batcave-redesign', 'BASELINE', 'screens')
 os.makedirs(out_dir, exist_ok=True)
-perf_file = '/home/raphonkzy-lab/development/batcave-agent/docs/batcave-redesign/BASELINE/perf.json'
+perf_file = os.path.join(ROOT, 'docs', 'batcave-redesign', 'BASELINE', 'perf.json')
 
 metrics = {
   'mockAgents12': {},

@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 // Isolated gate interaction and expanded-help audit; no backend writes.
 import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
@@ -58,7 +60,7 @@ try {
     assert.deepEqual(audit,{within:true,buttons:true,overflow:false});console.log('PASS expanded help and quality bounds',size)
     await help.evaluate(e=>{e.open=false})
   }
-  await mkdir('/tmp/batcave-gate',{recursive:true})
-  if(process.env.CAPTURES)await page.screenshot({path:'/tmp/batcave-gate/estate-gate.png',timeout:60000})
+  await mkdir(join(tmpdir(),'batcave-gate'),{recursive:true})
+  if(process.env.CAPTURES)await page.screenshot({path:join(tmpdir(),'batcave-gate','estate-gate.png'),timeout:60000})
   assert.deepEqual(errors,[]);console.log('PASS no runtime errors')
 } finally { await browser.close() }

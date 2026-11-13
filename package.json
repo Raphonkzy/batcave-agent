@@ -27,6 +27,9 @@
     "dev:server": "tsx watch server/index.ts",
     "build": "tsc -b && vite build && tsc -p tsconfig.server.build.json",
     "start": "node bin/batcave.js",
+    "guard": "tsx scripts/verify/guard-invariants.ts",
+    "verify:gate": "tsx scripts/verify/verify-harus-berbeda.ts",
+    "typecheck": "tsc -b && tsc -p tsconfig.server.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
   },
