@@ -4,7 +4,9 @@ A 3D command center for your [Hermes Agent](https://hermes-agent.nousresearch.co
 
 Batcave is read-only. It collects everything through `hermes` and `opencode` CLI queries and never writes to your agent workspaces or databases. It runs on **Windows**, **Linux**, and **macOS**.
 
-![The 3D Batcave with the crew card and dock](docs/screenshots/live.png)
+![The manor from the default camera, with the crew and dock](docs/screenshots/manor.png)
+
+![The Batcave command deck with the crew at work](docs/screenshots/batcave.png)
 
 ![The Briefing panel with live counters](docs/screenshots/briefing.png)
 
@@ -234,10 +236,10 @@ npm run dev        # Vite client on :5173, API on :3001
 | `npm run verify:gate` | Checks that every route differs from the baseline UI |
 | `npm run build` | Build the UI and the server into `dist/` and `build/` |
 
-Browser checks and screenshots live in `scripts/verify/` (Playwright, any OS). To refresh the README screenshots, start a built Batcave and run:
+Browser checks and screenshots live in `scripts/verify/` (Playwright, any OS). To refresh the README screenshots, run `npm run dev` (its mock crew only appears in development) and run:
 
 ```bash
-python scripts/verify/capture-screenshots.py http://127.0.0.1:3001 docs/screenshots
+python scripts/verify/capture-screenshots.py http://localhost:5173 docs/screenshots
 ```
 
 CI runs lint, tests, build, and the package smoke test on Ubuntu and Windows.
